@@ -1,0 +1,111 @@
+:root,
+[data-theme="light"] {
+  --bg-canvas: #faf8f3;
+  --bg-surface: #ffffff;
+  --bg-elevated: rgba(255, 255, 255, 0.94);
+  --bg-subtle: #f1ede4;
+  --bg-hover: rgba(26, 34, 32, 0.05);
+  --text-primary: #1a2220;
+  --text-secondary: #58635f;
+  --text-muted: #848f8a;
+  --border-subtle: rgba(26, 34, 32, 0.09);
+  --border-strong: rgba(26, 34, 32, 0.16);
+  --accent: #136f5a;
+  --accent-hover: #0e5847;
+  --accent-soft: rgba(19, 111, 90, 0.12);
+  --accent-ring: rgba(19, 111, 90, 0.34);
+  --playing-bg: rgba(19, 111, 90, 0.18);
+  --playing-border: rgba(19, 111, 90, 0.55);
+  --selected-bg: rgba(19, 111, 90, 0.14);
+  --selected-border: rgba(19, 111, 90, 0.5);
+  --hover-bg: rgba(19, 111, 90, 0.08);
+  --mistake-bg: rgba(220, 38, 38, 0.16);
+  --mistake-badge: #dc2626;
+  --bookmark-dot: #136f5a;
+  --hl-amber: rgba(245, 158, 11, 0.24);
+  --hl-emerald: rgba(16, 185, 129, 0.22);
+  --hl-sky: rgba(14, 165, 233, 0.22);
+  --hl-rose: rgba(244, 63, 94, 0.22);
+  --mushaf-filter: none;
+  --mushaf-blur-bg: rgba(255, 255, 255, 0.88);
+  --mushaf-blur-border: rgba(26, 34, 32, 0.08);
+  --mushaf-shadow: 0 14px 40px rgba(24, 32, 28, 0.08), 0 2px 8px rgba(24, 32, 28, 0.04);
+  --spine-shadow-left: inset -18px 0 20px -15px rgba(28, 24, 18, 0.16);
+  --spine-shadow-right: inset 18px 0 20px -15px rgba(28, 24, 18, 0.16);
+  --popover-shadow: 0 14px 36px rgba(18, 26, 23, 0.14), 0 2px 8px rgba(18, 26, 23, 0.08);
+  --backdrop: rgba(17, 20, 23, 0.36);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  --font-arabic: "Amiri", "Scheherazade New", "Geeza Pro", "Traditional Arabic", serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+}
+
+[data-theme="sepia"] {
+  --bg-canvas: #f2eadc;
+  --bg-surface: #faf4e8;
+  --bg-elevated: rgba(250, 244, 232, 0.95);
+  --bg-subtle: #e7dcc8;
+  --bg-hover: rgba(43, 35, 24, 0.06);
+  --text-primary: #2b2318;
+  --text-secondary: #685947;
+  --text-muted: #93826d;
+  --border-subtle: rgba(43, 35, 24, 0.11);
+  --border-strong: rgba(43, 35, 24, 0.2);
+  --accent: #136f5a;
+  --accent-hover: #0e5847;
+  --accent-soft: rgba(19, 111, 90, 0.13);
+  --accent-ring: rgba(19, 111, 90, 0.36);
+  --playing-bg: rgba(19, 111, 90, 0.19);
+  --playing-border: rgba(19, 111, 90, 0.55);
+  --selected-bg: rgba(19, 111, 90, 0.15);
+  --selected-border: rgba(19, 111, 90, 0.5);
+  --hover-bg: rgba(19, 111, 90, 0.09);
+  --mushaf-filter: sepia(0.26) brightness(0.96) contrast(0.96);
+  --mushaf-blur-bg: rgba(246, 238, 223, 0.9);
+  --mushaf-blur-border: rgba(43, 35, 24, 0.1);
+  --mushaf-shadow: 0 14px 40px rgba(58, 42, 20, 0.11), 0 2px 8px rgba(58, 42, 20, 0.05);
+  --spine-shadow-left: inset -18px 0 22px -15px rgba(58, 42, 20, 0.2);
+  --spine-shadow-right: inset 18px 0 22px -15px rgba(58, 42, 20, 0.2);
+  --popover-shadow: 0 14px 36px rgba(43, 35, 24, 0.16), 0 2px 8px rgba(43, 35, 24, 0.08);
+  --backdrop: rgba(34, 26, 16, 0.38);
+}
+
+[data-theme="dark"] {
+  --bg-canvas: #111417;
+  --bg-surface: #171b1f;
+  --bg-elevated: rgba(23, 27, 31, 0.95);
+  --bg-subtle: #20262c;
+  --bg-hover: rgba(232, 236, 234, 0.07);
+  --text-primary: #e8ecea;
+  --text-secondary: #9ba7a2;
+  --text-muted: #6f7c77;
+  --border-subtle: rgba(232, 236, 234, 0.09);
+  --border-strong: rgba(232, 236, 234, 0.18);
+  --accent: #2ba88a;
+  --accent-hover: #36be9d;
+  --accent-soft: rgba(43, 168, 138, 0.18);
+  --accent-ring: rgba(43, 168, 138, 0.44);
+  --playing-bg: rgba(43, 168, 138, 0.24);
+  --playing-border: rgba(43, 168, 138, 0.65);
+  --selected-bg: rgba(43, 168, 138, 0.2);
+  --selected-border: rgba(43, 168, 138, 0.58);
+  --hover-bg: rgba(43, 168, 138, 0.12);
+  --mistake-bg: rgba(248, 113, 113, 0.22);
+  --mistake-badge: #ef4444;
+  --bookmark-dot: #2ba88a;
+  --hl-amber: rgba(245, 158, 11, 0.28);
+  --hl-emerald: rgba(16, 185, 129, 0.26);
+  --hl-sky: rgba(56, 189, 248, 0.26);
+  --hl-rose: rgba(251, 113, 133, 0.26);
+  --mushaf-filter: invert(0.91) hue-rotate(180deg) contrast(0.95);
+  --mushaf-blur-bg: rgba(23, 27, 31, 0.9);
+  --mushaf-blur-border: rgba(232, 236, 234, 0.1);
+  --mushaf-shadow: 0 18px 46px rgba(0, 0, 0, 0.48), 0 2px 10px rgba(0, 0, 0, 0.3);
+  --spine-shadow-left: inset -20px 0 24px -14px rgba(0, 0, 0, 0.55);
+  --spine-shadow-right: inset 20px 0 24px -14px rgba(0, 0, 0, 0.55);
+  --popover-shadow: 0 18px 42px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.6);
+}

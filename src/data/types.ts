@@ -88,6 +88,12 @@ export interface AppSettings {
   mistakeSound: boolean;
 }
 
+export interface MistakeBadge {
+  errorClass: string;
+  count: number;
+  wordText?: string;
+}
+
 export interface TasmiMistakeRecord {
   id: string;
   errorClass: string;
