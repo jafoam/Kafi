@@ -45,6 +45,7 @@ import { AudioDock } from "./components/AudioDock";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
+import { createGlyphPageLoader } from "./services/glyph-pages";
 import { RecitationRibbon } from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
 import { TasmiSheet } from "./components/TasmiSheet";
@@ -843,6 +844,8 @@ export function App({
   const hideAudioDock =
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloadProgress === null;
 
+  const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
+
   const getPageImageUrl = useCallback(
     (page: number) => platform.getPageImageUrl(page),
     [platform],
@@ -895,6 +898,7 @@ export function App({
         canGoNext={canGoNext}
         isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
         getPageImageUrl={getPageImageUrl}
+        glyphLoader={glyphLoader}
         onRetryPage={handleRetryPage}
         onTurnPage={handleTurnPage}
         onSelectAyah={handleSelectAyah}

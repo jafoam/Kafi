@@ -1,6 +1,7 @@
 import { useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
+import type { GlyphPageLoader } from "../services/glyph-pages";
 import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
 
 export interface MushafSpreadProps {
@@ -18,6 +19,7 @@ export interface MushafSpreadProps {
   canGoNext: boolean;
   isModalOpen: boolean;
   getPageImageUrl: (page: number) => Promise<string>;
+  glyphLoader?: GlyphPageLoader;
   onRetryPage?: (page: number) => void;
   onTurnPage: (direction: "next" | "prev") => void;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
@@ -48,6 +50,7 @@ export function MushafSpread({
   canGoNext,
   isModalOpen,
   getPageImageUrl,
+  glyphLoader,
   onRetryPage,
   onTurnPage,
   onSelectAyah,
@@ -65,6 +68,10 @@ export function MushafSpread({
     for (const page of adjacent) {
       if (prefetchedRef.current.has(page)) continue;
       prefetchedRef.current.add(page);
+      if (glyphLoader) {
+        glyphLoader.prefetch(page);
+        continue;
+      }
       void getPageImageUrl(page).then((url) => {
         if (cancelled || !url) return;
         const img = new Image();
@@ -77,7 +84,7 @@ export function MushafSpread({
     return () => {
       cancelled = true;
     };
-  }, [rightPageEntry.page, leftPageEntry?.page, getPageImageUrl]);
+  }, [rightPageEntry.page, leftPageEntry?.page, getPageImageUrl, glyphLoader]);
 
   // Global keyboard shortcuts: ArrowLeft/Right, F (focus), Cmd/Ctrl+K (palette), Escape
   useEffect(() => {
@@ -174,6 +181,7 @@ export function MushafSpread({
             key={leftPageEntry.page}
             pageEntry={leftPageEntry}
             imageUrl={pageUrls[leftPageEntry.page] ?? null}
+            glyphLoader={glyphLoader}
             side="left"
             selectedAyah={selectedAyah}
             playingAyah={playingAyah}
@@ -192,6 +200,7 @@ export function MushafSpread({
           key={rightPageEntry.page}
           pageEntry={rightPageEntry}
           imageUrl={pageUrls[rightPageEntry.page] ?? null}
+          glyphLoader={glyphLoader}
           side={isDouble ? "right" : "single"}
           selectedAyah={selectedAyah}
           playingAyah={playingAyah}

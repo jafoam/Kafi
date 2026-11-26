@@ -340,6 +340,87 @@ textarea:focus-visible {
   height: min(100cqh, calc(50cqw * 1020 / 699));
 }
 
+.mushaf-page {
+  container-type: size;
+}
+
+/* Glyph (QPC v2) page renderer */
+.glyph-page {
+  --glyph-fit: 1;
+  position: absolute;
+  inset: 3.2% 6.4% 4.4%;
+  z-index: 5;
+  display: grid;
+  grid-template-rows: repeat(15, 1fr);
+  direction: rtl;
+  color: var(--text-primary);
+  font-size: calc(5.35cqw * var(--glyph-fit));
+  line-height: 1;
+  filter: var(--mushaf-filter);
+}
+
+.glyph-page[data-lines="8"] {
+  grid-template-rows: repeat(8, calc(100% / 15));
+  align-content: center;
+}
+
+.glyph-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  white-space: nowrap;
+  min-height: 0;
+}
+
+.glyph-line--center {
+  justify-content: center;
+  gap: 0.35em;
+}
+
+.glyph-line--header,
+.glyph-line--bismillah {
+  justify-content: center;
+  font-family: "Geeza Pro", "Noto Naskh Arabic", "Amiri", serif;
+}
+
+.glyph-header {
+  width: 100%;
+  padding: 0.12em 0;
+  text-align: center;
+  font-size: 0.62em;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.glyph-bismillah {
+  font-size: 0.5em;
+}
+
+.glyph-word {
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 120ms ease, filter 180ms ease;
+  outline-offset: 2px;
+}
+
+.glyph-word--hl-amber { background: var(--hl-amber); }
+.glyph-word--hl-emerald { background: var(--hl-emerald); }
+.glyph-word--hl-sky { background: var(--hl-sky); }
+.glyph-word--hl-rose { background: var(--hl-rose); }
+.glyph-word--hovered { background: var(--hover-bg); }
+.glyph-word--selected { background: var(--selected-bg); }
+.glyph-word--playing { background: var(--playing-bg); }
+.glyph-word--mistake {
+  background: var(--mistake-bg);
+  box-shadow: inset 0 -2px 0 var(--mistake-badge);
+}
+.glyph-word--blurred {
+  filter: blur(7px);
+}
+
 .mushaf-page__img {
   display: block;
   width: 100%;

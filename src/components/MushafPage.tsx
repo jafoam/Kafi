@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
+import type { GlyphPageData, GlyphPageLoader } from "../services/glyph-pages";
+import { GlyphPageBody } from "./GlyphPageBody";
 
 export type { MistakeBadge };
 
@@ -17,6 +19,7 @@ export function isCrossOriginHttpUrl(url: string): boolean {
 export interface MushafPageProps {
   pageEntry: PageEntry;
   imageUrl: string | null;
+  glyphLoader?: GlyphPageLoader;
   side?: "left" | "right" | "single";
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
@@ -33,6 +36,7 @@ export interface MushafPageProps {
 export function MushafPage({
   pageEntry,
   imageUrl,
+  glyphLoader,
   side = "single",
   selectedAyah,
   playingAyah,
@@ -50,10 +54,37 @@ export function MushafPage({
   const [imgError, setImgError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  const [glyphData, setGlyphData] = useState<GlyphPageData | null>(null);
+  const [glyphFailed, setGlyphFailed] = useState(!glyphLoader);
+
   useEffect(() => {
     setImgLoaded(false);
     setImgError(false);
   }, [imageUrl]);
+
+  useEffect(() => {
+    if (!glyphLoader) {
+      setGlyphFailed(true);
+      return;
+    }
+    let cancelled = false;
+    setGlyphData(null);
+    setGlyphFailed(false);
+    glyphLoader
+      .load(pageEntry.page)
+      .then((data) => {
+        if (!cancelled) setGlyphData(data);
+      })
+      .catch(() => {
+        if (!cancelled) setGlyphFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [glyphLoader, pageEntry.page]);
+
+  const useGlyphs = glyphData !== null;
+  const showImage = glyphFailed && !useGlyphs;
 
   return (
     <div
@@ -61,11 +92,27 @@ export function MushafPage({
       data-side={side}
       data-page={pageEntry.page}
     >
-      {(!imageUrl || (!imgLoaded && !imgError)) && (
+      {!useGlyphs && (!showImage || !imageUrl || (!imgLoaded && !imgError)) && (
         <div className="mushaf-page__skeleton" aria-hidden="true" />
       )}
 
-      {imageUrl && !imgError && (
+      {useGlyphs && glyphData && (
+        <GlyphPageBody
+          data={glyphData}
+          pageEntry={pageEntry}
+          selectedAyah={selectedAyah}
+          playingAyah={playingAyah}
+          highlights={highlights}
+          bookmarks={bookmarks}
+          blurSet={blurSet}
+          revealedSet={revealedSet}
+          mistakeAyahs={mistakeAyahs}
+          onSelectAyah={onSelectAyah}
+          onPeekAyah={onPeekAyah}
+        />
+      )}
+
+      {showImage && imageUrl && !imgError && (
         <img
           key={`${imageUrl}-${retryCount}`}
           className="mushaf-page__img"
@@ -81,7 +128,7 @@ export function MushafPage({
         />
       )}
 
-      {imgError && (
+      {showImage && imgError && (
         <div
           className="mushaf-page__error"
           role="status"
@@ -105,6 +152,7 @@ export function MushafPage({
 
       {side !== "single" && <div className="mushaf-page__spine" aria-hidden="true" />}
 
+      {showImage && (
       <div className="mushaf-page__overlays">
         {pageEntry.ayahs.map((segment) => {
           const ayahKey: AyahKey = `${segment.surah}:${segment.ayah}`;
@@ -182,6 +230,7 @@ export function MushafPage({
           });
         })}
       </div>
+      )}
 
       <span className="mushaf-page__num" aria-hidden="true">
         {pageEntry.page}
