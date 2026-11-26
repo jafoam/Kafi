@@ -77,9 +77,9 @@ export function SurahBanner({ surah }: { surah: number }) {
       </svg>
 
       <div className="surah-banner__content" dir="rtl">
-        <span className="surah-banner__meta">{revelation}</span>
+        <span className="surah-banner__meta surah-banner__meta--right">{revelation}</span>
         <span className="surah-banner__name">{surahBannerTitle(surah)}</span>
-        <span className="surah-banner__meta">{ayahCount}</span>
+        <span className="surah-banner__meta surah-banner__meta--left">{ayahCount}</span>
       </div>
     </div>
   );

@@ -389,35 +389,50 @@ textarea:focus-visible {
 .surah-banner__content {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: 26% 48% 26%;
-  align-items: center;
   width: 100%;
   height: 100%;
-  padding: 0 4%;
-  box-sizing: border-box;
+}
+
+.surah-banner__meta,
+.surah-banner__name {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1;
 }
 
 .surah-banner__meta {
   font-family: var(--font-arabic);
-  font-size: 0.36em;
+  font-size: 0.35em;
   font-weight: 600;
-  line-height: 1;
   color: var(--banner-meta);
-  text-align: center;
-  white-space: nowrap;
+  /* Nudge optical center down slightly so upper harakat match the surah name midline. */
+  padding-top: 0.1em;
+  width: 19%;
+}
+
+.surah-banner__meta--left {
+  left: 5.33%;
+}
+
+.surah-banner__meta--right {
+  left: 75.67%;
 }
 
 .surah-banner__name {
+  left: 29%;
+  width: 42%;
   font-family: "AmiriSurahNames", var(--font-arabic);
-  /* Sized generously inside the center ivory window so harakat never touch the gold border. */
-  font-size: 0.56em;
+  /* Sized and nudged slightly down so upper harakat sit centered inside the ivory window. */
+  font-size: 0.52em;
   font-weight: 700;
-  line-height: 1;
-  padding-bottom: 0.08em;
-  text-align: center;
+  padding-top: 0.12em;
   color: var(--banner-ink);
-  white-space: nowrap;
 }
 
 /* The calligraphic bismillah ligature (U+FDFD) from Amiri, subset to that one glyph. It is 11.43em wide, and
