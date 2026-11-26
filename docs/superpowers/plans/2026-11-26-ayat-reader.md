@@ -214,7 +214,7 @@ git commit -m "chore: scaffold Ayat project and Medina Mushaf asset extractor"
   - `src/platform/index.ts`: `getPlatform(): PlatformAdapter`
   - `src/services/user-store.ts`: `UserStore` (`load(): Promise<UserData>`, `toggleBookmark(ayah: AyahKey)`, `setHighlight(ayah: AyahKey, color: HighlightColor | null)`, `setNote(ayah: AyahKey, text: string)`, `updateSettings(patch: Partial<AppSettings>)`, `setLastPage(page: number)`, `addTasmiHistory(record: TasmiSessionRecord)`)
 
-- [ ] **Step 1: Write the failing test in `tests/platform-store.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/platform-store.test.ts`**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -277,23 +277,23 @@ describe("platform & user-store", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/platform-store.test.ts`
 Expected: FAIL with missing modules.
 
-- [ ] **Step 3: Implement `PlatformAdapter` (`types.ts`, `web-adapter.ts`, `tauri-adapter.ts`, `index.ts`) and `user-store.ts`**
+- [x] **Step 3: Implement `PlatformAdapter` (`types.ts`, `web-adapter.ts`, `tauri-adapter.ts`, `index.ts`) and `user-store.ts`**
 
 - `web-adapter.ts`: IndexedDB helper for `kvGet`/`kvSet` (falling back to `localStorage` if IndexedDB unavailable in restricted contexts), Cache API (`ayat-cache-v1`) for `cacheGet`/`cachePut`/`cacheHas`, `resolvePageUrl(page, baseUrl)` padding 3 digits (`001.gif`), and default browser Cache API adapter for `createTilawaStorage()`.
 - `tauri-adapter.ts`: calls Tauri commands `cache_get`, `cache_put`, `cache_has`, `kv_get`, `kv_set`, `get_mushaf_page_path` (mapped via `convertFileSrc`), and `mic_start`/`mic_stop` using Tauri `Channel<number[]>` to feed `Float32Array` chunks into `onChunk`.
 - `user-store.ts`: `DEFAULT_USER_DATA` pins spec defaults (`theme: "light"`, `spreadMode: "auto"`, `reciterId: "Alafasy_128kbps"`, `translationId: 33`, `tafsirId: "equran-id"`, `hifzBlur: false`, `mistakeSound: false`, `lastPage: 1`), validates/merges loaded JSON against defaults, and gracefully recovers from corrupt JSON.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/platform-store.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/platform src/services/user-store.ts src/data/types.ts tests/platform-store.test.ts
