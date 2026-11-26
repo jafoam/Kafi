@@ -39,10 +39,15 @@ let cachedSearchPromise: Promise<QuranSearch> | null = null;
 
 function loadQuranSearch(catalog: Catalog): Promise<QuranSearch> {
   if (!cachedSearchPromise) {
-    cachedSearchPromise = import("@tilawa/core/assets/ref-v2.json").then((mod) => {
-      const refData = (mod.default ?? mod) as unknown as RefV2Data;
-      return createQuranSearch(refData, catalog.surahs);
-    });
+    cachedSearchPromise = import("@tilawa/core/assets/ref-v2.json")
+      .then((mod) => {
+        const refData = (mod.default ?? mod) as unknown as RefV2Data;
+        return createQuranSearch(refData, catalog.surahs);
+      })
+      .catch((err) => {
+        cachedSearchPromise = null;
+        throw err;
+      });
   }
   return cachedSearchPromise;
 }

@@ -72,6 +72,15 @@ export function App({
   const [revealedSet, setRevealedSet] = useState<Set<AyahKey>>(() => new Set());
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const requestedPagesRef = useRef<Set<number>>(new Set());
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const surahByNumber = useMemo(() => {
     const map = new Map<number, Catalog["surahs"][number]>();
@@ -118,21 +127,23 @@ export function App({
   const rightPageEntry = mushafMap.pages[rightPage - 1];
   const leftPageEntry = leftPage ? mushafMap.pages[leftPage - 1] : null;
 
-  // Resolve image URLs for visible pages
+  // Resolve image URLs for visible pages without cancelling in-flight sibling loads
   useEffect(() => {
-    let cancelled = false;
     const pagesToLoad = leftPage ? [rightPage, leftPage] : [rightPage];
     for (const p of pagesToLoad) {
-      if (pageUrls[p]) continue;
-      void platform.getPageImageUrl(p).then((url) => {
-        if (cancelled) return;
-        setPageUrls((prev) => (prev[p] ? prev : { ...prev, [p]: url }));
-      });
+      if (requestedPagesRef.current.has(p)) continue;
+      requestedPagesRef.current.add(p);
+      void platform
+        .getPageImageUrl(p)
+        .then((url) => {
+          if (!mountedRef.current) return;
+          setPageUrls((prev) => (prev[p] ? prev : { ...prev, [p]: url }));
+        })
+        .catch(() => {
+          requestedPagesRef.current.delete(p);
+        });
     }
-    return () => {
-      cancelled = true;
-    };
-  }, [rightPage, leftPage, pageUrls, platform]);
+  }, [rightPage, leftPage, platform]);
 
   // Clear temporary Hifz peeks and selection when navigating pages
   useEffect(() => {
