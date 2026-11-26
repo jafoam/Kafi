@@ -130,6 +130,7 @@ export function App({
   const requestedPagesRef = useRef<Set<number>>(new Set());
   const downloadAbortRef = useRef<AbortController | null>(null);
   const lastAutoTurnAyahRef = useRef<AyahKey | null>(null);
+  const lastSyncedStudyAyahRef = useRef<AyahKey | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -238,9 +239,15 @@ export function App({
     }
   }, [audioState.currentAyah, rightPage, leftPage, navigateToPage]);
 
-  // Sync open StudyDrawer to currently playing ayah
+  // Sync open StudyDrawer only when active playing ayah actually changes
   useEffect(() => {
-    if (studyOpen && audioState.currentAyah) {
+    if (!audioState.currentAyah) {
+      lastSyncedStudyAyahRef.current = null;
+      return;
+    }
+    if (audioState.currentAyah === lastSyncedStudyAyahRef.current) return;
+    lastSyncedStudyAyahRef.current = audioState.currentAyah;
+    if (studyOpen) {
       setStudyAyah(audioState.currentAyah);
     }
   }, [studyOpen, audioState.currentAyah]);

@@ -153,4 +153,132 @@ describe("audio-controller", () => {
     unsub();
     expect(states[states.length - 1]).toBe(false);
   });
+
+  it("re-arms cleanly on subscribe after dispose (React StrictMode remount)", async () => {
+    const played: string[] = [];
+    const fakeAudio: any = {
+      src: "",
+      playbackRate: 1,
+      paused: true,
+      onended: null,
+      play: vi.fn(async function (this: any) { this.paused = false; played.push(this.src); }),
+      pause: vi.fn(function (this: any) { this.paused = true; }),
+    };
+    const ctrl = createAudioController({
+      surahs: MINI_SURAHS,
+      reciterId: "Alafasy_128kbps",
+      getAudioBlobUrl: async (r, s, a) => ({ url: `blob:${r}:${s}:${a}`, fromCache: true }),
+      createElement: () => fakeAudio,
+    });
+
+    const unsub1 = ctrl.subscribe(() => {});
+    unsub1();
+    ctrl.dispose();
+
+    const states: (string | null)[] = [];
+    const unsub2 = ctrl.subscribe((s) => states.push(s.currentAyah));
+    await ctrl.playAyah(1, 1);
+
+    expect(played).toEqual(["blob:Alafasy_128kbps:1:1"]);
+    expect(states[states.length - 1]).toBe("1:1");
+    unsub2();
+  });
+
+  it("reloads audio on togglePlay after reciter switch while paused", async () => {
+    const played: string[] = [];
+    const fakeAudio: any = {
+      src: "",
+      playbackRate: 1,
+      paused: true,
+      onended: null,
+      play: vi.fn(async function (this: any) { this.paused = false; played.push(this.src); }),
+      pause: vi.fn(function (this: any) { this.paused = true; }),
+    };
+    const ctrl = createAudioController({
+      surahs: MINI_SURAHS,
+      reciterId: "Alafasy_128kbps",
+      getAudioBlobUrl: async (r, s, a) => ({ url: `blob:${r}:${s}:${a}`, fromCache: true }),
+      createElement: () => fakeAudio,
+    });
+
+    await ctrl.playAyah(1, 1);
+    ctrl.pause();
+    ctrl.setReciter("Husary_128kbps");
+    ctrl.togglePlay();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(played).toEqual(["blob:Alafasy_128kbps:1:1", "blob:Husary_128kbps:1:1"]);
+  });
+
+  it("retries loading on togglePlay after a load failure instead of playing stale src", async () => {
+    const played: string[] = [];
+    let failSecondOnce = true;
+    const fakeAudio: any = {
+      src: "",
+      playbackRate: 1,
+      paused: true,
+      onended: null,
+      play: vi.fn(async function (this: any) { this.paused = false; played.push(this.src); }),
+      pause: vi.fn(function (this: any) { this.paused = true; }),
+    };
+    const ctrl = createAudioController({
+      surahs: MINI_SURAHS,
+      reciterId: "Alafasy_128kbps",
+      getAudioBlobUrl: async (_r, s, a) => {
+        if (a === 2 && failSecondOnce) {
+          failSecondOnce = false;
+          throw new Error("Network offline");
+        }
+        return { url: `blob:${s}:${a}`, fromCache: false };
+      },
+      createElement: () => fakeAudio,
+    });
+
+    await ctrl.playAyah(1, 1);
+    await ctrl.playAyah(1, 2); // fails, leaves stale audio.src = blob:1:1
+    ctrl.togglePlay(); // must retry 1:2, not replay 1:1
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(played).toEqual(["blob:1:1", "blob:1:2"]);
+  });
+
+  it("ignores stale play() rejection in togglePlay after switching ayahs", async () => {
+    let rejectResume!: (err: Error) => void;
+    let resumeAttempt = false;
+    const fakeAudio: any = {
+      src: "",
+      playbackRate: 1,
+      paused: true,
+      onended: null,
+      play: vi.fn(function (this: any) {
+        this.paused = false;
+        if (resumeAttempt) {
+          resumeAttempt = false;
+          return new Promise<void>((_res, rej) => { rejectResume = rej; });
+        }
+        return Promise.resolve();
+      }),
+      pause: vi.fn(function (this: any) { this.paused = true; }),
+    };
+    let latestState: any = null;
+    const ctrl = createAudioController({
+      surahs: MINI_SURAHS,
+      reciterId: "Alafasy_128kbps",
+      getAudioBlobUrl: async (_r, s, a) => ({ url: `blob:${s}:${a}`, fromCache: true }),
+      createElement: () => fakeAudio,
+    });
+    ctrl.subscribe((s) => { latestState = s; });
+
+    await ctrl.playAyah(1, 1);
+    ctrl.pause();
+    resumeAttempt = true;
+    ctrl.togglePlay();
+    await ctrl.playAyah(1, 2);
+    rejectResume(new Error("Interrupted by new load"));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(latestState.currentAyah).toBe("1:2");
+    expect(latestState.isPlaying).toBe(true);
+    expect(latestState.error).toBeNull();
+  });
 });

@@ -105,6 +105,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
   let requestSeq = 0;
   let remainingRepeats = 0;
+  let loadedKey: string | null = null;
   let currentAbort: AbortController | null = null;
   let prefetchAbort: AbortController | null = null;
   let disposed = false;
@@ -189,6 +190,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     currentAbort = abort;
 
     audio.pause();
+    loadedKey = null;
     remainingRepeats =
       state.repeatCount === Infinity ? Infinity : Math.max(0, state.repeatCount - 1);
 
@@ -227,6 +229,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         return;
       }
 
+      loadedKey = `${reciterId}:${surah}:${ayah}`;
       state = {
         ...state,
         isLoading: false,
@@ -271,13 +274,15 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     }
     if (!state.currentAyah) return;
 
-    if (audio.src) {
+    const expectedKey = `${state.reciterId}:${state.currentAyah}`;
+    if (audio.src && loadedKey === expectedKey) {
+      const seq = requestSeq;
       audio.playbackRate = state.speed;
       const playPromise = audio.play();
       state = { ...state, isPlaying: true, error: null };
       emit();
       void playPromise.catch((err) => {
-        if (disposed) return;
+        if (disposed || seq !== requestSeq || !state.isPlaying) return;
         state = {
           ...state,
           isPlaying: false,
@@ -312,6 +317,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   function setReciter(id: string): void {
     if (disposed || id === state.reciterId) return;
     const wasActive = state.isPlaying || state.isLoading;
+    loadedKey = null;
     state = { ...state, reciterId: id, error: null };
     emit();
     if (wasActive && state.currentAyah) {
@@ -333,6 +339,8 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   }
 
   function subscribe(fn: (s: AudioState) => void): () => void {
+    // Re-arm if remounted after React StrictMode cleanup
+    disposed = false;
     listeners.add(fn);
     fn({ ...state });
     return () => {
@@ -343,9 +351,11 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   function dispose(): void {
     disposed = true;
     requestSeq += 1;
+    loadedKey = null;
     abortInFlight();
     audio.onended = null;
     audio.pause();
+    audio.src = "";
     state = { ...state, isPlaying: false, isLoading: false };
     emit();
     listeners.clear();
