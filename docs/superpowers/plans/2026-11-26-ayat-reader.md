@@ -755,7 +755,7 @@ git commit -m "feat: integrate Tilawa offline Tasmi', Hifz blur-to-reveal, and s
   - `public/sw.js`: offline caching for app shell, mushaf page scans, `/ort/` WASM files, and public audio/tafsir/translation responses
   - `public/manifest.webmanifest`: installable PWA metadata (`Ayat`, `standalone`, emerald theme `#136f5a`)
 
-- [ ] **Step 1: Write the failing test in `tests/pwa.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/pwa.test.ts`**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -781,23 +781,23 @@ describe("PWA manifest and SW routing", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/pwa.test.ts`
 Expected: FAIL with missing files.
 
-- [ ] **Step 3: Implement `sw-routing.ts`, `public/sw.js`, `register-sw.ts`, `manifest.webmanifest`, and SVG/PNG app icons**
+- [x] **Step 3: Implement `sw-routing.ts`, `public/sw.js`, `register-sw.ts`, `manifest.webmanifest`, and SVG/PNG app icons**
 
 - `public/sw.js`: uses matching URL classification (`ayat-shell-v1`, `ayat-media-v1`), cleans old cache versions on `activate`, only caches `GET` `200` responses, never intercepts `tilawa.dev` model downloads (managed by `@tilawa/core`'s Cache API storage directly).
 - `register-sw.ts`: registers `/sw.js` only when `!isDesktop && "serviceWorker" in navigator && import.meta.env.PROD`.
 - Link `manifest.webmanifest` and theme-color in `index.html`.
 
-- [ ] **Step 4: Run tests and verify static Web PWA production build**
+- [x] **Step 4: Run tests and verify static Web PWA production build**
 
 Run: `npx vitest run tests/pwa.test.ts && npm run build && ls dist/ort/*.wasm`
 Expected: PASS; `dist/` builds cleanly and contains copied `ort-wasm*.wasm` files.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add public/manifest.webmanifest public/icons public/sw.js src/platform/sw-routing.ts src/platform/register-sw.ts index.html src/main.tsx tests/pwa.test.ts
