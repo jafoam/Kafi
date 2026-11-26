@@ -1,11 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
 import {
   buildPageTasmiCandidates,
   createTasmiState,
   reduceTilawaEvent,
   computeBlurMask,
+  expandRandomPool,
+  pickRandomChallenge,
+  resolvePromptAudio,
 } from "../src/services/tasmi-logic";
+import { audioCacheKey } from "../src/services/quran-api";
 
 const map = JSON.parse(fs.readFileSync("src/data/mushaf-map.json", "utf8"));
 const catalog = JSON.parse(fs.readFileSync("src/data/catalog.json", "utf8"));
@@ -158,5 +162,89 @@ describe("tasmi-logic", () => {
       scopeLabel: "Hal. 593 (1–23)",
     });
     expect(candidates.some((c) => c.surah === 88)).toBe(false);
+  });
+
+  it("expands Juz and Surah random pools accurately including Juz 30 through An-Nas", () => {
+    const juz30 = expandRandomPool({ kind: "juz", fromJuz: 30, toJuz: 30 }, catalog);
+    expect(juz30[0]).toEqual({ surah: 78, fromAyah: 1, toAyah: 40 });
+    expect(juz30[juz30.length - 1]).toEqual({ surah: 114, fromAyah: 1, toAyah: 6 });
+
+    const multiJuz = expandRandomPool({ kind: "juz", fromJuz: 1, toJuz: 2 }, catalog);
+    expect(multiJuz[0]).toEqual({ surah: 1, fromAyah: 1, toAyah: 7 });
+    expect(multiJuz[1]).toEqual({ surah: 2, fromAyah: 1, toAyah: 252 });
+
+    const surahRange = expandRandomPool({ kind: "surah", fromSurah: 112, toSurah: 114 }, catalog);
+    expect(surahRange).toEqual([
+      { surah: 112, fromAyah: 1, toAyah: 4 },
+      { surah: 113, fromAyah: 1, toAyah: 5 },
+      { surah: 114, fromAyah: 1, toAyah: 6 },
+    ]);
+  });
+
+  it("picks a prompt ayah followed by blurred continuation ayahs and avoids repeating prompt", () => {
+    const challenge = pickRandomChallenge(
+      { kind: "surah", fromSurah: 1, toSurah: 1, fromAyah: 1, toAyah: 7 },
+      catalog,
+      { rng: () => 0 },
+    );
+    expect(challenge).toEqual({
+      promptAyah: "1:1",
+      passage: { surah: 1, fromAyah: 2, toAyah: 4 },
+    });
+
+    const p1 = map.pages[0];
+    const masked = computeBlurMask(p1, "tasmi", challenge!.passage, new Set(), null);
+    expect(masked.has("1:1")).toBe(false);
+    expect(masked.has("1:2")).toBe(true);
+    expect(masked.has("1:3")).toBe(true);
+    expect(masked.has("1:4")).toBe(true);
+    expect(masked.has("1:5")).toBe(false);
+
+    // Excluding 1:1 with rng=0 picks 1:2 next
+    const next = pickRandomChallenge(
+      { kind: "surah", fromSurah: 1, toSurah: 1, fromAyah: 1, toAyah: 7 },
+      catalog,
+      { excludePrompt: "1:1", rng: () => 0 },
+    );
+    expect(next?.promptAyah).toBe("1:2");
+    expect(next?.passage).toEqual({ surah: 1, fromAyah: 3, toAyah: 5 });
+  });
+
+  it("resolves prompt audio using selected reciter or falling back to an offline cached reciter", async () => {
+    const reciters = catalog.reciters.slice(0, 2);
+    const [first, second] = reciters;
+    const secondKey = audioCacheKey(second.subfolder, 78, 1);
+
+    const platform = {
+      cacheHas: vi.fn(async (_bucket: string, key: string) => key === secondKey),
+    };
+    const quranApi = {
+      getAudioBlobUrl: vi.fn(async (folder: string) => ({
+        url: `blob:${folder}`,
+        fromCache: folder === second.subfolder,
+      })),
+    };
+
+    // Offline: skips uncached selected reciter and uses the offline-cached second reciter
+    const offlineMatch = await resolvePromptAudio(78, 1, first.id, reciters, platform, quranApi, {
+      isOffline: true,
+    });
+    expect(offlineMatch?.reciter.id).toBe(second.id);
+    expect(offlineMatch?.fromCache).toBe(true);
+
+    // Online: uses selected reciter first
+    const onlineMatch = await resolvePromptAudio(78, 1, first.id, reciters, platform, quranApi, {
+      isOffline: false,
+    });
+    expect(onlineMatch?.reciter.id).toBe(first.id);
+
+    // Online fetch failure: falls back to cached second reciter
+    quranApi.getAudioBlobUrl.mockImplementationOnce(async () => {
+      throw new Error("Network error");
+    });
+    const fallbackMatch = await resolvePromptAudio(78, 1, first.id, reciters, platform, quranApi, {
+      isOffline: false,
+    });
+    expect(fallbackMatch?.reciter.id).toBe(second.id);
   });
 });

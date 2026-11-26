@@ -184,6 +184,55 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
     );
   });
 
+  it("lets Uji Acak select a Juz or Surah range and passes RandomPool to onStartRandom", () => {
+    const onStartRandom = vi.fn();
+    const el = mount(
+      <TasmiSheet
+        open={true}
+        visiblePages={[mushafMap.pages[581]]}
+        surahs={catalog.surahs}
+        currentJuz={30}
+        initialAyah="78:1"
+        historyCount={0}
+        loadingProgress={null}
+        isStarting={false}
+        error={null}
+        onClose={() => {}}
+        onCancelLoad={() => {}}
+        onStartFree={() => {}}
+        onStartMemorization={() => {}}
+        onStartRandom={onStartRandom}
+        onOpenHistory={() => {}}
+      />,
+    );
+
+    const tabs = el.querySelectorAll('[role="tab"]');
+    act(() => {
+      (tabs[1] as HTMLButtonElement).click();
+    });
+
+    const startBtn = el.querySelector(".tasmi-sheet__start-btn") as HTMLButtonElement;
+    act(() => {
+      startBtn.click();
+    });
+    expect(onStartRandom).toHaveBeenLastCalledWith(
+      { kind: "juz", fromJuz: 30, toJuz: 30 },
+      true,
+    );
+
+    const scopeBtns = el.querySelectorAll('[aria-label="Jenis rentang uji acak"] button');
+    act(() => {
+      (scopeBtns[1] as HTMLButtonElement).click();
+    });
+    act(() => {
+      startBtn.click();
+    });
+    expect(onStartRandom).toHaveBeenLastCalledWith(
+      { kind: "surah", fromSurah: 78, toSurah: 78, fromAyah: 1, toAyah: 40 },
+      true,
+    );
+  });
+
   it("does not reset user tab or selected record when history prop updates while open", () => {
     const older: TasmiSessionRecord = {
       id: "old-1",

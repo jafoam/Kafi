@@ -1,16 +1,37 @@
 import type { EngineEvent, TrackerState, WordRef } from "@tilawa/core";
 import type {
   AyahKey,
+  Catalog,
   MistakeBadge,
   PageEntry,
+  ReciterInfo,
   SurahInfo,
   TasmiMistakeRecord,
 } from "../data/types";
+import type { PlatformAdapter } from "../platform/types";
+import { prevAyah } from "./audio-controller";
+import { audioCacheKey, type QuranApi } from "./quran-api";
 
 export interface DeclaredPassage {
   surah: number;
   fromAyah: number;
   toAyah: number;
+}
+
+export type RandomPool =
+  | { kind: "juz"; fromJuz: number; toJuz: number }
+  | { kind: "surah"; fromSurah: number; toSurah: number; fromAyah?: number; toAyah?: number };
+
+export interface RandomChallenge {
+  promptAyah: AyahKey;
+  /** Blurred continuation passage immediately after `promptAyah`, checked by Tasmi'. */
+  passage: DeclaredPassage;
+}
+
+export interface PromptAudioMatch {
+  url: string;
+  reciter: ReciterInfo;
+  fromCache: boolean;
 }
 
 export interface TasmiPassageOption {
@@ -294,4 +315,183 @@ export function buildMistakeBadges(
     }
   }
   return map;
+}
+
+/** Expands a Juz or Surah random-quiz range into per-surah ayah segments in reading order. */
+export function expandRandomPool(
+  pool: RandomPool,
+  catalog: Pick<Catalog, "surahs" | "juzs">,
+): DeclaredPassage[] {
+  const surahByNum = new Map<number, SurahInfo>();
+  for (const s of catalog.surahs) surahByNum.set(s.number, s);
+
+  if (pool.kind === "juz") {
+    const juzs = [...catalog.juzs].sort((a, b) => a.number - b.number);
+    if (juzs.length === 0) return [];
+    const low = Math.max(1, Math.min(juzs.length, Math.min(pool.fromJuz, pool.toJuz)));
+    const high = Math.max(low, Math.min(juzs.length, Math.max(pool.fromJuz, pool.toJuz)));
+
+    const startJuz = juzs[low - 1];
+    const afterEndJuz = juzs[high];
+    const lastSurah = catalog.surahs[catalog.surahs.length - 1];
+    const endPos = afterEndJuz
+      ? prevAyah(afterEndJuz.startSurah, afterEndJuz.startAyah, catalog.surahs)
+      : lastSurah
+        ? { surah: lastSurah.number, ayah: lastSurah.ayahs }
+        : null;
+    if (!startJuz || !endPos) return [];
+
+    const segments: DeclaredPassage[] = [];
+    for (let s = startJuz.startSurah; s <= endPos.surah; s += 1) {
+      const info = surahByNum.get(s);
+      if (!info) continue;
+      const fromAyah = s === startJuz.startSurah ? startJuz.startAyah : 1;
+      const toAyah = s === endPos.surah ? endPos.ayah : info.ayahs;
+      if (fromAyah <= toAyah) {
+        segments.push({ surah: s, fromAyah, toAyah });
+      }
+    }
+    return segments;
+  }
+
+  const maxSurah = catalog.surahs.length || 114;
+  const low = Math.max(1, Math.min(maxSurah, Math.min(pool.fromSurah, pool.toSurah)));
+  const high = Math.max(low, Math.min(maxSurah, Math.max(pool.fromSurah, pool.toSurah)));
+
+  if (low === high) {
+    const info = surahByNum.get(low);
+    if (!info) return [];
+    const rawFrom = pool.fromAyah ?? 1;
+    const rawTo = pool.toAyah ?? info.ayahs;
+    const fromAyah = Math.max(1, Math.min(info.ayahs, Math.min(rawFrom, rawTo)));
+    const toAyah = Math.max(fromAyah, Math.min(info.ayahs, Math.max(rawFrom, rawTo)));
+    return [{ surah: low, fromAyah, toAyah }];
+  }
+
+  const segments: DeclaredPassage[] = [];
+  for (let s = low; s <= high; s += 1) {
+    const info = surahByNum.get(s);
+    if (info) segments.push({ surah: s, fromAyah: 1, toAyah: info.ayahs });
+  }
+  return segments;
+}
+
+/**
+ * Picks one prompt ayah uniformly from `pool`, pairing it with the next `continuationAyahs`
+ * (default 3) in the same surah as the blurred passage for Tasmi' to check.
+ */
+export function pickRandomChallenge(
+  pool: RandomPool,
+  catalog: Pick<Catalog, "surahs" | "juzs">,
+  options?: {
+    continuationAyahs?: number;
+    excludePrompt?: AyahKey | null;
+    rng?: () => number;
+  },
+): RandomChallenge | null {
+  const segments = expandRandomPool(pool, catalog);
+  if (segments.length === 0) return null;
+
+  const continuation = Math.max(1, options?.continuationAyahs ?? 3);
+  const rng = options?.rng ?? Math.random;
+
+  const candidates: Array<{ surah: number; prompt: number; segEnd: number }> = [];
+  for (const seg of segments) {
+    for (let a = seg.fromAyah; a < seg.toAyah; a += 1) {
+      candidates.push({ surah: seg.surah, prompt: a, segEnd: seg.toAyah });
+    }
+  }
+
+  if (candidates.length === 0) {
+    const only = segments[0];
+    return {
+      promptAyah: `${only.surah}:${only.fromAyah}`,
+      passage: { surah: only.surah, fromAyah: only.fromAyah, toAyah: only.toAyah },
+    };
+  }
+
+  const filtered =
+    options?.excludePrompt && candidates.length > 1
+      ? candidates.filter((c) => `${c.surah}:${c.prompt}` !== options.excludePrompt)
+      : candidates;
+  const pickList = filtered.length > 0 ? filtered : candidates;
+  const idx = Math.min(pickList.length - 1, Math.floor(rng() * pickList.length));
+  const chosen = pickList[idx];
+
+  return {
+    promptAyah: `${chosen.surah}:${chosen.prompt}`,
+    passage: {
+      surah: chosen.surah,
+      fromAyah: chosen.prompt + 1,
+      toAyah: Math.min(chosen.segEnd, chosen.prompt + continuation),
+    },
+  };
+}
+
+/**
+ * Resolves audio for a random-quiz prompt ayah: prefers the selected reciter (immediately if
+ * cached offline, or online if available) and falls back to any other reciter cached offline.
+ */
+export async function resolvePromptAudio(
+  surah: number,
+  ayah: number,
+  preferredReciterId: string,
+  reciters: readonly ReciterInfo[],
+  platform: Pick<PlatformAdapter, "cacheHas">,
+  quranApi: Pick<QuranApi, "getAudioBlobUrl">,
+  options?: { signal?: AbortSignal; isOffline?: boolean },
+): Promise<PromptAudioMatch | null> {
+  if (reciters.length === 0) return null;
+  const signal = options?.signal;
+  const preferred = reciters.find((r) => r.id === preferredReciterId) ?? reciters[0];
+  const others = reciters.filter((r) => r.id !== preferred.id);
+
+  const findCachedOther = async (): Promise<PromptAudioMatch | null> => {
+    for (const reciter of others) {
+      if (signal?.aborted) return null;
+      const cached = await platform.cacheHas("audio", audioCacheKey(reciter.subfolder, surah, ayah));
+      if (cached) {
+        const { url, fromCache } = await quranApi.getAudioBlobUrl(
+          reciter.subfolder,
+          surah,
+          ayah,
+          signal,
+        );
+        return { url, reciter, fromCache };
+      }
+    }
+    return null;
+  };
+
+  if (await platform.cacheHas("audio", audioCacheKey(preferred.subfolder, surah, ayah))) {
+    if (signal?.aborted) return null;
+    const { url, fromCache } = await quranApi.getAudioBlobUrl(
+      preferred.subfolder,
+      surah,
+      ayah,
+      signal,
+    );
+    return { url, reciter: preferred, fromCache };
+  }
+
+  const isOffline =
+    options?.isOffline ?? (typeof navigator !== "undefined" && navigator.onLine === false);
+  if (isOffline) {
+    return findCachedOther();
+  }
+
+  try {
+    const { url, fromCache } = await quranApi.getAudioBlobUrl(
+      preferred.subfolder,
+      surah,
+      ayah,
+      signal,
+    );
+    return { url, reciter: preferred, fromCache };
+  } catch (err) {
+    if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+      return null;
+    }
+    return findCachedOther();
+  }
 }

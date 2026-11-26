@@ -3,6 +3,12 @@ import type { AyahKey, SurahInfo } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { TasmiLiveState } from "../services/tasmi-logic";
 
+export interface RandomPromptInfo {
+  ayah: AyahKey;
+  playing: boolean;
+  reciterName?: string;
+}
+
 export interface RecitationRibbonProps {
   state: TasmiLiveState;
   surahs: SurahInfo[];
@@ -11,6 +17,8 @@ export interface RecitationRibbonProps {
   getAyahWords: (surah: number, ayah: number) => string[];
   glyphLoader?: GlyphPageLoader;
   ayahToPage?: Record<AyahKey, number>;
+  randomPrompt?: RandomPromptInfo | null;
+  onReplayPrompt?: () => void;
   onNextRandom?: () => void;
   onStop: () => void;
 }
@@ -35,6 +43,8 @@ export function RecitationRibbon({
   getAyahWords,
   glyphLoader,
   ayahToPage,
+  randomPrompt,
+  onReplayPrompt,
   onNextRandom,
   onStop,
 }: RecitationRibbonProps) {
@@ -43,7 +53,8 @@ export function RecitationRibbon({
 
   const activeWord = state.activeWord;
   const activeAyahKey: AyahKey | null = activeWord ? `${activeWord.surah}:${activeWord.ayah}` : null;
-  const surahNum = activeWord?.surah ?? state.passage?.surah ?? null;
+  const promptParts = randomPrompt ? randomPrompt.ayah.split(":").map(Number) : null;
+  const surahNum = activeWord?.surah ?? promptParts?.[0] ?? state.passage?.surah ?? null;
   const surahName =
     surahNum !== null ? surahs.find((s) => s.number === surahNum)?.name ?? `Surah ${surahNum}` : "";
 
@@ -110,18 +121,27 @@ export function RecitationRibbon({
         <div className="recitation-ribbon__bar">
           <div className="recitation-ribbon__status">
             <span
-              className={`recitation-ribbon__dot recitation-ribbon__dot--${state.trackerState}`}
+              className={`recitation-ribbon__dot recitation-ribbon__dot--${
+                randomPrompt?.playing ? "acquiring" : state.trackerState
+              }`}
               aria-hidden="true"
             />
             <span className="recitation-ribbon__state-text">
-              {state.mode === "memorization" ? "Tasmi'" : "Baca Bebas"} ·{" "}
-              {TRACKER_LABELS[state.trackerState]}
+              {randomPrompt
+                ? randomPrompt.playing
+                  ? "Uji Acak · Membacakan pemicu…"
+                  : `Uji Acak · ${TRACKER_LABELS[state.trackerState]}`
+                : `${state.mode === "memorization" ? "Tasmi'" : "Baca Bebas"} · ${TRACKER_LABELS[state.trackerState]}`}
             </span>
-            {activeWord && (
+            {activeWord ? (
               <span className="recitation-ribbon__loc">
                 {surahName} : {activeWord.ayah}
               </span>
-            )}
+            ) : promptParts ? (
+              <span className="recitation-ribbon__loc">
+                {surahName} : {promptParts[1]}
+              </span>
+            ) : null}
             {state.confirmedMistakes.length > 0 && (
               <span className="recitation-ribbon__mistake-pill">
                 {state.confirmedMistakes.length} catatan
@@ -137,6 +157,15 @@ export function RecitationRibbon({
                 onClick={() => setManualExpand((prev) => !prev)}
               >
                 {manualExpand ? "Sembunyikan kata" : "Tampilkan kata"}
+              </button>
+            )}
+            {onReplayPrompt && (
+              <button
+                type="button"
+                className="recitation-ribbon__toggle-btn"
+                onClick={onReplayPrompt}
+              >
+                Putar lagi
               </button>
             )}
             {onNextRandom && (
