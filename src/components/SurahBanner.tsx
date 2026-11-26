@@ -1,37 +1,14 @@
 import { surahBannerTitle } from "../data/surah-titles";
 
-/** Teal surah banner: a rounded band with a fine inner rule and the surah name in white. */
+/**
+ * Teal surah banner: a rounded band with a fine inner rule and the surah name in white. The name is set at
+ * the page's own letter size (it inherits the glyph page's font-size), so it matches the ayah text on every
+ * screen instead of scaling with the banner's width.
+ */
 export function SurahBanner({ surah }: { surah: number }) {
   return (
-    <svg
-      className="surah-banner"
-      viewBox="0 0 600 56"
-      preserveAspectRatio="xMidYMid meet"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <rect x="0" y="0" width="600" height="56" rx="10" fill="var(--banner-fill)" />
-      <rect
-        x="5"
-        y="5"
-        width="590"
-        height="46"
-        rx="6"
-        fill="none"
-        stroke="var(--banner-ink)"
-        strokeOpacity="0.4"
-        strokeWidth="1.5"
-      />
-      <text
-        x="300"
-        y="36"
-        textAnchor="middle"
-        direction="rtl"
-        className="surah-banner__name"
-        fill="var(--banner-ink)"
-      >
-        {surahBannerTitle(surah)}
-      </text>
-    </svg>
+    <div className="surah-banner" aria-hidden="true">
+      <span className="surah-banner__name">{surahBannerTitle(surah)}</span>
+    </div>
   );
 }

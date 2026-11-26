@@ -818,6 +818,29 @@ export function App({
     tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
   );
 
+  const tasmiLauncherVisible = !focusMode && !tasmiActive && !studyOpen && !paletteOpen;
+
+  const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
+
+  // Which ayahs each glyph page really prints; the scanned-image map can disagree at page breaks.
+  const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
+  useEffect(() => {
+    let live = true;
+    for (const entry of visiblePages) {
+      glyphLoader.load(entry.page).then(
+        (data) => {
+          if (!live) return;
+          const keys = [...new Set(data.lines.flatMap((line) => line.words.map((w) => w.ayah)))];
+          setGlyphAyahs((prev) => (prev[entry.page] ? prev : { ...prev, [entry.page]: keys }));
+        },
+        () => undefined,
+      );
+    }
+    return () => {
+      live = false;
+    };
+  }, [visiblePages, glyphLoader]);
+
   const blurSet = useMemo(() => {
     const mode = isTasmiBlurActive ? "tasmi" : userData.settings.hifzBlur ? "all" : "off";
     if (mode === "off") return undefined;
@@ -827,7 +850,14 @@ export function App({
 
     const merged = new Set<AyahKey>();
     for (const page of visiblePages) {
-      const pageMask = computeBlurMask(page, mode, passage, revealed, peekedAyah);
+      const pageMask = computeBlurMask(
+        page,
+        mode,
+        passage,
+        revealed,
+        peekedAyah,
+        glyphAyahs[page.page],
+      );
       for (const k of pageMask) merged.add(k);
     }
     return merged;
@@ -839,6 +869,7 @@ export function App({
     revealedSet,
     visiblePages,
     peekedAyah,
+    glyphAyahs,
   ]);
 
   const effectiveMistakeAyahs = useMemo(() => {
@@ -888,7 +919,6 @@ export function App({
   const hideAudioDock =
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
-  const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
   const offlinePages = useOfflinePages(!platform.isDesktop);
 
   const getPageImageUrl = useCallback(
@@ -898,7 +928,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherVisible ? "app-shell--fab" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -952,7 +982,7 @@ export function App({
       {focusMode && <FocusExit onExit={() => setFocusMode(false)} />}
 
       <TasmiLauncher
-        visible={!focusMode && !tasmiActive && !studyOpen && !paletteOpen}
+        visible={tasmiLauncherVisible}
         showHint={tasmiHint}
         onStart={() => handleOpenTasmi(tasmiContextAyah)}
         onDismissHint={dismissTasmiHint}
