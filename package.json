@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "extract:mushaf": "node scripts/extract-mushaf.mjs",
+    "prepare:desktop": "node scripts/prepare-desktop.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
