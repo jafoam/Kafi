@@ -1,4 +1,5 @@
-import type { PlatformAdapter, TilawaModelStorage } from "./types";
+import { browserNetworkKind, browserStorageInfo } from "./network";
+import type { CacheEntryInfo, PlatformAdapter, TilawaModelStorage } from "./types";
 
 const CACHE_NAME = "kafi-cache-v1";
 const TILAWA_CACHE_NAME = "tilawa-models";
@@ -134,6 +135,26 @@ export function createWebAdapter(options?: { mushafBaseUrl?: string }): Platform
       if (!cache) return;
       await cache.delete(cacheUrl(bucket, key));
     },
+    async cacheList(bucket: string): Promise<CacheEntryInfo[]> {
+      const cache = await openCache(CACHE_NAME);
+      if (!cache) return [];
+      const prefix = cacheUrl(bucket, "");
+      const listed: CacheEntryInfo[] = [];
+      for (const request of await cache.keys()) {
+        if (!request.url.startsWith(prefix)) continue;
+        const res = await cache.match(request);
+        const size = Number(res?.headers.get("content-length") ?? 0);
+        listed.push({
+          key: decodeURIComponent(request.url.slice(prefix.length)),
+          size: Number.isFinite(size) ? size : 0,
+        });
+      }
+      return listed;
+    },
+    async getNetworkKind() {
+      return browserNetworkKind();
+    },
+    getStorageInfo: () => browserStorageInfo(),
     async kvGet(key: string) {
       try {
         return await idbGet(key);

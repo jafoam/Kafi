@@ -65,7 +65,7 @@ export function classifyRequest(
 
   const { pathname } = parsed;
 
-  if (pathname.startsWith("/mushaf/")) {
+  if (pathname.startsWith("/mushaf/") || pathname.startsWith("/fonts/")) {
     return "cache-first-media";
   }
 

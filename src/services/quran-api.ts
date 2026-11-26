@@ -84,6 +84,11 @@ function formatParagraphsToSafeHtml(text: string): string {
   return paragraphs.map((p) => `<p>${p}</p>`).join("");
 }
 
+/** Cache key of one ayah's audio; the download screen reads the same keys back to show what is stored. */
+export function audioCacheKey(reciterFolder: string, surah: number, ayah: number): string {
+  return safeCacheKey(`${reciterFolder}_${pad3(surah)}${pad3(ayah)}`);
+}
+
 export function buildEveryAyahUrl(
   reciterFolder: string,
   surah: number,
@@ -235,7 +240,7 @@ export function createQuranApi(
     ayah: number,
     signal?: AbortSignal,
   ): Promise<AudioResult> {
-    const key = safeCacheKey(`${reciterFolder}_${pad3(surah)}${pad3(ayah)}`);
+    const key = audioCacheKey(reciterFolder, surah, ayah);
 
     const existingUrl = blobUrls.get(key);
     if (existingUrl) {
@@ -279,7 +284,7 @@ export function createQuranApi(
         const ayah = nextAyah++;
         if (ayah > ayahCount) return;
 
-        const key = safeCacheKey(`${reciterFolder}_${pad3(surah)}${pad3(ayah)}`);
+        const key = audioCacheKey(reciterFolder, surah, ayah);
         const alreadyCached = await platform.cacheHas("audio", key);
         if (!alreadyCached) {
           const bytes = await fetchAudioBytes(reciterFolder, surah, ayah, signal);

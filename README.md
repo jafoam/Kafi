@@ -67,6 +67,43 @@ npm run typecheck
 
 ---
 
+## Aplikasi Android (Tauri v2)
+
+Kafi siap dibangun menjadi aplikasi Android (`com.zuddin.kafi`, `minSdkVersion 24`) menggunakan **Tauri v2** dengan seluruh 604 font Mushaf QCF v1 dan runtime ONNX WASM dibundel di dalam APK, serta mikrofon Tasmi' melalui Android WebView (`RECORD_AUDIO`).
+
+### Build otomatis di GitHub Actions (tanpa SDK lokal)
+
+Jalankan workflow **Build Android APK** (`.github/workflows/build-android.yml`) dari tab **Actions** di GitHub. Pilih `debug` untuk APK yang bisa langsung di-install di perangkat Android, lalu unduh artefak APK-nya.
+
+### Build lokal
+
+Prasyarat: **JDK 17**, **Android SDK & NDK** (`ANDROID_HOME` & `NDK_HOME`), serta target Rust Android:
+
+```bash
+rustup target add aarch64-linux-android
+npm run fetch:fonts
+npm run android:init
+npm run android:dev      # jalankan di emulator / perangkat USB
+npm run android:build    # build APK
+npm run android:aab      # build Android App Bundle (Play Store)
+```
+
+### Unduh Suara di Android
+
+Layar **Unduh Suara** (menu ☰) menyimpan murottal per surah, juz, atau seluruh Al-Quran. Audio disimpan lewat `PlatformAdapter` (`cache_put` di Rust menulis berkas ke `app_data_dir/cache/audio/`), jadi jalur yang sama berlaku di web, desktop, dan Android; `cache_list` (Rust) dan `cacheList` (web) membuat layar itu tahu apa yang sudah tersimpan.
+
+Tiga kait opsional di `PlatformAdapter` disediakan agar build Android bisa menggantinya tanpa mengubah layar atau pengelola unduhan:
+
+| Kait | Default sekarang | Untuk Android |
+| --- | --- | --- |
+| `getNetworkKind()` | Network Information API milik WebView | `ConnectivityManager` lewat plugin Tauri, agar "Hanya unduh lewat Wi-Fi" akurat |
+| `getStorageInfo()` | `navigator.storage.estimate()` | Ruang kosong perangkat |
+| `beginBackgroundTask(label)` | tidak ada | *Foreground service* (`FOREGROUND_SERVICE_DATA_SYNC`, notifikasi `POST_NOTIFICATIONS`) agar unduhan besar tidak dihentikan saat aplikasi di latar belakang |
+
+Unduhan bisa dilanjutkan: ayat yang sudah tersimpan dilewati, jadi unduhan yang terputus (aplikasi ditutup, sinyal hilang) tinggal dijalankan lagi. Logika antrean ada di `src/services/audio-downloads.ts`.
+
+---
+
 ## Aplikasi Desktop (Tahap Berikutnya)
 
 Kode fondasi desktop native (macOS & Windows) menggunakan **Tauri v2** sudah tersedia di `src-tauri/`, namun fokus pengembangan saat ini adalah versi **Web**. Panduan build desktop akan dilengkapi setelah rilis web.
@@ -103,5 +140,9 @@ Kafi dibangun di atas kerja keras komunitas open-source dan lembaga penyedia dat
 - **[King Fahd Glorious Qur'an Printing Complex (KFGQPC)](https://qurancomplex.gov.sa/)** — halaman Mushaf Madinah 15 baris.
 - **[Tanzil (`tanzil.net`)](https://tanzil.net/)** — teks Al-Qur'an Utsmani sebagai referensi pencarian dan pencocokan bacaan.
 - **[Quran.com API v4 (`api.quran.com`)](https://api-docs.quran.com/)** — terjemahan (Kemenag RI, Kompleks Raja Fahd, The Sabiq Company, Saheeh International, M.A.S. Abdel Haleem, A. Yusuf Ali, Transliterasi) dan tafsir (Al-Muyassar, Ibn Kathir, Al-Tabari, Al-Qurtubi, Al-Sa'di).
+- **Teks mushaf offline** — teks 604 halaman (15 baris Madinah) diunduh sekali dari Quran.com API v4 oleh `npm run fetch:pages` ke `src/data/quran-pages.json`, lalu dibundel di aplikasi.
+- **Font halaman QCF v1** — 604 font glyph dari Kompleks Raja Fahd (disajikan Quran.com), diunduh `npm run fetch:fonts` ke `public/fonts/qcf-v1/` (±47 MB, tidak di-commit; CI mengunduhnya sebelum build) dan di-cache service worker, sehingga halaman terbuka tanpa jaringan.
+- **Unduh semua halaman** — tombol "Unduh Offline" di bilah atas (web) menyimpan seluruh 604 font ke cache service worker (`kafi-media-v1`), bisa dilanjutkan jika terputus. Aplikasi desktop sudah membundel semuanya.
+- **[Amiri](https://github.com/aliftype/amiri)** — glyph basmalah kaligrafi U+FDFD (SIL OFL 1.1, © The Amiri Project Authors), di-subset ke satu glyph di `src/assets/fonts/` beserta lisensinya.
 - **[eQuran.id (`equran.id`)](https://equran.id/)** — API Tafsir Kemenag RI berbahasa Indonesia.
 - **[EveryAyah (`everyayah.com`)](https://everyayah.com/)** — audio murottal per ayat dari para qari (Mishary Alafasy, Al-Husary, Abdul Basit, Al-Minshawy, As-Sudais, Al-Ghamdi, Al-Muaiqly, Al-Shuraim, Al-Shatri, Hani Ar-Rifai).

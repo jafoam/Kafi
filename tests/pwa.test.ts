@@ -9,6 +9,7 @@ const ORIGIN = "https://kafi.app";
 describe("PWA manifest and SW routing", () => {
   it("routes same-origin mushaf pages, ORT wasm, static assets, and shell paths", () => {
     expect(classifyRequest("https://kafi.app/mushaf/pages/001.gif", ORIGIN)).toBe("cache-first-media");
+    expect(classifyRequest("https://kafi.app/fonts/qcf-v1/p120.woff2", ORIGIN)).toBe("cache-first-media");
     expect(classifyRequest("https://kafi.app/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("cache-first-static");
     expect(classifyRequest("https://kafi.app/assets/index-abc123.js", ORIGIN)).toBe("cache-first-static");
     expect(classifyRequest("https://kafi.app/icons/icon.svg", ORIGIN)).toBe("cache-first-static");

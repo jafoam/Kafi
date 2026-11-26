@@ -17,11 +17,16 @@ import { getPlatform } from "./platform";
 import { createQuranSearch, type RefV2Data } from "./services/arabic-search";
 import {
   createAudioController,
+  DEFAULT_SCOPE,
   parseAyahKey,
   REPEAT_OPTIONS,
   SPEED_OPTIONS,
   type AudioState,
+  type PlaybackScope,
 } from "./services/audio-controller";
+import { isSurahComplete } from "./services/audio-downloads";
+import { juzRange, pageRange } from "./services/playback-ranges";
+import { useAudioDownloads } from "./state/useAudioDownloads";
 import { createQuranApi } from "./services/quran-api";
 import {
   buildMistakeBadges,
@@ -42,10 +47,14 @@ import {
   turnPage,
 } from "./state/reader-logic";
 import { AudioDock } from "./components/AudioDock";
+import { AudioDownloadsPanel } from "./components/AudioDownloadsPanel";
+import { FocusExit } from "./components/FocusExit";
+import { TasmiLauncher } from "./components/TasmiLauncher";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
+import { useOfflinePages } from "./state/useOfflinePages";
 import { RecitationRibbon } from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
 import { TasmiSheet } from "./components/TasmiSheet";
@@ -54,6 +63,7 @@ import { TopBar } from "./components/TopBar";
 
 const catalog = catalogJson as unknown as Catalog;
 const mushafMap = mushafMapJson as unknown as MushafMap;
+const TASMI_HINT_KEY = "kafi:hint:tasmi";
 
 type WordLookupFn = (surah: number, ayah: number) => string[];
 const EMPTY_WORD_LOOKUP: WordLookupFn = () => [];
@@ -87,8 +97,10 @@ const INITIAL_AUDIO_STATE: AudioState = {
   currentAyah: null,
   isPlaying: false,
   isLoading: false,
+  isBismillah: false,
   reciterId: DEFAULT_USER_DATA.settings.reciterId,
   repeatCount: 1,
+  scope: DEFAULT_SCOPE,
   speed: 1,
   fromCache: false,
   error: null,
@@ -139,6 +151,8 @@ export function App({
           const folder = reciterById.get(reciterId)?.subfolder ?? reciterId;
           return quranApi.getAudioBlobUrl(folder, surah, ayah, signal);
         },
+        resolveRange: (kind, ayah) =>
+          kind === "page" ? pageRange(mushafMap, ayah) : juzRange(catalog, ayah),
       }),
     [quranApi, reciterById],
   );
@@ -151,16 +165,14 @@ export function App({
   const [pageUrls, setPageUrls] = useState<Record<number, string>>({});
   const [selected, setSelected] = useState<{ ayah: AyahKey; rect: DOMRect } | null>(null);
   const [focusMode, setFocusMode] = useState(false);
+  const [tasmiHint, setTasmiHint] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("surah");
   const [revealedSet, setRevealedSet] = useState<Set<AyahKey>>(() => new Set());
   const [audioState, setAudioState] = useState<AudioState>(INITIAL_AUDIO_STATE);
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyAyah, setStudyAyah] = useState<AyahKey | null>(null);
-  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(
-    null,
-  );
-  const [downloadedSurahs, setDownloadedSurahs] = useState<Set<string>>(() => new Set());
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const [tasmiSheetOpen, setTasmiSheetOpen] = useState(false);
@@ -182,7 +194,6 @@ export function App({
   const toastTimerRef = useRef<number | null>(null);
   const peekTimerRef = useRef<number | null>(null);
   const requestedPagesRef = useRef<Set<number>>(new Set());
-  const downloadAbortRef = useRef<AbortController | null>(null);
   const tilawaAbortRef = useRef<AbortController | null>(null);
   const lastAutoTurnAyahRef = useRef<AyahKey | null>(null);
   const lastTasmiTurnAyahRef = useRef<AyahKey | null>(null);
@@ -199,7 +210,6 @@ export function App({
     return () => {
       mountedRef.current = false;
       unsubscribe();
-      downloadAbortRef.current?.abort();
       tilawaAbortRef.current?.abort();
       if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
@@ -480,50 +490,52 @@ export function App({
     audioController.setRepeat(next);
   }, [audioState.repeatCount, audioController]);
 
+  const handleChangeScope = useCallback(
+    (scope: PlaybackScope) => audioController.setScope(scope),
+    [audioController],
+  );
+
   const handleCycleSpeed = useCallback(() => {
     const idx = SPEED_OPTIONS.indexOf(audioState.speed as (typeof SPEED_OPTIONS)[number]);
     const next = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
     audioController.setSpeed(next);
   }, [audioState.speed, audioController]);
 
-  const handleDownloadSurah = useCallback(() => {
-    if (!activeSurah || downloadProgress !== null) return;
-    downloadAbortRef.current?.abort();
-    const controller = new AbortController();
-    downloadAbortRef.current = controller;
+  const downloads = useAudioDownloads({
+    platform,
+    api: quranApi,
+    surahs: catalog.surahs,
+    reciterId: audioState.reciterId,
+    folder: reciterById.get(audioState.reciterId)?.subfolder ?? audioState.reciterId,
+  });
 
-    const reciterId = audioState.reciterId;
-    const folder = reciterById.get(reciterId)?.subfolder ?? reciterId;
-    const downloadKey = `${reciterId}:${activeSurah.number}`;
+  // One tap on the player's button saves the surah being read; when it is saved or already
+  // downloading, the same button opens the download screen to manage it.
+  const handleDockDownload = useCallback(() => {
+    if (!activeSurah) return;
+    const saved = isSurahComplete(downloads.status?.bySurah.get(activeSurah.number));
+    const downloading = downloads.state.phase !== "idle";
+    if (saved || downloading) {
+      setDownloadsOpen(true);
+      return;
+    }
+    downloads.start([activeSurah.number]);
+  }, [activeSurah, downloads]);
 
-    setDownloadProgress({ done: 0, total: activeSurah.ayahs });
-    void quranApi
-      .downloadSurahAudio(
-        folder,
-        activeSurah.number,
-        activeSurah.ayahs,
-        (done, total) => {
-          if (!mountedRef.current || controller.signal.aborted) return;
-          setDownloadProgress({ done, total });
-        },
-        controller.signal,
-      )
-      .then(() => {
-        if (!mountedRef.current || controller.signal.aborted) return;
-        setDownloadProgress(null);
-        setDownloadedSurahs((prev) => {
-          const next = new Set(prev);
-          next.add(downloadKey);
-          return next;
-        });
-        showToast(`${activeSurah.name} tersimpan offline`);
-      })
-      .catch(() => {
-        if (!mountedRef.current || controller.signal.aborted) return;
-        setDownloadProgress(null);
-        showToast(`Gagal mengunduh ${activeSurah.name}`);
-      });
-  }, [activeSurah, audioState.reciterId, downloadProgress, quranApi, reciterById, showToast]);
+  // Tell the reader when a download finishes.
+  const previousPhaseRef = useRef(downloads.state.phase);
+  useEffect(() => {
+    const was = previousPhaseRef.current;
+    previousPhaseRef.current = downloads.state.phase;
+    if (was !== "running" || downloads.state.phase !== "idle") return;
+    const done = downloads.state.finished;
+    if (done.length === 1) {
+      const name = catalog.surahs.find((s) => s.number === done[0])?.name;
+      showToast(`${name ?? "Surah"} tersimpan offline`);
+    } else if (done.length > 1) {
+      showToast(`${done.length} surah tersimpan offline`);
+    }
+  }, [downloads.state.phase, downloads.state.finished, showToast]);
 
   const handleToggleHifzBlur = useCallback(() => {
     const next = !userData.settings.hifzBlur;
@@ -563,6 +575,27 @@ export function App({
     },
     [onOpenStudy],
   );
+
+  // Tasmi' is the app's signature feature: introduce it once, a moment after the first launch.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+    platform
+      .kvGet(TASMI_HINT_KEY)
+      .then((seen) => {
+        if (!seen && !cancelled) timer = window.setTimeout(() => setTasmiHint(true), 1800);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [platform]);
+
+  const dismissTasmiHint = useCallback(() => {
+    setTasmiHint(false);
+    void platform.kvSet(TASMI_HINT_KEY, "1").catch(() => undefined);
+  }, [platform]);
 
   const handleOpenTasmi = useCallback(
     (ayah: AyahKey) => {
@@ -840,11 +873,23 @@ export function App({
   const effectiveStudyAyah = studyAyah ?? activeAyah;
   const studySurah = surahByNumber.get(parseAyahKey(effectiveStudyAyah).surah);
 
-  const isSurahDownloaded = downloadedSurahs.has(`${audioState.reciterId}:${activeSurahNum}`);
+  const isSurahDownloaded = isSurahComplete(downloads.status?.bySurah.get(activeSurahNum));
+  const downloadProgress =
+    downloads.state.phase === "running" && downloads.state.current === activeSurahNum
+      ? { done: downloads.state.done, total: downloads.state.total }
+      : null;
+  const activeJuzRange = juzRange(catalog, activeAyah);
+  const activeJuzSurahs = activeJuzRange
+    ? Array.from(
+        { length: Number(activeJuzRange.to.split(":")[0]) - Number(activeJuzRange.from.split(":")[0]) + 1 },
+        (_, i) => Number(activeJuzRange.from.split(":")[0]) + i,
+      )
+    : [activeSurahNum];
   const hideAudioDock =
-    focusMode && !audioState.isPlaying && !audioState.isLoading && downloadProgress === null;
+    focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
-  const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
+  const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
+  const offlinePages = useOfflinePages(!platform.isDesktop);
 
   const getPageImageUrl = useCallback(
     (page: number) => platform.getPageImageUrl(page),
@@ -867,6 +912,7 @@ export function App({
         }
         focusMode={focusMode}
         theme={userData.settings.theme}
+        offline={offlinePages}
         onOpenPalette={(tab = "surah") => {
           setPaletteTab(tab);
           setPaletteOpen(true);
@@ -881,6 +927,31 @@ export function App({
         }}
         onToggleFocusMode={() => setFocusMode((prev) => !prev)}
         onChangeTheme={handleChangeTheme}
+        onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
+        onOpenDownloads={() => setDownloadsOpen(true)}
+      />
+
+      {downloadsOpen && (
+        <AudioDownloadsPanel
+          surahs={catalog.surahs}
+          reciters={catalog.reciters}
+          reciterId={audioState.reciterId}
+          onChangeReciter={handleChangeReciter}
+          activeSurah={activeSurahNum}
+          juzNumber={juzNumber}
+          juzSurahs={activeJuzSurahs}
+          downloads={downloads}
+          onClose={() => setDownloadsOpen(false)}
+        />
+      )}
+
+      {focusMode && <FocusExit onExit={() => setFocusMode(false)} />}
+
+      <TasmiLauncher
+        visible={!focusMode && !tasmiActive && !studyOpen && !paletteOpen}
+        showHint={tasmiHint}
+        onStart={() => handleOpenTasmi(tasmiContextAyah)}
+        onDismissHint={dismissTasmiHint}
       />
 
       <MushafSpread
@@ -941,6 +1012,8 @@ export function App({
         audioState={audioState}
         activeAyah={activeAyah}
         surahName={activeSurah?.name ?? "Surah"}
+        surahNumber={activeSurah?.number ?? 1}
+        surahAyahCount={activeSurah?.ayahs ?? 1}
         reciters={catalog.reciters}
         hidden={hideAudioDock}
         downloadProgress={downloadProgress}
@@ -955,7 +1028,8 @@ export function App({
         onChangeReciter={handleChangeReciter}
         onCycleRepeat={handleCycleRepeat}
         onCycleSpeed={handleCycleSpeed}
-        onDownloadSurah={handleDownloadSurah}
+        onChangeScope={handleChangeScope}
+        onDownloadSurah={handleDockDownload}
         onOpenStudy={() => handleOpenStudy(activeAyah)}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
       />

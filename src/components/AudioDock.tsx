@@ -1,10 +1,14 @@
+import { useState } from "react";
 import type { AyahKey, ReciterInfo } from "../data/types";
-import type { AudioState, RepeatCount } from "../services/audio-controller";
+import type { AudioState, PlaybackScope, RepeatCount } from "../services/audio-controller";
+import { PlaybackMenu, scopeLabel } from "./PlaybackMenu";
 
 export interface AudioDockProps {
   audioState: AudioState;
   activeAyah: AyahKey;
   surahName: string;
+  surahNumber: number;
+  surahAyahCount: number;
   reciters: ReciterInfo[];
   hidden: boolean;
   downloadProgress: { done: number; total: number } | null;
@@ -15,6 +19,7 @@ export interface AudioDockProps {
   onChangeReciter: (reciterId: string) => void;
   onCycleRepeat: () => void;
   onCycleSpeed: () => void;
+  onChangeScope: (scope: PlaybackScope) => void;
   onDownloadSurah: () => void;
   onOpenStudy: () => void;
   onOpenTasmi: () => void;
@@ -28,6 +33,8 @@ export function AudioDock({
   audioState,
   activeAyah,
   surahName,
+  surahNumber,
+  surahAyahCount,
   reciters,
   hidden,
   downloadProgress,
@@ -38,10 +45,12 @@ export function AudioDock({
   onChangeReciter,
   onCycleRepeat,
   onCycleSpeed,
+  onChangeScope,
   onDownloadSurah,
   onOpenStudy,
   onOpenTasmi,
 }: AudioDockProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const ayahNum = activeAyah.split(":")[1];
   const isDownloading = downloadProgress !== null;
 
@@ -59,12 +68,17 @@ export function AudioDock({
             title="Buka Terjemahan, Tafsir & Catatan"
           >
             <span className="audio-dock__ayah-title">
-              {surahName} : {ayahNum}
+              <span className="audio-dock__title-full">
+                {surahName} : {ayahNum}
+              </span>
+              <span className="audio-dock__title-short">Ayat {ayahNum}</span>
             </span>
             {audioState.error ? (
               <span className="audio-dock__status audio-dock__status--error">
                 Gagal memuat
               </span>
+            ) : audioState.isBismillah ? (
+              <span className="audio-dock__status">Basmalah</span>
             ) : audioState.fromCache && audioState.currentAyah ? (
               <span className="audio-dock__status">Offline</span>
             ) : null}
@@ -137,6 +151,21 @@ export function AudioDock({
 
           <button
             type="button"
+            className={`audio-dock__pill-btn ${audioState.scope.kind !== "continue" ? "audio-dock__pill-btn--active" : ""}`}
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            title="Mode putar: ulang surah, halaman, juz, atau rentang ayat"
+          >
+            <svg className="audio-dock__pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 7h11M4 12h11M4 17h7" />
+              <path d="m17 14 4 3-4 3z" fill="currentColor" />
+            </svg>
+            <span className="audio-dock__pill-text">{scopeLabel(audioState.scope)}</span>
+          </button>
+
+          <button
+            type="button"
             className={`audio-dock__pill-btn ${audioState.speed !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onCycleSpeed}
             aria-label={`Kecepatan: ${audioState.speed}x`}
@@ -162,7 +191,6 @@ export function AudioDock({
             type="button"
             className={`audio-dock__pill-btn audio-dock__download-btn ${isSurahDownloaded ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onDownloadSurah}
-            disabled={isDownloading}
             title={isSurahDownloaded ? "Surah tersimpan offline" : "Unduh audio surah untuk offline"}
           >
             {isDownloading
@@ -186,6 +214,17 @@ export function AudioDock({
           </button>
         </div>
       </section>
+      {menuOpen && (
+        <PlaybackMenu
+          scope={audioState.scope}
+          surahNumber={surahNumber}
+          surahName={surahName}
+          ayahCount={surahAyahCount}
+          activeAyah={activeAyah}
+          onChange={onChangeScope}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -10,7 +10,14 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "extract:mushaf": "node scripts/extract-mushaf.mjs",
+    "fetch:pages": "node scripts/fetch-quran-pages.mjs",
+    "fetch:words": "node scripts/fetch-word-translations.mjs",
+    "fetch:fonts": "node scripts/fetch-qcf-fonts.mjs",
     "prepare:desktop": "node scripts/prepare-desktop.mjs",
+    "android:init": "tauri android init && node scripts/patch-android-manifest.mjs",
+    "android:dev": "tauri android dev",
+    "android:build": "tauri android build --apk",
+    "android:aab": "tauri android build --aab",
     "tauri": "tauri"
   },
   "dependencies": {

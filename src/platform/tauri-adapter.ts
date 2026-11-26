@@ -5,7 +5,8 @@ import {
   type InvokeArgs,
   type InvokeOptions,
 } from "@tauri-apps/api/core";
-import type { PlatformAdapter, TilawaModelStorage } from "./types";
+import { browserNetworkKind, browserStorageInfo } from "./network";
+import type { CacheEntryInfo, PlatformAdapter, TilawaModelStorage } from "./types";
 
 interface MicChunkPayload {
   samples: number[];
@@ -16,6 +17,11 @@ export interface TauriAdapterDeps {
   invoke: <T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions) => Promise<T>;
   convertFileSrc: typeof convertFileSrc;
   createChannel: <T>() => Channel<T>;
+  isMobile?: boolean;
+}
+
+function isMobileUserAgent(): boolean {
+  return typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 const TILAWA_BUCKET = "tilawa";
@@ -30,6 +36,7 @@ export function createTauriAdapter(deps?: Partial<TauriAdapterDeps>): PlatformAd
   const tauriInvoke = deps?.invoke ?? invoke;
   const tauriConvertFileSrc = deps?.convertFileSrc ?? convertFileSrc;
   const createChannel = deps?.createChannel ?? (<T>() => new Channel<T>());
+  const isMobile = deps?.isMobile ?? isMobileUserAgent();
 
   const cacheGet = async (bucket: string, key: string): Promise<Uint8Array | null> => {
     try {
@@ -58,6 +65,11 @@ export function createTauriAdapter(deps?: Partial<TauriAdapterDeps>): PlatformAd
 
   const cacheDelete = async (bucket: string, key: string): Promise<void> => {
     await tauriInvoke("cache_delete", { bucket, key });
+  };
+
+  const cacheList = async (bucket: string): Promise<CacheEntryInfo[]> => {
+    const listed = await tauriInvoke<[string, number][]>("cache_list", { bucket });
+    return listed.map(([key, size]) => ({ key, size }));
   };
 
   const kvGet = async (key: string): Promise<string | null> => {
@@ -120,18 +132,30 @@ export function createTauriAdapter(deps?: Partial<TauriAdapterDeps>): PlatformAd
     cachePut,
     cacheHas,
     cacheDelete,
+    cacheList,
+    // The WebView answers these on Android too. For a native answer or a background download
+    // (foreground service), add `getNetworkKind` / `beginBackgroundTask` here backed by a Tauri plugin.
+    async getNetworkKind() {
+      return browserNetworkKind();
+    },
+    getStorageInfo: () => browserStorageInfo(),
     kvGet,
     kvSet,
     createTilawaStorage,
-    async startNativeMic(onChunk) {
-      const channel = createChannel<MicChunkPayload>();
-      channel.onmessage = (msg) => {
-        onChunk(new Float32Array(msg.samples), msg.sampleRate);
-      };
-      await tauriInvoke("mic_start", { onChunk: channel });
-      return async () => {
-        await tauriInvoke("mic_stop");
-      };
-    },
+    // Android/iOS WebView uses getUserMedia + AudioWorklet via @tilawa/core; desktop uses Rust cpal.
+    ...(isMobile
+      ? {}
+      : {
+          async startNativeMic(onChunk: (pcm: Float32Array, sampleRate: number) => void) {
+            const channel = createChannel<MicChunkPayload>();
+            channel.onmessage = (msg) => {
+              onChunk(new Float32Array(msg.samples), msg.sampleRate);
+            };
+            await tauriInvoke("mic_start", { onChunk: channel });
+            return async () => {
+              await tauriInvoke("mic_stop");
+            };
+          },
+        }),
   };
 }

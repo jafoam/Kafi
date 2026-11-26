@@ -91,6 +91,35 @@ pub fn delete_cache_entry(base: &Path, bucket: &str, key: &str) -> Result<(), St
     }
 }
 
+/// Lists the files in a cache bucket with their sizes in bytes, sorted by key. A bucket that has
+/// not been written to yet is empty, and unfinished `.tmp-` writes are left out.
+pub fn list_cache_entries(base: &Path, bucket: &str) -> Result<Vec<(String, u64)>, String> {
+    validate_segment("bucket", bucket)?;
+    let dir = base.join("cache").join(bucket);
+    let entries = match fs::read_dir(&dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("Failed to list cache bucket: {e}")),
+    };
+
+    let mut listed = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read cache entry: {e}"))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with(".tmp-") {
+            continue;
+        }
+        let meta = entry
+            .metadata()
+            .map_err(|e| format!("Failed to read cache entry size: {e}"))?;
+        if meta.is_file() {
+            listed.push((name, meta.len()));
+        }
+    }
+    listed.sort();
+    Ok(listed)
+}
+
 fn backup_corrupt_kv(path: &Path, reason: &dyn std::fmt::Display) {
     let mut backup_os = path.as_os_str().to_os_string();
     backup_os.push(".corrupt");
@@ -201,6 +230,28 @@ mod tests {
 
         // Deleting a missing key should be idempotent
         delete_cache_entry(&base, "audio", "001001.mp3").unwrap();
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_lists_bucket_entries_with_sizes() {
+        let base = unique_temp_dir("list");
+
+        // A bucket nobody has written to is simply empty
+        assert_eq!(list_cache_entries(&base, "audio").unwrap(), Vec::new());
+
+        write_cache_bytes(&base, "audio", "b_002001", b"12345").unwrap();
+        write_cache_bytes(&base, "audio", "a_001001", b"123").unwrap();
+        write_cache_bytes(&base, "other", "x", b"zz").unwrap();
+        // An interrupted write must not be reported as a finished entry
+        fs::write(base.join("cache").join("audio").join(".tmp-1-0"), b"partial").unwrap();
+
+        assert_eq!(
+            list_cache_entries(&base, "audio").unwrap(),
+            vec![("a_001001".to_string(), 3), ("b_002001".to_string(), 5)]
+        );
+        assert!(list_cache_entries(&base, "../etc").is_err());
 
         let _ = fs::remove_dir_all(&base);
     }
