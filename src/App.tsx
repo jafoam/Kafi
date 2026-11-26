@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useBackClose } from "./state/useBackClose";
 import type { EngineEvent, LoadProgress } from "@tilawa/core";
 import catalogJson from "./data/catalog.json";
 import mushafMapJson from "./data/mushaf-map.json";
@@ -817,6 +818,14 @@ export function App({
   const isTasmiBlurActive = Boolean(
     tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
   );
+
+  useBackClose(paletteOpen, () => setPaletteOpen(false));
+  useBackClose(studyOpen, () => setStudyOpen(false));
+  useBackClose(downloadsOpen, () => setDownloadsOpen(false));
+  useBackClose(tasmiSheetOpen, () => setTasmiSheetOpen(false));
+  useBackClose(summaryModal.open, () => setSummaryModal((prev) => ({ ...prev, open: false })));
+  useBackClose(selected !== null, () => setSelected(null));
+  useBackClose(focusMode, () => setFocusMode(false));
 
   const tasmiLauncherVisible = !focusMode && !tasmiActive && !studyOpen && !paletteOpen;
 
