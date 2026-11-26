@@ -12,6 +12,14 @@ import type {
   UserData,
 } from "./data/types";
 import { getPlatform } from "./platform";
+import {
+  createAudioController,
+  parseAyahKey,
+  REPEAT_OPTIONS,
+  SPEED_OPTIONS,
+  type AudioState,
+} from "./services/audio-controller";
+import { createQuranApi } from "./services/quran-api";
 import { createUserStore, DEFAULT_USER_DATA } from "./services/user-store";
 import {
   clampPage,
@@ -21,9 +29,11 @@ import {
   resolveEffectiveSpread,
   turnPage,
 } from "./state/reader-logic";
+import { AudioDock } from "./components/AudioDock";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
+import { StudyDrawer } from "./components/StudyDrawer";
 import { TopBar } from "./components/TopBar";
 
 const catalog = catalogJson as unknown as Catalog;
@@ -35,6 +45,23 @@ export interface AppProps {
   onPlayAyah?: (ayah: AyahKey) => void;
   onOpenStudy?: (ayah: AyahKey) => void;
   onStartTasmi?: (ayah: AyahKey) => void;
+}
+
+const INITIAL_AUDIO_STATE: AudioState = {
+  currentAyah: null,
+  isPlaying: false,
+  isLoading: false,
+  reciterId: DEFAULT_USER_DATA.settings.reciterId,
+  repeatCount: 1,
+  speed: 1,
+  fromCache: false,
+  error: null,
+};
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
 }
 
 function getJuzForPage(page: number): number {
@@ -58,6 +85,26 @@ export function App({
 }: AppProps) {
   const platform = useMemo(() => getPlatform(), []);
   const userStore = useMemo(() => createUserStore(platform), [platform]);
+  const quranApi = useMemo(() => createQuranApi(platform), [platform]);
+
+  const reciterById = useMemo(() => {
+    const map = new Map<string, Catalog["reciters"][number]>();
+    for (const r of catalog.reciters) map.set(r.id, r);
+    return map;
+  }, []);
+
+  const audioController = useMemo(
+    () =>
+      createAudioController({
+        surahs: catalog.surahs,
+        reciterId: DEFAULT_USER_DATA.settings.reciterId,
+        getAudioBlobUrl: (reciterId, surah, ayah, signal) => {
+          const folder = reciterById.get(reciterId)?.subfolder ?? reciterId;
+          return quranApi.getAudioBlobUrl(folder, surah, ayah, signal);
+        },
+      }),
+    [quranApi, reciterById],
+  );
 
   const [userData, setUserData] = useState<UserData>(DEFAULT_USER_DATA);
   const [currentPage, setCurrentPage] = useState<number>(DEFAULT_USER_DATA.lastPage);
@@ -70,17 +117,32 @@ export function App({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("surah");
   const [revealedSet, setRevealedSet] = useState<Set<AyahKey>>(() => new Set());
+  const [audioState, setAudioState] = useState<AudioState>(INITIAL_AUDIO_STATE);
+  const [studyOpen, setStudyOpen] = useState(false);
+  const [studyAyah, setStudyAyah] = useState<AyahKey | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [downloadedSurahs, setDownloadedSurahs] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<string | null>(null);
+
   const toastTimerRef = useRef<number | null>(null);
   const requestedPagesRef = useRef<Set<number>>(new Set());
+  const downloadAbortRef = useRef<AbortController | null>(null);
+  const lastAutoTurnAyahRef = useRef<AyahKey | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
+    const unsubscribe = audioController.subscribe(setAudioState);
     return () => {
       mountedRef.current = false;
+      unsubscribe();
+      downloadAbortRef.current?.abort();
+      audioController.dispose();
+      quranApi.dispose();
     };
-  }, []);
+  }, [audioController, quranApi]);
 
   const surahByNumber = useMemo(() => {
     const map = new Map<number, Catalog["surahs"][number]>();
@@ -103,11 +165,12 @@ export function App({
       if (!active) return;
       setUserData(loaded);
       setCurrentPage(loaded.lastPage);
+      audioController.setReciter(loaded.settings.reciterId);
     });
     return () => {
       active = false;
     };
-  }, [userStore]);
+  }, [userStore, audioController]);
 
   // Sync theme attribute on <html>
   useEffect(() => {
@@ -160,6 +223,74 @@ export function App({
     [userStore],
   );
 
+  // Auto-turn mushaf page when active playing ayah moves outside the visible spread
+  useEffect(() => {
+    if (!audioState.currentAyah) {
+      lastAutoTurnAyahRef.current = null;
+      return;
+    }
+    if (audioState.currentAyah === lastAutoTurnAyahRef.current) return;
+    lastAutoTurnAyahRef.current = audioState.currentAyah;
+
+    const targetPage = mushafMap.ayahToPage[audioState.currentAyah];
+    if (targetPage && targetPage !== rightPage && targetPage !== leftPage) {
+      navigateToPage(targetPage);
+    }
+  }, [audioState.currentAyah, rightPage, leftPage, navigateToPage]);
+
+  // Sync open StudyDrawer to currently playing ayah
+  useEffect(() => {
+    if (studyOpen && audioState.currentAyah) {
+      setStudyAyah(audioState.currentAyah);
+    }
+  }, [studyOpen, audioState.currentAyah]);
+
+  const fallbackAyah = useMemo<AyahKey>(() => {
+    const first = rightPageEntry.ayahs[0];
+    return first ? (`${first.surah}:${first.ayah}` as AyahKey) : "1:1";
+  }, [rightPageEntry]);
+
+  const effectivePlayingAyah = playingAyah ?? audioState.currentAyah;
+  const activeAyah: AyahKey = effectivePlayingAyah ?? selected?.ayah ?? fallbackAyah;
+  const activeSurahNum = parseAyahKey(activeAyah).surah;
+  const activeSurah = surahByNumber.get(activeSurahNum);
+
+  const handlePlayAyah = useCallback(
+    (ayah: AyahKey) => {
+      if (onPlayAyah) {
+        onPlayAyah(ayah);
+        return;
+      }
+      const { surah, ayah: ayahNum } = parseAyahKey(ayah);
+      void audioController.playAyah(surah, ayahNum);
+    },
+    [onPlayAyah, audioController],
+  );
+
+  const handleTogglePlay = useCallback(() => {
+    if (audioState.currentAyah) {
+      audioController.togglePlay();
+    } else {
+      handlePlayAyah(activeAyah);
+    }
+  }, [audioState.currentAyah, audioController, handlePlayAyah, activeAyah]);
+
+  // Bind Space to play/pause when not typing in an editable control
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (paletteOpen) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.code !== "Space" && event.key !== " ") return;
+      if (isEditableTarget(event.target)) return;
+
+      event.preventDefault();
+      handleTogglePlay();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [paletteOpen, handleTogglePlay]);
+
   const handleTurnPage = useCallback(
     (direction: "next" | "prev") => {
       const target = turnPage(currentPage, direction, effectiveSpread);
@@ -194,6 +325,79 @@ export function App({
     [userStore],
   );
 
+  const handleChangeReciter = useCallback(
+    (reciterId: string) => {
+      audioController.setReciter(reciterId);
+      void userStore.updateSettings({ reciterId }).then(setUserData);
+    },
+    [audioController, userStore],
+  );
+
+  const handleChangeTranslation = useCallback(
+    (translationId: number) => {
+      void userStore.updateSettings({ translationId }).then(setUserData);
+    },
+    [userStore],
+  );
+
+  const handleChangeTafsir = useCallback(
+    (tafsirId: string) => {
+      void userStore.updateSettings({ tafsirId }).then(setUserData);
+    },
+    [userStore],
+  );
+
+  const handleCycleRepeat = useCallback(() => {
+    const idx = REPEAT_OPTIONS.indexOf(audioState.repeatCount);
+    const next = REPEAT_OPTIONS[(idx + 1) % REPEAT_OPTIONS.length];
+    audioController.setRepeat(next);
+  }, [audioState.repeatCount, audioController]);
+
+  const handleCycleSpeed = useCallback(() => {
+    const idx = SPEED_OPTIONS.indexOf(audioState.speed as (typeof SPEED_OPTIONS)[number]);
+    const next = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
+    audioController.setSpeed(next);
+  }, [audioState.speed, audioController]);
+
+  const handleDownloadSurah = useCallback(() => {
+    if (!activeSurah || downloadProgress !== null) return;
+    downloadAbortRef.current?.abort();
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+
+    const reciterId = audioState.reciterId;
+    const folder = reciterById.get(reciterId)?.subfolder ?? reciterId;
+    const downloadKey = `${reciterId}:${activeSurah.number}`;
+
+    setDownloadProgress({ done: 0, total: activeSurah.ayahs });
+    void quranApi
+      .downloadSurahAudio(
+        folder,
+        activeSurah.number,
+        activeSurah.ayahs,
+        (done, total) => {
+          if (!mountedRef.current || controller.signal.aborted) return;
+          setDownloadProgress({ done, total });
+        },
+        controller.signal,
+      )
+      .then(() => {
+        if (!mountedRef.current || controller.signal.aborted) return;
+        setDownloadProgress(null);
+        setDownloadedSurahs((prev) => {
+          const next = new Set(prev);
+          next.add(downloadKey);
+          return next;
+        });
+        showToast(`${activeSurah.name} tersimpan offline`);
+      })
+      .catch(() => {
+        if (!mountedRef.current || controller.signal.aborted) return;
+        setDownloadProgress(null);
+        showToast(`Gagal mengunduh ${activeSurah.name}`);
+      });
+  }, [activeSurah, audioState.reciterId, downloadProgress, quranApi, reciterById, showToast]);
+
   const handleToggleHifzBlur = useCallback(() => {
     const next = !userData.settings.hifzBlur;
     setRevealedSet(new Set());
@@ -214,6 +418,38 @@ export function App({
     [userStore],
   );
 
+  const handleSaveNote = useCallback(
+    (ayah: AyahKey, text: string) => {
+      void userStore.setNote(ayah, text).then(setUserData);
+    },
+    [userStore],
+  );
+
+  const handleOpenStudy = useCallback(
+    (ayah: AyahKey) => {
+      if (onOpenStudy) {
+        onOpenStudy(ayah);
+        return;
+      }
+      setStudyAyah(ayah);
+      setStudyOpen(true);
+    },
+    [onOpenStudy],
+  );
+
+  const handleOpenTasmi = useCallback(
+    (ayah: AyahKey) => {
+      if (onStartTasmi) {
+        onStartTasmi(ayah);
+        return;
+      }
+      const { surah, ayah: ayahNum } = parseAyahKey(ayah);
+      const name = surahByNumber.get(surah)?.name ?? "Surah";
+      showToast(`Tasmi' mulai dari ${name} : ${ayahNum}`);
+    },
+    [onStartTasmi, surahByNumber, showToast],
+  );
+
   const handlePeekAyah = useCallback((ayah: AyahKey) => {
     setRevealedSet((prev) => {
       const next = new Set(prev);
@@ -222,9 +458,15 @@ export function App({
     });
   }, []);
 
-  const handleSelectAyah = useCallback((ayah: AyahKey, anchorRect: DOMRect) => {
-    setSelected((prev) => (prev?.ayah === ayah ? null : { ayah, rect: anchorRect }));
-  }, []);
+  const handleSelectAyah = useCallback(
+    (ayah: AyahKey, anchorRect: DOMRect) => {
+      setSelected((prev) => (prev?.ayah === ayah ? null : { ayah, rect: anchorRect }));
+      if (studyOpen) {
+        setStudyAyah(ayah);
+      }
+    },
+    [studyOpen],
+  );
 
   const bookmarkSet = useMemo(() => new Set(userData.bookmarks), [userData.bookmarks]);
 
@@ -263,13 +505,22 @@ export function App({
     ? surahByNumber.get(Number(selected.ayah.split(":")[0]))?.name ?? "Surah"
     : "";
 
+  const effectiveStudyAyah = studyAyah ?? activeAyah;
+  const studySurah = surahByNumber.get(parseAyahKey(effectiveStudyAyah).surah);
+
+  const isSurahDownloaded = downloadedSurahs.has(`${audioState.reciterId}:${activeSurahNum}`);
+  const hideAudioDock =
+    focusMode && !audioState.isPlaying && !audioState.isLoading && downloadProgress === null;
+
   const getPageImageUrl = useCallback(
     (page: number) => platform.getPageImageUrl(page),
     [platform],
   );
 
   return (
-    <div className={`app-shell ${focusMode ? "app-shell--focus" : ""}`}>
+    <div
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""}`}
+    >
       <TopBar
         surahLabel={surahLabel}
         juzNumber={juzNumber}
@@ -293,7 +544,7 @@ export function App({
         leftPageEntry={leftPageEntry}
         pageUrls={pageUrls}
         selectedAyah={selected?.ayah ?? null}
-        playingAyah={playingAyah}
+        playingAyah={effectivePlayingAyah}
         highlights={userData.highlights}
         bookmarks={bookmarkSet}
         blurSet={blurSet}
@@ -323,33 +574,66 @@ export function App({
           highlightColor={userData.highlights[selected.ayah] ?? null}
           onClose={() => setSelected(null)}
           onPlayAyah={(ayah) => {
-            if (onPlayAyah) {
-              onPlayAyah(ayah);
-            } else {
-              showToast(`Murottal ${selectedSurahName} : ${ayah.split(":")[1]}`);
-            }
+            handlePlayAyah(ayah);
             setSelected(null);
           }}
           onOpenStudy={(ayah) => {
-            if (onOpenStudy) {
-              onOpenStudy(ayah);
-            } else {
-              showToast(`Tafsir & Terjemahan ${selectedSurahName} : ${ayah.split(":")[1]}`);
-            }
+            handleOpenStudy(ayah);
             setSelected(null);
           }}
           onStartTasmi={(ayah) => {
-            if (onStartTasmi) {
-              onStartTasmi(ayah);
-            } else {
-              showToast(`Tasmi' mulai dari ${selectedSurahName} : ${ayah.split(":")[1]}`);
-            }
+            handleOpenTasmi(ayah);
             setSelected(null);
           }}
           onToggleBookmark={handleToggleBookmark}
           onSetHighlight={handleSetHighlight}
         />
       )}
+
+      <AudioDock
+        audioState={audioState}
+        activeAyah={activeAyah}
+        surahName={activeSurah?.name ?? "Surah"}
+        reciters={catalog.reciters}
+        hidden={hideAudioDock}
+        downloadProgress={downloadProgress}
+        isSurahDownloaded={isSurahDownloaded}
+        onTogglePlay={handleTogglePlay}
+        onPrev={() => {
+          void audioController.prev();
+        }}
+        onNext={() => {
+          void audioController.next();
+        }}
+        onChangeReciter={handleChangeReciter}
+        onCycleRepeat={handleCycleRepeat}
+        onCycleSpeed={handleCycleSpeed}
+        onDownloadSurah={handleDownloadSurah}
+        onOpenStudy={() => handleOpenStudy(activeAyah)}
+        onOpenTasmi={() => handleOpenTasmi(activeAyah)}
+      />
+
+      <StudyDrawer
+        open={studyOpen}
+        ayah={effectiveStudyAyah}
+        surahName={studySurah?.name ?? "Surah"}
+        surahArabicName={studySurah?.arabicName ?? ""}
+        quranApi={quranApi}
+        translations={catalog.translations}
+        tafsirs={catalog.tafsirs}
+        translationId={userData.settings.translationId}
+        tafsirId={userData.settings.tafsirId}
+        isBookmarked={bookmarkSet.has(effectiveStudyAyah)}
+        highlightColor={userData.highlights[effectiveStudyAyah] ?? null}
+        note={userData.notes[effectiveStudyAyah] ?? ""}
+        onClose={() => setStudyOpen(false)}
+        onChangeTranslation={handleChangeTranslation}
+        onChangeTafsir={handleChangeTafsir}
+        onToggleBookmark={handleToggleBookmark}
+        onSetHighlight={handleSetHighlight}
+        onSaveNote={handleSaveNote}
+        onPlayAyah={handlePlayAyah}
+      />
 
       <NavPalette
         open={paletteOpen}
