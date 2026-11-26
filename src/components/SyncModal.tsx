@@ -182,18 +182,20 @@ export function SyncModal({
             </>
           ) : (
             <>
-              <div className="tasmi-sheet__section">
-                <label className="tasmi-sheet__field">
-                  <span>URL Cloudflare Worker Sync</span>
-                  <input
-                    type="url"
-                    placeholder="https://kafi-sync.akunmu.workers.dev"
-                    value={workerUrl}
-                    disabled={syncing}
-                    onChange={(e) => setWorkerUrl(e.target.value)}
-                  />
-                </label>
-              </div>
+              {!DEFAULT_SYNC_WORKER_URL && (
+                <div className="tasmi-sheet__section">
+                  <label className="tasmi-sheet__field">
+                    <span>URL Cloudflare Worker Sync</span>
+                    <input
+                      type="url"
+                      placeholder="https://kafi-sync.akunmu.workers.dev"
+                      value={workerUrl}
+                      disabled={syncing}
+                      onChange={(e) => setWorkerUrl(e.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
 
               <div className="tasmi-sheet__section">
                 <label className="tasmi-sheet__field">
