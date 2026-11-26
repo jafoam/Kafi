@@ -143,7 +143,9 @@ export function createQuranApi(
 
     const rawText = data.verse?.translations?.[0]?.text ?? "";
     const html = sanitizeHtml(rawText);
-    await platform.cachePut("translation", key, encodeJson({ html }));
+    if (html.length > 0) {
+      await platform.cachePut("translation", key, encodeJson({ html }));
+    }
     return { html, fromCache: false };
   }
 
@@ -167,6 +169,10 @@ export function createQuranApi(
       data?: { tafsir?: Array<{ ayat: number | string; teks?: string }> };
     }>(url, signal);
 
+    if (data.code !== undefined && data.code !== 200) {
+      throw new Error(`equran.id returned code ${data.code} for surah ${surah}`);
+    }
+
     const ayahs: Record<string, string> = {};
     for (const item of data.data?.tafsir ?? []) {
       const num = Number(item.ayat);
@@ -175,7 +181,9 @@ export function createQuranApi(
       }
     }
 
-    await platform.cachePut("tafsir", key, encodeJson({ ayahs }));
+    if (Object.keys(ayahs).length > 0) {
+      await platform.cachePut("tafsir", key, encodeJson({ ayahs }));
+    }
     return { html: ayahs[String(ayah)] ?? "", fromCache: false };
   }
 
@@ -201,7 +209,9 @@ export function createQuranApi(
     const url = `https://api.quran.com/api/v4/tafsirs/${encodeURIComponent(tafsirId)}/by_ayah/${surah}:${ayah}`;
     const data = await fetchJson<{ tafsir?: { text?: string } }>(url, signal);
     const html = sanitizeHtml(data.tafsir?.text ?? "");
-    await platform.cachePut("tafsir", key, encodeJson({ html }));
+    if (html.length > 0) {
+      await platform.cachePut("tafsir", key, encodeJson({ html }));
+    }
     return { html, fromCache: false };
   }
 

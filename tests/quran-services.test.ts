@@ -246,6 +246,36 @@ describe("quran-api", () => {
     expect(progress[progress.length - 1]).toEqual([4, 4]);
     expect(await platform.cacheHas("audio", "Alafasy_128kbps_001004")).toBe(true);
   });
+
+  it("does not poison offline cache on empty payloads or non-200 equran.id code", async () => {
+    const { platform, keys } = createMemoryCachePlatform();
+
+    const non200Fetch = vi.fn(
+      async () => new Response(JSON.stringify({ code: 500, data: {} }), { status: 200 }),
+    );
+    const apiErr = createQuranApi(platform, non200Fetch as unknown as typeof fetch);
+    await expect(apiErr.getTafsir("equran-id", 1, 1)).rejects.toThrow(/code 500/);
+    expect(keys).toHaveLength(0);
+
+    const emptyEquranFetch = vi.fn(
+      async () => new Response(JSON.stringify({ code: 200, data: { tafsir: [] } }), { status: 200 }),
+    );
+    const apiEmptyEquran = createQuranApi(platform, emptyEquranFetch as unknown as typeof fetch);
+    const emptyEquranRes = await apiEmptyEquran.getTafsir("equran-id", 1, 1);
+    expect(emptyEquranRes).toEqual({ html: "", fromCache: false });
+    expect(keys).toHaveLength(0);
+
+    const emptyQcomFetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ verse: { translations: [] }, tafsir: { text: "" } }), {
+          status: 200,
+        }),
+    );
+    const apiEmptyQcom = createQuranApi(platform, emptyQcomFetch as unknown as typeof fetch);
+    expect(await apiEmptyQcom.getTranslation(33, 1, 1)).toEqual({ html: "", fromCache: false });
+    expect(await apiEmptyQcom.getTafsir("16", 1, 1)).toEqual({ html: "", fromCache: false });
+    expect(keys).toHaveLength(0);
+  });
 });
 
 describe("arabic-search", () => {
