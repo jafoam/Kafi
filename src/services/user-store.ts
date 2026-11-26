@@ -9,7 +9,7 @@ import type {
 } from "../data/types";
 import type { PlatformAdapter } from "../platform/types";
 
-export const USER_DATA_KEY = "ayat:user";
+export const USER_DATA_KEY = "kafi:user";
 
 export const DEFAULT_USER_DATA: UserData = {
   lastPage: 1,

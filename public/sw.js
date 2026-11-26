@@ -1,5 +1,5 @@
-const SHELL_CACHE = "ayat-shell-v1";
-const MEDIA_CACHE = "ayat-media-v1";
+const SHELL_CACHE = "kafi-shell-v1";
+const MEDIA_CACHE = "kafi-media-v1";
 const VALID_CACHES = new Set([SHELL_CACHE, MEDIA_CACHE]);
 
 const SHELL_PRECACHE_URLS = ["/", "/manifest.webmanifest", "/icons/icon.svg"];
@@ -127,8 +127,8 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            // Only prune older Ayat caches so @tilawa/core's model cache stays intact.
-            .filter((key) => key.startsWith("ayat-") && !VALID_CACHES.has(key))
+            // Only prune older Kafi caches so @tilawa/core's model cache stays intact.
+            .filter((key) => key.startsWith("kafi-") && !VALID_CACHES.has(key))
             .map((key) => caches.delete(key)),
         ),
       )

@@ -1,8 +1,8 @@
 import type { PlatformAdapter, TilawaModelStorage } from "./types";
 
-const CACHE_NAME = "ayat-cache-v1";
+const CACHE_NAME = "kafi-cache-v1";
 const TILAWA_CACHE_NAME = "tilawa-models";
-const IDB_NAME = "ayat-kv";
+const IDB_NAME = "kafi-kv";
 const IDB_STORE = "kv";
 
 export function resolvePageUrl(page: number, baseUrl?: string): string {
@@ -63,7 +63,7 @@ async function idbSet(key: string, value: string): Promise<void> {
 }
 
 function cacheUrl(bucket: string, key: string): string {
-  return `https://ayat.cache/${encodeURIComponent(bucket)}/${encodeURIComponent(key)}`;
+  return `https://kafi.cache/${encodeURIComponent(bucket)}/${encodeURIComponent(key)}`;
 }
 
 async function openCache(name: string): Promise<Cache | null> {

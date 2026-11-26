@@ -1,79 +1,100 @@
-# Ayat
+# Kafi
 
-Single-codebase **Medina Mushaf (15-line)** reader and offline **Tasmi'** (memorization verification) app, built with React, Vite, ONNX Runtime Web (`@tilawa/core`), and Tauri v2. Runs both as an installable **Web PWA** and as a native **macOS / Windows** desktop app.
+**Kafi** adalah aplikasi pembaca **Mushaf Madinah (15 baris)** dan **Tasmi'** (koreksi hafalan Al-Qur'an secara real-time dan offline-capable) berbasis web (PWA), dengan target deployment utama di **Cloudflare Pages** (ukuran build web di bawah 25 MB). Aplikasi desktop native (Tauri v2) disiapkan menyusul setelah rilis web stabil.
 
-## Prerequisites
+## Fitur Utama
 
-- **Node.js** 20+ and `npm`
-- **Rust** toolchain (`rustup` / `cargo`) — required only for native desktop builds
-- **Medina Mushaf assets** — either `Quranflash.pkg` in the repo root or an installed `/Applications/Quranflash.app` (both are gitignored)
+- **Mushaf Madinah 15 Baris** — tampilan 1 atau 2 halaman (otomatis/manual), mode fokus, tema Terang / Sepia / Malam, serta navigasi cepat Surah, Juz, Halaman, dan pencarian teks Arab (`⌘K` / `Ctrl+K`).
+- **Tasmi' & Pelacakan Bacaan Real-Time** — pengenalan bacaan Al-Qur'an langsung di browser menggunakan model streaming on-device (`@tilawa/core` + ONNX Runtime WebGPU/WASM), lengkap dengan Hifz Blur (sembunyikan ayat) dan ringkasan riwayat Tasmi'.
+- **Murottal, Terjemahan & Tafsir** — pemutar audio per ayat dengan pengulangan dan kecepatan, terjemahan Indonesia & Inggris, Tafsir Kemenag RI serta tafsir klasik, plus bookmark, highlight, dan catatan pribadi yang tersimpan lokal.
+- **PWA Offline-Ready** — Service Worker + Cache API + IndexedDB untuk menyimpan halaman mushaf, audio, terjemahan, tafsir, dan model Tasmi' secara lokal.
 
-## 1. Local Setup & Mushaf Asset Extraction
+---
+
+## Pengembangan & Build Web (Cloudflare Pages)
+
+### Prasyarat
+
+- **Node.js** 20+ dan `npm`
+
+### Jalankan Lokal
 
 ```bash
 npm install
+npm run dev
+```
+
+Jika ingin menguji halaman Mushaf secara lokal tanpa CDN eksternal, ekstrak aset dari `Quranflash.pkg` atau `/Applications/Quranflash.app`:
+
+```bash
 npm run extract:mushaf
 ```
 
-`npm run extract:mushaf` reads `Quranflash.pkg` (or `QURANFLASH_APP_NW`, defaulting to `/Applications/Quranflash.app/Contents/Resources/app.nw`), extracts the 604 Medina Mushaf page images into `public/mushaf/pages/` (gitignored), and generates `src/data/mushaf-map.json` and `src/data/catalog.json`.
+Perintah tersebut mengekstrak 604 halaman Mushaf Madinah ke `public/mushaf/pages/` (gitignored) serta menghasilkan `src/data/mushaf-map.json` dan `src/data/catalog.json`.
 
-> **Attribution:** The 15-line Medina Mushaf page images originate from the **King Fahd Glorious Qur'an Printing Complex (KFGQPC)**. Keep `Quranflash.pkg`, `public/mushaf/pages/`, and `src-tauri/resources/mushaf/` out of source control.
+### Build & Deploy ke Cloudflare Pages (< 25 MB)
 
-## 2. Web PWA (Dev, Build & Public Deployment)
+Build produksi web dirancang agar **seluruh output `dist/` (~6.6 MB) dan setiap file individual berada jauh di bawah batas 25 MiB Cloudflare Pages**:
 
-```bash
-# Development server (http://localhost:5173)
-npm run dev
-
-# Production static PWA build (outputs to dist/)
-npm run build
-npm run preview
-```
-
-### Public CDN / Cloudflare Pages CI
-
-Because `public/mushaf/pages/` is gitignored, CI builds for static hosts (Cloudflare Pages, Vercel, Netlify, etc.) should point to a self-hosted CDN or R2/S3 bucket containing `001.gif`–`604.gif` via `VITE_MUSHAF_BASE_URL`:
+- **ONNX Runtime WASM** (~27 MB) tidak dibundel ke `dist/ort/` pada build web; `@tilawa/core` memuatnya langsung dari CDN `tilawa.dev` (dapat ditimpa lewat `VITE_ORT_WASM_PATH` bila ingin self-host di R2/CDN).
+- **Halaman Mushaf** (`001.gif`–`604.gif`) tidak masuk repositori dan disajikan melalui `VITE_MUSHAF_BASE_URL` (misalnya Cloudflare R2 atau CDN statis dengan header CORS).
 
 ```bash
+# Build produksi untuk Cloudflare Pages
 VITE_MUSHAF_BASE_URL="https://cdn.example.com/mushaf/pages" npm run build
 ```
 
-When `VITE_MUSHAF_BASE_URL` is unset, the web app serves pages from `/mushaf/pages/{NNN}.gif`. Ensure your asset host complies with KFGQPC attribution and distribution terms and sends CORS headers if cached by the Service Worker.
+Konfigurasi di **Cloudflare Pages**:
+- **Build command:** `npm run build`
+- **Build output directory:** `dist`
+- **Environment variable:** `VITE_MUSHAF_BASE_URL=https://<bucket-atau-cdn-anda>/mushaf/pages`
 
-> **WASM bundle size:** `dist/ort/ort-wasm-simd-threaded.jsep.wasm` is ~27 MB, exceeding Cloudflare Pages' 25 MiB single-file limit; host `/ort/` on R2/CDN or deploy to Vercel, Netlify, or a self-hosted static server.
+> Pastikan host aset Mushaf mematuhi ketentuan atribusi **King Fahd Glorious Qur'an Printing Complex (KFGQPC)** dan mengirimkan header CORS agar dapat di-cache oleh Service Worker.
 
-## 3. Native Desktop Builds (Tauri v2)
-
-### macOS (`.app` & `.dmg`)
-
-```bash
-npm run prepare:desktop
-npx tauri build --bundles app,dmg
-```
-
-`npm run prepare:desktop` copies `public/mushaf/pages/*.gif` into `src-tauri/resources/mushaf/pages/` (gitignored) so the `.app` bundle is 100% offline-ready. Build outputs are placed in `src-tauri/target/release/bundle/macos/` and `src-tauri/target/release/bundle/dmg/`.
-
-For public macOS distribution (Developer ID signing + notarization), set the standard Tauri macOS signing environment variables before `npx tauri build`:
-
-- `APPLE_SIGNING_IDENTITY` — e.g. `Developer ID Application: Your Name (TEAMID)`
-- `APPLE_CERTIFICATE` & `APPLE_CERTIFICATE_PASSWORD` — base64 `.p12` cert & password (for CI)
-- `APPLE_ID`, `APPLE_PASSWORD` (app-specific password), and `APPLE_TEAM_ID` (or `APPLE_API_ISSUER`, `APPLE_API_KEY`, `APPLE_API_KEY_PATH`) for notarization
-
-### Windows (`.msi` & `.exe`)
-
-Run on Windows with Rust (MSVC toolchain) and WebView2 installed:
-
-```powershell
-npm run prepare:desktop
-npx tauri build --bundles msi,nsis
-```
-
-Installers are written to `src-tauri/target/release/bundle/msi/` and `src-tauri/target/release/bundle/nsis/`.
-
-## Testing & Type Checking
+### Pengujian & Type Check
 
 ```bash
-npx vitest run
-npx tsc --noEmit
-cargo test --manifest-path src-tauri/Cargo.toml
+npm test
+npm run typecheck
 ```
+
+---
+
+## Aplikasi Desktop (Tahap Berikutnya)
+
+Kode fondasi desktop native (macOS & Windows) menggunakan **Tauri v2** sudah tersedia di `src-tauri/`, namun fokus pengembangan saat ini adalah versi **Web**. Panduan build desktop akan dilengkapi setelah rilis web.
+
+---
+
+## Tech Stack
+
+| Lapisan | Teknologi |
+| --- | --- |
+| Frontend & UI | [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vite.dev/) |
+| Speech / Tasmi' Engine | [`@tilawa/core`](https://tilawa.dev/) (WebGPU / WASM streaming inference) |
+| ML Runtime | [ONNX Runtime Web](https://onnxruntime.ai/) (`onnxruntime-web`) |
+| Offline & Storage | Service Worker, Cache API, IndexedDB, Web Audio API (`AudioWorklet`) |
+| Testing | [Vitest](https://vitest.dev/), [jsdom](https://github.com/jsdom/jsdom) |
+| Hosting Web | [Cloudflare Pages](https://pages.cloudflare.com/) |
+| Desktop (Upcoming) | [Tauri v2](https://v2.tauri.app/) & [Rust](https://www.rust-lang.org/) |
+
+---
+
+## Acknowledgements & Sumber Data
+
+Kafi dibangun di atas kerja keras komunitas open-source dan lembaga penyedia data Al-Qur'an. Terima kasih sebesar-besarnya kepada:
+
+### Engine Tasmi' & Model AI
+- **[Tilawa (`tilawa.dev`)](https://tilawa.dev/)** (`@tilawa/core`, MIT) — engine pengenalan bacaan dan koreksi hafalan Al-Qur'an on-device, beserta hosting CDN untuk model `spliced-clean` / `spliced-clean-lite` (CC BY 4.0) dan runtime ONNX.
+- **[Tarteel — `tlog`](https://huggingface.co/datasets/tarteel-ai/tlog)** (CC-BY) — dataset audio pelatihan & evaluasi di balik model Tilawa.
+- **[QUD Technologies — Quranic Universal Ayahs](https://huggingface.co/datasets/QUD-Technologies/quranic-universal-ayahs)** (CC-BY) — dataset audio dan benchmark alignment Al-Qur'an.
+- **[Muaalem (`obadx/muaalem-model-v3_2`)](https://huggingface.co/obadx/muaalem-model-v3_2)** & **[`quran-transcript`](https://github.com/obadx/quran-transcript)** (MIT) — model guru, inventaris fonem, dan fonemisasi referensi.
+- **[k2-fsa Icefall](https://github.com/k2-fsa/icefall)** (Apache-2.0) — arsitektur streaming Zipformer dan pipeline ekspor ONNX.
+- **[ONNX Runtime](https://github.com/microsoft/onnxruntime)** (MIT) — mesin inferensi WebGPU & WASM di browser.
+
+### Teks, Mushaf, Terjemahan, Tafsir & Audio
+- **[King Fahd Glorious Qur'an Printing Complex (KFGQPC)](https://qurancomplex.gov.sa/)** — halaman Mushaf Madinah 15 baris.
+- **[Tanzil (`tanzil.net`)](https://tanzil.net/)** — teks Al-Qur'an Utsmani sebagai referensi pencarian dan pencocokan bacaan.
+- **[Quran.com API v4 (`api.quran.com`)](https://api-docs.quran.com/)** — terjemahan (Kemenag RI, Kompleks Raja Fahd, The Sabiq Company, Saheeh International, M.A.S. Abdel Haleem, A. Yusuf Ali, Transliterasi) dan tafsir (Al-Muyassar, Ibn Kathir, Al-Tabari, Al-Qurtubi, Al-Sa'di).
+- **[eQuran.id (`equran.id`)](https://equran.id/)** — API Tafsir Kemenag RI berbahasa Indonesia.
+- **[EveryAyah (`everyayah.com`)](https://everyayah.com/)** — audio murottal per ayat dari para qari (Mishary Alafasy, Al-Husary, Abdul Basit, Al-Minshawy, As-Sudais, Al-Ghamdi, Al-Muaiqly, Al-Shuraim, Al-Shatri, Hani Ar-Rifai).

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { PlatformAdapter } from "../src/platform/types";
-import { createTilawaController } from "../src/services/tilawa-controller";
+import { createTilawaController, resolveOrtWasmPaths } from "../src/services/tilawa-controller";
 
 const mockEvents: string[] = [];
 let releaseNativeStop: (() => void) | null = null;
@@ -111,5 +111,13 @@ describe("tilawa-controller concurrency", () => {
     ]);
 
     controller.dispose();
+  });
+
+  it("uses tilawa.dev CDN on web by default, /ort/ on desktop, and honors VITE_ORT_WASM_PATH override", () => {
+    expect(resolveOrtWasmPaths(false, "")).toBeUndefined();
+    expect(resolveOrtWasmPaths(true, "")).toBe("/ort/");
+    expect(resolveOrtWasmPaths(false, "https://cdn.example.com/ort")).toBe(
+      "https://cdn.example.com/ort/",
+    );
   });
 });

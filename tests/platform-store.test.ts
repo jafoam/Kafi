@@ -46,7 +46,7 @@ describe("platform & user-store", () => {
   });
 
   it("falls back safely to defaults when persisted JSON is corrupt", async () => {
-    const store = createUserStore(createMemoryPlatform({ "ayat:user": "{broken-json" }));
+    const store = createUserStore(createMemoryPlatform({ "kafi:user": "{broken-json" }));
     const data = await store.load();
     expect(data).toEqual(DEFAULT_USER_DATA);
   });
@@ -116,8 +116,8 @@ describe("platform & user-store", () => {
     expect(adapter.isDesktop).toBe(false);
     expect(await adapter.getPageImageUrl(7)).toBe("https://cdn.example.com/pages/007.gif");
 
-    await adapter.kvSet("ayat:test", "hello");
-    expect(await adapter.kvGet("ayat:test")).toBe("hello");
+    await adapter.kvSet("kafi:test", "hello");
+    expect(await adapter.kvGet("kafi:test")).toBe("hello");
 
     const bytes = new Uint8Array([1, 2, 3, 4]);
     await adapter.cachePut("audio", "001001", bytes);

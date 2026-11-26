@@ -37,6 +37,16 @@ function translateMicError(err: unknown): Error {
   return new Error("Gagal membuka mikrofon.");
 }
 
+export function resolveOrtWasmPaths(
+  isDesktop: boolean,
+  override: string = import.meta.env?.VITE_ORT_WASM_PATH ?? "",
+): string | undefined {
+  const trimmed = override.trim();
+  if (trimmed) return trimmed.endsWith("/") ? trimmed : `${trimmed}/`;
+  // Web loads ORT WASM from tilawa.dev CDN to stay under Cloudflare Pages' 25 MiB file limit.
+  return isDesktop ? "/ort/" : undefined;
+}
+
 export function createTilawaController(platform: PlatformAdapter): TilawaController {
   let tilawa: Tilawa | null = null;
   let initPromise: Promise<Tilawa> | null = null;
@@ -59,8 +69,9 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
         import("@tilawa/core/assets/ref-v2.json"),
       ]);
       const reference = (refMod.default ?? refMod) as unknown as ReferenceAsset;
+      const wasmPaths = resolveOrtWasmPaths(platform.isDesktop);
       const instance = await createTilawa({
-        wasmPaths: "/ort/",
+        ...(wasmPaths ? { wasmPaths } : {}),
         storage: platform.createTilawaStorage(),
         reference,
         onProgress,

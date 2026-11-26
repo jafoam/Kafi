@@ -212,7 +212,7 @@ function openAppNwArchive(rootDir) {
     throw new Error(`Neither ${appNwPath} nor ${pkgPath} exists.`);
   }
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ayat-pkg-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kafi-pkg-"));
   try {
     const expandedDir = path.join(tmpDir, "expanded");
     execFileSync("pkgutil", ["--expand-full", pkgPath, expandedDir]);

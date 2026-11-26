@@ -10,10 +10,11 @@ const ORT_WASM_FILES = new Set([
 ]);
 
 function copyOrtAssetsPlugin() {
+  const bundleOrt = Boolean(process.env.TAURI_ENV_PLATFORM) || process.env.BUNDLE_ORT_WASM === "1";
   return {
     name: "copy-ort-assets",
     buildStart() {
-      if (process.env.VITEST) return;
+      if (process.env.VITEST || !bundleOrt) return;
       const srcDir = path.resolve(process.cwd(), "node_modules/onnxruntime-web/dist");
       const destDir = path.resolve(process.cwd(), "public/ort");
       if (!fs.existsSync(srcDir)) return;
@@ -36,9 +37,14 @@ function copyOrtAssetsPlugin() {
       }
     },
     closeBundle() {
-      // Desktop Tauri builds bundle Mushaf pages via bundle.resources; avoid duplicating ~60 MB inside the binary.
-      if (!process.env.TAURI_ENV_PLATFORM) return;
-      fs.rmSync(path.resolve(process.cwd(), "dist/mushaf"), { recursive: true, force: true });
+      // Keep Cloudflare / web builds under 25 MB: ORT WASM is loaded from tilawa.dev CDN on web.
+      if (!bundleOrt) {
+        fs.rmSync(path.resolve(process.cwd(), "dist/ort"), { recursive: true, force: true });
+      }
+      // Omit local mushaf pages when desktop bundles them via resources or web serves them from CDN/CF Pages.
+      if (process.env.TAURI_ENV_PLATFORM || process.env.VITE_MUSHAF_BASE_URL || process.env.CF_PAGES) {
+        fs.rmSync(path.resolve(process.cwd(), "dist/mushaf"), { recursive: true, force: true });
+      }
     },
   };
 }

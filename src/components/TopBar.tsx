@@ -45,7 +45,7 @@ export function TopBar({
     <div className="topbar-zone">
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
         <div className="topbar__left">
-          <span className="topbar__brand">Ayat</span>
+          <span className="topbar__brand">Kafi</span>
           <button
             type="button"
             className="topbar__location-pill"

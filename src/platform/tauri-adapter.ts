@@ -19,7 +19,7 @@ export interface TauriAdapterDeps {
 }
 
 const TILAWA_BUCKET = "tilawa";
-const TILAWA_KEYS_KV = "ayat:tilawa-keys";
+const TILAWA_KEYS_KV = "kafi:tilawa-keys";
 
 /** Encodes arbitrary Tilawa model keys (e.g. `id@ver/file.onnx`) into `[A-Za-z0-9._:-]` for `cache.rs`. */
 function encodeSafeCacheKey(rawKey: string): string {

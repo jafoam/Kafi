@@ -4,17 +4,17 @@ import path from "node:path";
 import { classifyRequest } from "../src/platform/sw-routing";
 import { registerServiceWorker } from "../src/platform/register-sw";
 
-const ORIGIN = "https://ayat.app";
+const ORIGIN = "https://kafi.app";
 
 describe("PWA manifest and SW routing", () => {
   it("routes same-origin mushaf pages, ORT wasm, static assets, and shell paths", () => {
-    expect(classifyRequest("https://ayat.app/mushaf/pages/001.gif", ORIGIN)).toBe("cache-first-media");
-    expect(classifyRequest("https://ayat.app/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/assets/index-abc123.js", ORIGIN)).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/icons/icon.svg", ORIGIN)).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/manifest.webmanifest", ORIGIN)).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/", ORIGIN)).toBe("network-first-shell");
-    expect(classifyRequest("https://ayat.app/index.html", ORIGIN)).toBe("network-first-shell");
+    expect(classifyRequest("https://kafi.app/mushaf/pages/001.gif", ORIGIN)).toBe("cache-first-media");
+    expect(classifyRequest("https://kafi.app/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://kafi.app/assets/index-abc123.js", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://kafi.app/icons/icon.svg", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://kafi.app/manifest.webmanifest", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://kafi.app/", ORIGIN)).toBe("network-first-shell");
+    expect(classifyRequest("https://kafi.app/index.html", ORIGIN)).toBe("network-first-shell");
   });
 
   it("enforces same-origin on pathname rules so third-party origins pass through", () => {
@@ -53,9 +53,10 @@ describe("PWA manifest and SW routing", () => {
     ).toBe("passthrough");
   });
 
-  it("ships a valid webmanifest with Ayat name, standalone display, and existing icon", () => {
+  it("ships a valid webmanifest with Kafi name, standalone display, and existing icon", () => {
     const manifest = JSON.parse(fs.readFileSync("public/manifest.webmanifest", "utf8"));
-    expect(manifest.name).toContain("Ayat");
+    expect(manifest.name).toContain("Kafi");
+    expect(manifest.short_name).toBe("Kafi");
     expect(manifest.display).toBe("standalone");
     expect(manifest.theme_color).toBe("#136f5a");
     expect(manifest.icons.length).toBeGreaterThan(0);
@@ -68,8 +69,8 @@ describe("PWA manifest and SW routing", () => {
 
   it("ships public/sw.js aligned with routing rules and never intercepting tilawa.dev or API hosts", () => {
     const swSource = fs.readFileSync("public/sw.js", "utf8");
-    expect(swSource).toContain("ayat-shell-v1");
-    expect(swSource).toContain("ayat-media-v1");
+    expect(swSource).toContain("kafi-shell-v1");
+    expect(swSource).toContain("kafi-media-v1");
     expect(swSource).toContain("tilawa.dev");
     expect(swSource).toContain("mushafBase");
     expect(swSource).toContain("parsed.origin !== origin");
@@ -79,7 +80,7 @@ describe("PWA manifest and SW routing", () => {
     expect(swSource).not.toContain("api.quran.com");
     expect(swSource).not.toContain("equran.id");
     expect(swSource).toContain("navigate");
-    expect(swSource).toContain('startsWith("ayat-")');
+    expect(swSource).toContain('startsWith("kafi-")');
   });
 });
 
