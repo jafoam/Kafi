@@ -11,6 +11,8 @@ import type {
   MistakeBadge,
   MushafMap,
   SpreadMode,
+  SyncConfig,
+  TasmiSessionKind,
   TasmiSessionRecord,
   ThemeMode,
   UserData,
@@ -45,6 +47,11 @@ import {
   type TasmiLiveState,
 } from "./services/tasmi-logic";
 import { createTilawaController } from "./services/tilawa-controller";
+import {
+  parseSyncConfig,
+  SYNC_CONFIG_KEY,
+  syncUserData,
+} from "./services/sync-service";
 import { createUserStore, DEFAULT_USER_DATA } from "./services/user-store";
 import {
   clampPage,
@@ -63,8 +70,13 @@ import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
 import { useOfflinePages } from "./state/useOfflinePages";
-import { RecitationRibbon, type RandomPromptInfo } from "./components/RecitationRibbon";
+import {
+  RecitationRibbon,
+  type ErrorDrillInfo,
+  type RandomPromptInfo,
+} from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
+import { SyncModal } from "./components/SyncModal";
 import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
 import { TopBar } from "./components/TopBar";
@@ -196,6 +208,11 @@ export function App({
   const [tasmiBlurEnabled, setTasmiBlurEnabled] = useState(true);
   const [randomPool, setRandomPool] = useState<RandomPool | null>(null);
   const [randomPrompt, setRandomPrompt] = useState<RandomPromptInfo | null>(null);
+  const [errorDrill, setErrorDrill] = useState<(ErrorDrillInfo & { ayahs: AyahKey[] }) | null>(null);
+  const [syncOpen, setSyncOpen] = useState(false);
+  const [syncConfig, setSyncConfig] = useState<SyncConfig | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [peekedAyah, setPeekedAyah] = useState<AyahKey | null>(null);
   const [modelLoading, setModelLoading] = useState<LoadProgress | null>(null);
   const [tasmiStarting, setTasmiStarting] = useState(false);
@@ -203,7 +220,7 @@ export function App({
   const [wordLookup, setWordLookup] = useState<WordLookupFn>(() => EMPTY_WORD_LOOKUP);
   const [summaryModal, setSummaryModal] = useState<{
     open: boolean;
-    tab: "summary" | "history";
+    tab: "summary" | "history" | "schedule";
     record: TasmiSessionRecord | null;
   }>({ open: false, tab: "summary", record: null });
 
@@ -214,6 +231,12 @@ export function App({
   const promptAbortRef = useRef<AbortController | null>(null);
   const promptAudioRef = useRef<HTMLAudioElement | null>(null);
   const randomRoundSeqRef = useRef<number>(0);
+  const tasmiSessionKindRef = useRef<TasmiSessionKind>("murajaah");
+  const tasmiPeekedAyahsRef = useRef<Set<AyahKey>>(new Set());
+  const syncInFlightRef = useRef(false);
+  const skipNextAutoSyncRef = useRef(false);
+  const syncTimerRef = useRef<number | null>(null);
+  const userDataRef = useRef<UserData>(DEFAULT_USER_DATA);
   const lastAutoTurnAyahRef = useRef<AyahKey | null>(null);
   const lastTasmiTurnAyahRef = useRef<AyahKey | null>(null);
   const lastSyncedStudyAyahRef = useRef<AyahKey | null>(null);
@@ -240,6 +263,7 @@ export function App({
       }
       if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+      if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
       audioController.dispose();
       quranApi.dispose();
       tilawaController.dispose();
@@ -273,16 +297,67 @@ export function App({
     [showToast],
   );
 
-  // Load persisted user data on mount
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
+
+  const executeSync = useCallback(
+    async (cfg: SyncConfig, data: UserData, silent: boolean) => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+      if (!silent) {
+        setSyncing(true);
+        setSyncError(null);
+      }
+      try {
+        const result = await syncUserData({
+          code: cfg.code,
+          workerUrl: cfg.workerUrl,
+          localData: data,
+        });
+        if (!mountedRef.current) return;
+        const saved = await userStore.replaceAll(result.merged);
+        skipNextAutoSyncRef.current = true;
+        setUserData(saved);
+        setCurrentPage(saved.lastPage);
+        audioController.setReciter(saved.settings.reciterId);
+
+        const nextCfg: SyncConfig = { ...cfg, lastSyncedAt: result.updatedAt };
+        setSyncConfig(nextCfg);
+        await platform.kvSet(SYNC_CONFIG_KEY, JSON.stringify(nextCfg));
+        if (!silent) {
+          showToast(result.pulled ? "Data tersinkron antar perangkat" : "Data terunggah ke sync");
+        }
+      } catch (err) {
+        if (!mountedRef.current) return;
+        const message = err instanceof Error ? err.message : "Gagal menyinkronkan data.";
+        if (!silent) setSyncError(message);
+      } finally {
+        syncInFlightRef.current = false;
+        if (mountedRef.current && !silent) setSyncing(false);
+      }
+    },
+    [userStore, audioController, platform, showToast],
+  );
+
+  // Load persisted user data & sync config on mount
   useEffect(() => {
     let active = true;
-    void userStore
-      .load()
-      .then((loaded) => {
+    void Promise.all([userStore.load(), platform.kvGet(SYNC_CONFIG_KEY).catch(() => null)])
+      .then(([loaded, rawSync]) => {
         if (!active) return;
+        userDataRef.current = loaded;
         setUserData(loaded);
         setCurrentPage(loaded.lastPage);
         audioController.setReciter(loaded.settings.reciterId);
+
+        const cfg = parseSyncConfig(rawSync);
+        if (cfg) {
+          setSyncConfig(cfg);
+          if (typeof navigator === "undefined" || navigator.onLine !== false) {
+            void executeSync(cfg, loaded, true);
+          }
+        }
       })
       .catch(() => {
         if (active) showToast("Gagal memuat data lokal");
@@ -290,7 +365,28 @@ export function App({
     return () => {
       active = false;
     };
-  }, [userStore, audioController, showToast]);
+  }, [userStore, platform, audioController, showToast, executeSync]);
+
+  // Debounced background sync whenever local userData changes while connected
+  useEffect(() => {
+    if (!syncConfig || !userData.updatedAt) return;
+    if (skipNextAutoSyncRef.current) {
+      skipNextAutoSyncRef.current = false;
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => {
+      syncTimerRef.current = null;
+      void executeSync(syncConfig, userDataRef.current, true);
+    }, 4000);
+    return () => {
+      if (syncTimerRef.current !== null) {
+        window.clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
+  }, [syncConfig, userData.updatedAt, executeSync]);
 
   // Sync theme attribute on <html>
   useEffect(() => {
@@ -429,7 +525,9 @@ export function App({
 
   const effectivePlayingAyah =
     playingAyah ??
-    (tasmiActive ? (tasmiState?.activeAyah ?? randomPrompt?.ayah ?? null) : audioState.currentAyah);
+    (tasmiActive
+      ? (tasmiState?.activeAyah ?? errorDrill?.ayah ?? randomPrompt?.ayah ?? null)
+      : audioState.currentAyah);
   const isAudioOnVisiblePage = isAyahOnVisiblePages(audioState.currentAyah);
 
   const playTargetAyah = useMemo<AyahKey>(() => {
@@ -793,15 +891,23 @@ export function App({
   );
 
   const startTasmiSession = useCallback(
-    async (mode: "free" | "memorization", passage: DeclaredPassage | null, enableBlur: boolean) => {
+    async (
+      mode: "free" | "memorization",
+      passage: DeclaredPassage | null,
+      enableBlur: boolean,
+      kind: TasmiSessionKind = "murajaah",
+    ) => {
       if (tasmiStartingRef.current) return;
       tasmiStartingRef.current = true;
       setTasmiStarting(true);
 
-      // Pause Murottal and any Uji Acak prompt audio before activating Tasmi' mic
+      // Pause Murottal and any Uji Acak / Error Drill audio before activating Tasmi' mic
       stopPromptAudio();
       setRandomPool(null);
       setRandomPrompt(null);
+      setErrorDrill(null);
+      tasmiSessionKindRef.current = kind;
+      tasmiPeekedAyahsRef.current = new Set();
       audioController.pause();
       setTasmiError(null);
 
@@ -879,6 +985,9 @@ export function App({
 
       stopPromptAudio();
       const seq = randomRoundSeqRef.current;
+      setErrorDrill(null);
+      tasmiSessionKindRef.current = "murajaah";
+      tasmiPeekedAyahsRef.current = new Set();
       audioController.pause();
       setTasmiError(null);
 
@@ -1003,11 +1112,167 @@ export function App({
     ],
   );
 
+  const runDrillStep = useCallback(
+    async (ayahs: AyahKey[], index: number, skipListen = false) => {
+      const targetAyah = ayahs[index];
+      if (!targetAyah) return;
+      if (tasmiStartingRef.current) return;
+      tasmiStartingRef.current = true;
+      setTasmiStarting(true);
+
+      stopPromptAudio();
+      const seq = randomRoundSeqRef.current;
+      setRandomPool(null);
+      setRandomPrompt(null);
+      setSummaryModal((prev) => ({ ...prev, open: false }));
+      tasmiSessionKindRef.current = "murajaah";
+      tasmiPeekedAyahsRef.current = new Set();
+      audioController.pause();
+      setTasmiError(null);
+
+      tilawaAbortRef.current?.abort();
+      const abort = new AbortController();
+      tilawaAbortRef.current = abort;
+
+      const { surah, ayah } = parseAyahKey(targetAyah);
+      const passage: DeclaredPassage = { surah, fromAyah: ayah, toAyah: ayah };
+      const totalLoops = 2;
+
+      try {
+        await tilawaController.stop().catch(() => {});
+
+        const [lookup] = await Promise.all([
+          ensureWordLookup(),
+          tilawaController.ensureReady((progress) => {
+            if (!mountedRef.current || abort.signal.aborted) return;
+            setModelLoading(progress);
+          }, abort.signal),
+        ]);
+
+        if (!mountedRef.current || abort.signal.aborted || seq !== randomRoundSeqRef.current) return;
+        setModelLoading(null);
+
+        const initial = createTasmiState("memorization", passage);
+        tasmiStateRef.current = initial;
+        tasmiStartedAtRef.current = Date.now();
+        setTasmiState(initial);
+        setPeekedAyah(null);
+        setTasmiActive(true);
+        setTasmiSheetOpen(false);
+
+        const page = mushafMap.ayahToPage[targetAyah];
+        if (page && page !== rightPage && page !== leftPage) {
+          navigateToPage(page);
+        }
+
+        tasmiStartingRef.current = false;
+        setTasmiStarting(false);
+
+        if (!skipListen) {
+          // Keep the ayah visible while looping murottal so the reader reinforces the right text.
+          setTasmiBlurEnabled(false);
+          const promptAbort = new AbortController();
+          promptAbortRef.current = promptAbort;
+
+          const match = await resolvePromptAudio(
+            surah,
+            ayah,
+            audioState.reciterId,
+            catalog.reciters,
+            platform,
+            quranApi,
+            { signal: promptAbort.signal },
+          );
+
+          if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
+            return;
+          }
+
+          if (match) {
+            for (let loop = 1; loop <= totalLoops; loop += 1) {
+              if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
+                return;
+              }
+              setErrorDrill({
+                ayahs,
+                ayah: targetAyah,
+                index,
+                total: ayahs.length,
+                phase: "listen",
+                loop,
+                totalLoops,
+              });
+              try {
+                await playSinglePromptAudio(match.url, audioState.speed, promptAbort.signal);
+              } catch {
+                break;
+              }
+            }
+          } else {
+            showToast("Audio murottal tidak tersedia offline — langsung Tasmi' ulang");
+          }
+
+          if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
+            return;
+          }
+        }
+
+        setTasmiBlurEnabled(true);
+        setErrorDrill({
+          ayahs,
+          ayah: targetAyah,
+          index,
+          total: ayahs.length,
+          phase: "recite",
+          loop: totalLoops,
+          totalLoops,
+        });
+
+        const onEvent = (event: EngineEvent) => {
+          if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
+          const base = tasmiStateRef.current ?? initial;
+          const next = reduceTilawaEvent(base, event, lookup);
+          tasmiStateRef.current = next;
+          setTasmiState(next);
+        };
+
+        await tilawaController.startMemorization(passage, onEvent);
+      } catch (err) {
+        if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
+        setModelLoading(null);
+        if (abort.signal.aborted) return;
+        const message = err instanceof Error ? err.message : "Gagal memulai Latih Kesalahan.";
+        setTasmiError(message);
+        showToast(message);
+      } finally {
+        tasmiStartingRef.current = false;
+        if (mountedRef.current) setTasmiStarting(false);
+      }
+    },
+    [
+      stopPromptAudio,
+      audioController,
+      tilawaController,
+      ensureWordLookup,
+      rightPage,
+      leftPage,
+      navigateToPage,
+      audioState.reciterId,
+      audioState.speed,
+      platform,
+      quranApi,
+      playSinglePromptAudio,
+      showToast,
+    ],
+  );
+
   const handleStopTasmi = useCallback(async () => {
     stopPromptAudio();
+    const wasDrill = errorDrill !== null;
     setTasmiActive(false);
     setRandomPool(null);
     setRandomPrompt(null);
+    setErrorDrill(null);
     setPeekedAyah(null);
     const durationSec = Math.max(1, Math.round((Date.now() - tasmiStartedAtRef.current) / 1000));
     try {
@@ -1020,7 +1285,13 @@ export function App({
     tasmiStateRef.current = null;
     setTasmiState(null);
 
+    if (wasDrill) {
+      showToast("Latih Kesalahan selesai");
+      return;
+    }
+
     if (finalState?.mode === "memorization" && finalState.passage) {
+      const peekedList = Array.from(tasmiPeekedAyahsRef.current);
       const record: TasmiSessionRecord = {
         id: `tasmi-${Date.now()}`,
         startedAt: new Date(tasmiStartedAtRef.current || Date.now()).toISOString(),
@@ -1029,13 +1300,32 @@ export function App({
         fromAyah: finalState.passage.fromAyah,
         toAyah: finalState.passage.toAyah,
         mistakes: finalState.confirmedMistakes,
+        ...(peekedList.length > 0 ? { peekedAyahs: peekedList } : {}),
+        kind: tasmiSessionKindRef.current,
       };
       persistUser(userStore.addTasmiHistory(record));
       setSummaryModal({ open: true, tab: "summary", record });
     } else if (finalState) {
       showToast("Sesi Baca Bebas selesai");
     }
-  }, [stopPromptAudio, tilawaController, userStore, persistUser, showToast]);
+  }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast]);
+
+  const handleDrillNext = useCallback(() => {
+    if (!errorDrill) return;
+    const hasMistake = (tasmiStateRef.current?.confirmedMistakes.length ?? 0) > 0;
+    const wasPeeked = tasmiPeekedAyahsRef.current.has(errorDrill.ayah);
+    if (hasMistake || wasPeeked) {
+      showToast("Masih ada catatan/intipan — ulangi ayat ini sampai bersih");
+      void runDrillStep(errorDrill.ayahs, errorDrill.index, false);
+      return;
+    }
+    if (errorDrill.index + 1 < errorDrill.ayahs.length) {
+      void runDrillStep(errorDrill.ayahs, errorDrill.index + 1, false);
+    } else {
+      showToast("Alhamdulillah, semua ayat kesalahan sudah bersih!");
+      void handleStopTasmi();
+    }
+  }, [errorDrill, runDrillStep, handleStopTasmi, showToast]);
 
   const handleOpenTasmiHistory = useCallback(() => {
     void ensureWordLookup();
@@ -1050,6 +1340,7 @@ export function App({
   const handlePeekAyah = useCallback(
     (ayah: AyahKey) => {
       if (tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled) {
+        tasmiPeekedAyahsRef.current.add(ayah);
         setPeekedAyah(ayah);
         if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
         peekTimerRef.current = window.setTimeout(() => {
@@ -1143,6 +1434,7 @@ export function App({
   useBackClose(paletteOpen, () => setPaletteOpen(false));
   useBackClose(studyOpen, () => setStudyOpen(false));
   useBackClose(downloadsOpen, () => setDownloadsOpen(false));
+  useBackClose(syncOpen, () => setSyncOpen(false));
   useBackClose(tasmiSheetOpen, () => setTasmiSheetOpen(false));
   useBackClose(summaryModal.open, () => setSummaryModal((prev) => ({ ...prev, open: false })));
   useBackClose(selected !== null, () => setSelected(null));
@@ -1298,6 +1590,11 @@ export function App({
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
         onOpenDownloads={() => openDownloads("audio")}
+        onOpenSync={() => {
+          setSyncError(null);
+          setSyncOpen(true);
+        }}
+        syncConnected={syncConfig !== null}
       />
 
       {downloadsOpen && (
@@ -1465,6 +1762,7 @@ export function App({
           glyphLoader={glyphLoader}
           ayahToPage={mushafMap.ayahToPage}
           randomPrompt={randomPrompt}
+          errorDrill={errorDrill}
           onReplayPrompt={
             randomPrompt && randomPool && tasmiState.passage
               ? () => {
@@ -1488,6 +1786,21 @@ export function App({
                 }
               : undefined
           }
+          onDrillSkipListen={
+            errorDrill
+              ? () => {
+                  void runDrillStep(errorDrill.ayahs, errorDrill.index, true);
+                }
+              : undefined
+          }
+          onDrillRepeat={
+            errorDrill
+              ? () => {
+                  void runDrillStep(errorDrill.ayahs, errorDrill.index, false);
+                }
+              : undefined
+          }
+          onDrillNext={errorDrill ? handleDrillNext : undefined}
           onStop={() => {
             void handleStopTasmi();
           }}
@@ -1502,6 +1815,7 @@ export function App({
         currentJuz={juzNumber}
         initialAyah={tasmiInitialAyah}
         historyCount={userData.tasmiHistory.length}
+        murajaahCards={userData.murajaahCards}
         loadingProgress={modelLoading}
         isStarting={tasmiStarting}
         error={tasmiError}
@@ -1512,8 +1826,8 @@ export function App({
         onStartFree={() => {
           void startTasmiSession("free", null, false);
         }}
-        onStartMemorization={(passage, enableBlur) => {
-          void startTasmiSession("memorization", passage, enableBlur);
+        onStartMemorization={(passage, enableBlur, kind) => {
+          void startTasmiSession("memorization", passage, enableBlur, kind);
         }}
         onStartRandom={(pool, enableBlur) => {
           const challenge = pickRandomChallenge(pool, catalog);
@@ -1529,6 +1843,7 @@ export function App({
         initialTab={summaryModal.tab}
         record={summaryModal.record}
         history={userData.tasmiHistory}
+        murajaahCards={userData.murajaahCards}
         surahs={catalog.surahs}
         getAyahWords={wordLookup}
         glyphLoader={glyphLoader}
@@ -1542,6 +1857,40 @@ export function App({
         onJumpToAyah={(ayah) => {
           setSummaryModal((prev) => ({ ...prev, open: false }));
           handleJumpToAyah(ayah);
+        }}
+        onStartDrill={(ayahs) => {
+          void runDrillStep(ayahs, 0, false);
+        }}
+        onStartMurajaahCard={(card) => {
+          setSummaryModal((prev) => ({ ...prev, open: false }));
+          void startTasmiSession(
+            "memorization",
+            { surah: card.surah, fromAyah: card.fromAyah, toAyah: card.toAyah },
+            true,
+            card.kind,
+          );
+        }}
+      />
+
+      <SyncModal
+        open={syncOpen}
+        config={syncConfig}
+        syncing={syncing}
+        error={syncError}
+        onClose={() => setSyncOpen(false)}
+        onConnect={async (code, workerUrl) => {
+          const cfg: SyncConfig = { code, workerUrl };
+          await executeSync(cfg, userDataRef.current, false);
+        }}
+        onSyncNow={async () => {
+          if (!syncConfig) return;
+          await executeSync(syncConfig, userDataRef.current, false);
+        }}
+        onDisconnect={() => {
+          setSyncConfig(null);
+          setSyncError(null);
+          void platform.kvSet(SYNC_CONFIG_KEY, "").catch(() => undefined);
+          showToast("Sync antar perangkat diputus");
         }}
       />
 

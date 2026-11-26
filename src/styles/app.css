@@ -1770,8 +1770,14 @@ textarea:focus-visible {
   align-items: flex-end;
 }
 
+.tasmi-sheet__range-row--equal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
 .tasmi-sheet__field {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1783,8 +1789,15 @@ textarea:focus-visible {
   flex: 0 0 88px;
 }
 
+.tasmi-sheet__range-row--equal .tasmi-sheet__field--num {
+  flex: initial;
+}
+
 .tasmi-sheet__field select,
 .tasmi-sheet__field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 34px;
   padding: 0 10px;
   border-radius: var(--radius-sm);
@@ -1792,6 +1805,100 @@ textarea:focus-visible {
   background: var(--bg-subtle);
   font-size: 13px;
   color: var(--text-primary);
+}
+
+.tasmi-sheet__murajaah-cta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(19, 111, 90, 0.35);
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tasmi-sheet__murajaah-cta:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.tasmi-sheet__murajaah-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.tasmi-sheet__murajaah-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__murajaah-pill {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.tasmi-summary__drill-btn {
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tasmi-summary__drill-btn:hover {
+  background: var(--accent-hover);
+}
+
+.tasmi-summary__schedule-note {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sync-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+}
+
+.sync-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-actions-row > button {
+  flex: 1 1 120px;
 }
 
 .tasmi-sheet__toggle {

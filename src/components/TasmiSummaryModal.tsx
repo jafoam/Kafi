@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AyahKey, SurahInfo, TasmiSessionRecord } from "../data/types";
+import type { AyahKey, MurajaahCard, SurahInfo, TasmiSessionRecord } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
+import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/murajaah-srs";
 import { ERROR_CLASS_LABELS, formatErrorClass } from "../services/tasmi-logic";
 
 export interface TasmiSummaryModalProps {
   open: boolean;
-  initialTab: "summary" | "history";
+  initialTab: "summary" | "history" | "schedule";
   record: TasmiSessionRecord | null;
   history: TasmiSessionRecord[];
+  murajaahCards?: MurajaahCard[];
   surahs: SurahInfo[];
   getAyahWords: (surah: number, ayah: number) => string[];
   glyphLoader?: GlyphPageLoader;
@@ -15,6 +17,8 @@ export interface TasmiSummaryModalProps {
   onClose: () => void;
   onPlayAyah: (ayah: AyahKey) => void;
   onJumpToAyah: (ayah: AyahKey) => void;
+  onStartDrill?: (ayahs: AyahKey[]) => void;
+  onStartMurajaahCard?: (card: MurajaahCard) => void;
 }
 
 interface QcfGlyph {
@@ -54,6 +58,7 @@ export function TasmiSummaryModal({
   initialTab,
   record,
   history,
+  murajaahCards = [],
   surahs,
   getAyahWords,
   glyphLoader,
@@ -61,8 +66,10 @@ export function TasmiSummaryModal({
   onClose,
   onPlayAyah,
   onJumpToAyah,
+  onStartDrill,
+  onStartMurajaahCard,
 }: TasmiSummaryModalProps) {
-  const [tab, setTab] = useState<"summary" | "history">(initialTab);
+  const [tab, setTab] = useState<"summary" | "history" | "schedule">(initialTab);
   const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
   const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
 
@@ -146,6 +153,17 @@ export function TasmiSummaryModal({
     return counts;
   }, [activeRecord]);
 
+  const drillAyahs = useMemo(() => extractDrillAyahs(activeRecord), [activeRecord]);
+  const activeCard = useMemo(() => {
+    if (!activeRecord) return null;
+    const id = murajaahCardId(activeRecord.surah, activeRecord.fromAyah, activeRecord.toAyah);
+    return murajaahCards.find((c) => c.id === id) ?? null;
+  }, [activeRecord, murajaahCards]);
+  const sortedCards = useMemo(
+    () => [...murajaahCards].sort((a, b) => (Date.parse(a.dueAt) || 0) - (Date.parse(b.dueAt) || 0)),
+    [murajaahCards],
+  );
+
   if (!open) return null;
 
   return (
@@ -184,7 +202,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("summary")}
           >
-            Ringkasan Sesi
+            Ringkasan
           </button>
           <button
             type="button"
@@ -195,7 +213,18 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("history")}
           >
-            Riwayat Tasmi&apos; ({history.length})
+            Riwayat ({history.length})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "schedule"}
+            className={`tasmi-sheet__mode-btn ${
+              tab === "schedule" ? "tasmi-sheet__mode-btn--active" : ""
+            }`}
+            onClick={() => setTab("schedule")}
+          >
+            Jadwal ({murajaahCards.length})
           </button>
         </div>
 
@@ -212,20 +241,41 @@ export function TasmiSummaryModal({
                     <div className="tasmi-summary__meta">
                       Durasi {formatDuration(activeRecord.durationSec)} ·{" "}
                       {formatDate(activeRecord.startedAt)}
+                      {activeRecord.peekedAyahs && activeRecord.peekedAyahs.length > 0
+                        ? ` · ${activeRecord.peekedAyahs.length} diintip`
+                        : ""}
                     </div>
                   </div>
                   <div
                     className={`tasmi-summary__score ${
-                      activeRecord.mistakes.length === 0
+                      drillAyahs.length === 0
                         ? "tasmi-summary__score--clean"
                         : "tasmi-summary__score--warn"
                     }`}
                   >
-                    {activeRecord.mistakes.length === 0
+                    {drillAyahs.length === 0
                       ? "Lancar"
                       : `${activeRecord.mistakes.length} catatan`}
                   </div>
                 </div>
+
+                {activeCard && (
+                  <div className="tasmi-summary__schedule-note">
+                    Jadwal {activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} berikutnya:{" "}
+                    <strong>{formatDueLabel(activeCard.dueAt)}</strong> (interval{" "}
+                    {activeCard.stabilityDays} hari)
+                  </div>
+                )}
+
+                {drillAyahs.length > 0 && onStartDrill && (
+                  <button
+                    type="button"
+                    className="tasmi-summary__drill-btn"
+                    onClick={() => onStartDrill(drillAyahs)}
+                  >
+                    Latih Kesalahan ({drillAyahs.length} ayat)
+                  </button>
+                )}
 
                 <div className="tasmi-summary__breakdown">
                   {BREAKDOWN_CLASSES.map((cls) => (
@@ -312,40 +362,79 @@ export function TasmiSummaryModal({
             ) : (
               <div className="tasmi-summary__empty">Belum ada sesi Tasmi&apos; yang selesai.</div>
             )
-          ) : history.length === 0 ? (
+          ) : tab === "history" ? (
+            history.length === 0 ? (
+              <div className="tasmi-summary__empty">
+                Riwayat Tasmi&apos; masih kosong. Selesaikan satu sesi untuk menyimpannya di sini.
+              </div>
+            ) : (
+              <div className="tasmi-summary__history-list">
+                {history.map((item) => {
+                  const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="tasmi-summary__history-item"
+                      onClick={() => {
+                        setSelectedRecord(item);
+                        setTab("summary");
+                      }}
+                    >
+                      <div>
+                        <div className="tasmi-summary__history-title">
+                          {sName} · Ayat {item.fromAyah}–{item.toAyah}
+                        </div>
+                        <div className="tasmi-summary__history-sub">
+                          {formatDate(item.startedAt)} · {formatDuration(item.durationSec)}
+                        </div>
+                      </div>
+                      <span
+                        className={`tasmi-summary__score ${
+                          item.mistakes.length === 0
+                            ? "tasmi-summary__score--clean"
+                            : "tasmi-summary__score--warn"
+                        }`}
+                      >
+                        {item.mistakes.length === 0 ? "Lancar" : `${item.mistakes.length} catatan`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : sortedCards.length === 0 ? (
             <div className="tasmi-summary__empty">
-              Riwayat Tasmi&apos; masih kosong. Selesaikan satu sesi untuk menyimpannya di sini.
+              Belum ada jadwal muraja&apos;ah. Selesaikan satu sesi Tasmi&apos; agar jadwal otomatis terbentuk.
             </div>
           ) : (
             <div className="tasmi-summary__history-list">
-              {history.map((item) => {
-                const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
+              {sortedCards.map((card) => {
+                const sName = surahByNum.get(card.surah)?.name ?? `Surah ${card.surah}`;
+                const isDue = (Date.parse(card.dueAt) || 0) <= Date.now();
                 return (
                   <button
-                    key={item.id}
+                    key={card.id}
                     type="button"
                     className="tasmi-summary__history-item"
-                    onClick={() => {
-                      setSelectedRecord(item);
-                      setTab("summary");
-                    }}
+                    onClick={() => onStartMurajaahCard?.(card)}
                   >
                     <div>
                       <div className="tasmi-summary__history-title">
-                        {sName} · Ayat {item.fromAyah}–{item.toAyah}
+                        {sName} · Ayat {card.fromAyah}–{card.toAyah}
                       </div>
                       <div className="tasmi-summary__history-sub">
-                        {formatDate(item.startedAt)} · {formatDuration(item.durationSec)}
+                        {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · Interval{" "}
+                        {card.stabilityDays} hari
+                        {card.lapses > 0 ? ` · ${card.lapses}× ulang` : ""}
                       </div>
                     </div>
                     <span
                       className={`tasmi-summary__score ${
-                        item.mistakes.length === 0
-                          ? "tasmi-summary__score--clean"
-                          : "tasmi-summary__score--warn"
+                        isDue ? "tasmi-summary__score--warn" : "tasmi-summary__score--clean"
                       }`}
                     >
-                      {item.mistakes.length === 0 ? "Lancar" : `${item.mistakes.length} catatan`}
+                      {formatDueLabel(card.dueAt)}
                     </span>
                   </button>
                 );

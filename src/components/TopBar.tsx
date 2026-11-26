@@ -21,6 +21,8 @@ export interface TopBarProps {
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
   onOpenDownloads: () => void;
+  onOpenSync?: () => void;
+  syncConnected?: boolean;
 }
 
 const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
@@ -54,6 +56,8 @@ export function TopBar({
   onChangeTheme,
   onOpenTasmi,
   onOpenDownloads,
+  onOpenSync,
+  syncConnected = false,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   useBackClose(menuOpen, () => setMenuOpen(false));
@@ -165,6 +169,8 @@ export function TopBar({
           onToggleWordTranslation={onToggleWordTranslation}
           onChangeTheme={onChangeTheme}
           onOpenDownloads={onOpenDownloads}
+          onOpenSync={onOpenSync}
+          syncConnected={syncConnected}
           onClose={() => setMenuOpen(false)}
         />
       )}
@@ -187,6 +193,8 @@ interface AppMenuProps {
   onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenDownloads: () => void;
+  onOpenSync?: () => void;
+  syncConnected?: boolean;
   onClose: () => void;
 }
 
@@ -205,6 +213,8 @@ function AppMenu({
   onToggleWordTranslation,
   onChangeTheme,
   onOpenDownloads,
+  onOpenSync,
+  syncConnected = false,
   onClose,
 }: AppMenuProps) {
   useEffect(() => {
@@ -336,6 +346,26 @@ function AppMenu({
             <span className="app-menu__sub">Kelola unduhan murottal, terjemahan, tafsir, mushaf &amp; AI Tasmi&apos;</span>
           </span>
         </button>
+
+        {onOpenSync && (
+          <button
+            type="button"
+            className="app-menu__row"
+            onClick={() => {
+              onOpenSync();
+              onClose();
+            }}
+          >
+            <span className="app-menu__text">
+              <span className="app-menu__title">
+                Sync Antar Perangkat{syncConnected ? " · Aktif" : ""}
+              </span>
+              <span className="app-menu__sub">
+                Sinkronisasi tanpa login memakai kode terenkripsi
+              </span>
+            </span>
+          </button>
+        )}
       </div>
     </>
   );
