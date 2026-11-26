@@ -66,6 +66,10 @@ fn kv_set(app: AppHandle, key: String, value: String) -> Result<(), String> {
     cache::write_kv(&base, &key, &value)
 }
 
+fn strip_verbatim_prefix(path: &str) -> String {
+    path.strip_prefix(r"\\?\").unwrap_or(path).to_string()
+}
+
 #[tauri::command]
 fn get_mushaf_page_path(app: AppHandle, page: u16) -> Result<String, String> {
     if !(1..=604).contains(&page) {
@@ -76,8 +80,7 @@ fn get_mushaf_page_path(app: AppHandle, page: u16) -> Result<String, String> {
     if let Ok(resource_dir) = app.path().resource_dir() {
         let bundled = resource_dir.join("mushaf").join("pages").join(&filename);
         if bundled.is_file() {
-            let canonical = bundled.canonicalize().unwrap_or(bundled);
-            return Ok(canonical.to_string_lossy().into_owned());
+            return Ok(strip_verbatim_prefix(&bundled.to_string_lossy()));
         }
     }
 
@@ -91,7 +94,7 @@ fn get_mushaf_page_path(app: AppHandle, page: u16) -> Result<String, String> {
         for candidate in dev_candidates {
             if candidate.is_file() {
                 let canonical = candidate.canonicalize().unwrap_or(candidate);
-                return Ok(canonical.to_string_lossy().into_owned());
+                return Ok(strip_verbatim_prefix(&canonical.to_string_lossy()));
             }
         }
     }
@@ -100,13 +103,19 @@ fn get_mushaf_page_path(app: AppHandle, page: u16) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn mic_start(state: State<'_, MicState>, on_chunk: Channel<MicChunk>) -> Result<u32, String> {
-    state.start(on_chunk)
+async fn mic_start(state: State<'_, MicState>, on_chunk: Channel<MicChunk>) -> Result<u32, String> {
+    let mic = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || mic.start(on_chunk))
+        .await
+        .map_err(|e| format!("Mic start task failed: {e}"))?
 }
 
 #[tauri::command]
-fn mic_stop(state: State<'_, MicState>) -> Result<(), String> {
-    state.stop()
+async fn mic_stop(state: State<'_, MicState>) -> Result<(), String> {
+    let mic = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || mic.stop())
+        .await
+        .map_err(|e| format!("Mic stop task failed: {e}"))?
 }
 
 pub fn run() {
@@ -125,4 +134,21 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ayat desktop application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_verbatim_prefix() {
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\C:\Users\me\Ayat\public\mushaf\pages\001.gif"),
+            r"C:\Users\me\Ayat\public\mushaf\pages\001.gif"
+        );
+        assert_eq!(
+            strip_verbatim_prefix("/Users/me/Ayat/public/mushaf/pages/001.gif"),
+            "/Users/me/Ayat/public/mushaf/pages/001.gif"
+        );
+    }
 }

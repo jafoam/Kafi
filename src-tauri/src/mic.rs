@@ -26,18 +26,22 @@ pub fn downmix_to_mono(samples: &[f32], channels: usize) -> Vec<f32> {
 
 struct MicSession {
     stop: Arc<AtomicBool>,
-    handle: JoinHandle<()>,
+    handle: Option<JoinHandle<()>>,
 }
 
-#[derive(Default)]
-pub struct MicState {
-    session: Mutex<Option<MicSession>>,
-}
-
-impl Drop for MicState {
+impl Drop for MicSession {
     fn drop(&mut self) {
-        let _ = self.stop();
+        self.stop.store(true, Ordering::Release);
+        if let Some(handle) = self.handle.take() {
+            handle.thread().unpark();
+            let _ = handle.join();
+        }
     }
+}
+
+#[derive(Clone, Default)]
+pub struct MicState {
+    session: Arc<Mutex<Option<MicSession>>>,
 }
 
 impl MicState {
@@ -67,8 +71,14 @@ impl MicState {
             }
         };
 
-        let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
-        *guard = Some(MicSession { stop, handle });
+        let prev = {
+            let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
+            guard.replace(MicSession {
+                stop,
+                handle: Some(handle),
+            })
+        };
+        drop(prev);
         Ok(sample_rate)
     }
 
@@ -77,11 +87,7 @@ impl MicState {
             let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
             guard.take()
         };
-        if let Some(session) = session {
-            session.stop.store(true, Ordering::Release);
-            session.handle.thread().unpark();
-            let _ = session.handle.join();
-        }
+        drop(session);
         Ok(())
     }
 }
@@ -222,5 +228,30 @@ mod tests {
     fn test_downmix_stereo_to_mono() {
         assert_eq!(downmix_to_mono(&[0.5, -0.5, 1.0, 0.0], 2), vec![0.0, 0.5]);
         assert_eq!(downmix_to_mono(&[0.25, -0.25], 1), vec![0.25, -0.25]);
+    }
+
+    #[test]
+    fn test_mic_session_drop_stops_and_joins_thread() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_clone = Arc::clone(&stop);
+        let exited = Arc::new(AtomicBool::new(false));
+        let exited_clone = Arc::clone(&exited);
+
+        let handle = thread::spawn(move || {
+            while !stop_clone.load(Ordering::Acquire) {
+                thread::park_timeout(Duration::from_secs(5));
+            }
+            exited_clone.store(true, Ordering::Release);
+        });
+
+        {
+            let _session = MicSession {
+                stop: Arc::clone(&stop),
+                handle: Some(handle),
+            };
+        }
+
+        assert!(stop.load(Ordering::Acquire));
+        assert!(exited.load(Ordering::Acquire));
     }
 }
