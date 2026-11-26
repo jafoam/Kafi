@@ -1177,6 +1177,21 @@ textarea:focus-visible {
   opacity: 0.75;
 }
 
+.audio-dock__sub-status {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.audio-dock__sub-status--error {
+  color: var(--mistake-badge);
+}
+
 .audio-dock__ayah-title {
   font-size: 13px;
   font-weight: 600;

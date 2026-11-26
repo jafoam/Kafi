@@ -87,53 +87,49 @@ export function AudioDock({
             title="Buka Terjemahan, Tafsir & Catatan"
           >
             <span className="audio-dock__ayah-title">
-              <span className="audio-dock__title-full">
-                {surahName} : {ayahNum}
-              </span>
-              <span className="audio-dock__title-short">Ayat {ayahNum}</span>
+              {surahName} - {ayahNum}
             </span>
-            {audioState.error ? (
-              <span className="audio-dock__status audio-dock__status--error">
-                Gagal memuat
-              </span>
-            ) : audioState.isTalaqqiPause ? (
-              <span className="audio-dock__status">Tirukan…</span>
-            ) : audioState.isBismillah ? (
-              <span className="audio-dock__status">Basmalah</span>
-            ) : audioState.fromCache && audioState.currentAyah ? (
-              <span className="audio-dock__status">Offline</span>
-            ) : null}
           </button>
 
-          {activeReciter && (
-            <button
-              type="button"
-              className={`audio-dock__reciter-btn ${reciterOpen ? "audio-dock__reciter-btn--open" : ""}`}
-              onClick={() => {
-                setMenuOpen(false);
-                setReciterOpen((open) => !open);
-              }}
-              aria-label={`Qari: ${activeReciter.name}. Ketuk untuk mengganti`}
-              aria-haspopup="dialog"
-              aria-expanded={reciterOpen}
-              title={`Qari: ${activeReciter.name} — klik untuk mengganti`}
-            >
-              <span className="audio-dock__reciter-name">{activeReciter.name}</span>
-              <svg
-                className="audio-dock__reciter-chevron"
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+          {audioState.error ? (
+            <span className="audio-dock__sub-status audio-dock__sub-status--error">
+              Gagal memuat
+            </span>
+          ) : audioState.isTalaqqiPause ? (
+            <span className="audio-dock__sub-status">Tirukan…</span>
+          ) : audioState.isBismillah ? (
+            <span className="audio-dock__sub-status">Basmalah</span>
+          ) : (
+            activeReciter && (
+              <button
+                type="button"
+                className={`audio-dock__reciter-btn ${reciterOpen ? "audio-dock__reciter-btn--open" : ""}`}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setReciterOpen((open) => !open);
+                }}
+                aria-label={`Qari: ${activeReciter.name}. Ketuk untuk mengganti`}
+                aria-haspopup="dialog"
+                aria-expanded={reciterOpen}
+                title={`Qari: ${activeReciter.name} — klik untuk mengganti`}
               >
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
+                <span className="audio-dock__reciter-name">{activeReciter.name}</span>
+                <svg
+                  className="audio-dock__reciter-chevron"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+            )
           )}
         </div>
 
