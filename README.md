@@ -53,7 +53,7 @@ Konfigurasi di **Cloudflare Pages**:
 
 ### Deploy otomatis (GitHub Actions)
 
-Setiap push ke `main` menjalankan [`deploy-web.yml`](.github/workflows/deploy-web.yml): typecheck, tes, build, lalu `wrangler pages deploy` ke proyek Pages `kafi`. Tambahkan di **Settings → Secrets and variables → Actions**:
+Setiap push ke `main` menjalankan [`deploy-web.yml`](.github/workflows/deploy-web.yml): typecheck, tes, build, lalu `wrangler pages deploy` ke proyek Pages `kafi`. Job memakai environment GitHub `cloudflare`; tambahkan di **Settings → Environments → cloudflare** (atau secret level repo):
 
 - Secret `CLOUDFLARE_API_TOKEN` (izin *Cloudflare Pages: Edit*) dan `CLOUDFLARE_ACCOUNT_ID`.
 - Variable opsional `VITE_MUSHAF_BASE_URL` dan `VITE_ORT_WASM_PATH`.
