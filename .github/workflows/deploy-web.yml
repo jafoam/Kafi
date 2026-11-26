@@ -39,6 +39,7 @@ jobs:
           # Optional: host of the fallback GIF pages, set as a repository variable.
           VITE_MUSHAF_BASE_URL: ${{ vars.VITE_MUSHAF_BASE_URL }}
           VITE_ORT_WASM_PATH: ${{ vars.VITE_ORT_WASM_PATH }}
+          VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
 
       - name: Deploy
         uses: cloudflare/wrangler-action@v3
