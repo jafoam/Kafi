@@ -169,6 +169,7 @@ export function App({
   const [tasmiBlurEnabled, setTasmiBlurEnabled] = useState(true);
   const [peekedAyah, setPeekedAyah] = useState<AyahKey | null>(null);
   const [modelLoading, setModelLoading] = useState<LoadProgress | null>(null);
+  const [tasmiStarting, setTasmiStarting] = useState(false);
   const [tasmiError, setTasmiError] = useState<string | null>(null);
   const [wordLookup, setWordLookup] = useState<WordLookupFn>(() => EMPTY_WORD_LOOKUP);
   const [summaryModal, setSummaryModal] = useState<{
@@ -187,6 +188,7 @@ export function App({
   const lastSyncedStudyAyahRef = useRef<AyahKey | null>(null);
   const tasmiStateRef = useRef<TasmiLiveState | null>(null);
   const tasmiStartedAtRef = useRef<number>(0);
+  const tasmiStartingRef = useRef<boolean>(false);
   const wordLookupRef = useRef<WordLookupFn>(EMPTY_WORD_LOOKUP);
   const mountedRef = useRef(true);
 
@@ -541,6 +543,10 @@ export function App({
 
   const startTasmiSession = useCallback(
     async (mode: "free" | "memorization", passage: DeclaredPassage | null, enableBlur: boolean) => {
+      if (tasmiStartingRef.current) return;
+      tasmiStartingRef.current = true;
+      setTasmiStarting(true);
+
       // Pause Murottal automatically before activating Tasmi' mic
       audioController.pause();
       setTasmiError(null);
@@ -570,12 +576,10 @@ export function App({
 
         const onEvent = (event: EngineEvent) => {
           if (!mountedRef.current) return;
-          setTasmiState((prev) => {
-            const base = prev ?? initial;
-            const next = reduceTilawaEvent(base, event, lookup);
-            tasmiStateRef.current = next;
-            return next;
-          });
+          const base = tasmiStateRef.current ?? initial;
+          const next = reduceTilawaEvent(base, event, lookup);
+          tasmiStateRef.current = next;
+          setTasmiState(next);
         };
 
         if (mode === "free") {
@@ -597,6 +601,9 @@ export function App({
         if (abort.signal.aborted) return;
         const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
         setTasmiError(message);
+      } finally {
+        tasmiStartingRef.current = false;
+        if (mountedRef.current) setTasmiStarting(false);
       }
     },
     [audioController, ensureWordLookup, tilawaController, rightPage, leftPage, navigateToPage],
@@ -961,6 +968,7 @@ export function App({
         initialAyah={tasmiInitialAyah}
         historyCount={userData.tasmiHistory.length}
         loadingProgress={modelLoading}
+        isStarting={tasmiStarting}
         error={tasmiError}
         onClose={() => setTasmiSheetOpen(false)}
         onCancelLoad={handleCancelModelLoad}

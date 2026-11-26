@@ -10,6 +10,7 @@ export interface TasmiSheetProps {
   initialAyah: AyahKey | null;
   historyCount: number;
   loadingProgress: LoadProgress | null;
+  isStarting: boolean;
   error: string | null;
   onClose: () => void;
   onCancelLoad: () => void;
@@ -35,6 +36,7 @@ export function TasmiSheet({
   initialAyah,
   historyCount,
   loadingProgress,
+  isStarting,
   error,
   onClose,
   onCancelLoad,
@@ -102,20 +104,20 @@ export function TasmiSheet({
         event.preventDefault();
         if (loadingProgress) {
           onCancelLoad();
-        } else {
+        } else if (!isStarting) {
           onClose();
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, loadingProgress, onCancelLoad, onClose]);
+  }, [open, loadingProgress, isStarting, onCancelLoad, onClose]);
 
   if (!open) return null;
 
   const activeSurahInfo = surahByNum.get(selectedSurah);
   const maxAyah = activeSurahInfo?.ayahs ?? 286;
-  const isBusy = loadingProgress !== null;
+  const isBusy = loadingProgress !== null || isStarting;
 
   const clampedFrom = Math.max(1, Math.min(fromAyah, maxAyah));
   const clampedTo = Math.max(clampedFrom, Math.min(toAyah, maxAyah));
