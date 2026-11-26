@@ -18,6 +18,7 @@ import type {
 import { getPlatform } from "./platform";
 import { createQuranSearch, type RefV2Data } from "./services/arabic-search";
 import {
+  compareAyahKeys,
   createAudioController,
   DEFAULT_SCOPE,
   parseAyahKey,
@@ -331,6 +332,7 @@ export function App({
   // Clear temporary Hifz peeks and selection when navigating pages
   useEffect(() => {
     setSelected(null);
+    setLastSelectedAyah(null);
     setRevealedSet(new Set());
     setPeekedAyah(null);
   }, [rightPage, leftPage]);
@@ -395,20 +397,54 @@ export function App({
     return first ? (`${first.surah}:${first.ayah}` as AyahKey) : "1:1";
   }, [glyphAyahs, rightPage, rightPageEntry]);
 
+  const isAyahOnVisiblePages = useCallback(
+    (ayah: AyahKey | null): boolean => {
+      if (!ayah) return false;
+      const rightPrinted = glyphAyahs[rightPage];
+      const leftPrinted = leftPage ? glyphAyahs[leftPage] : undefined;
+      if (rightPrinted || leftPrinted) {
+        return Boolean(rightPrinted?.includes(ayah) || leftPrinted?.includes(ayah));
+      }
+      const p = mushafMap.ayahToPage[ayah];
+      return p === rightPage || (leftPage !== null && p === leftPage);
+    },
+    [glyphAyahs, rightPage, leftPage],
+  );
+
   const effectivePlayingAyah =
     playingAyah ?? (tasmiActive ? (tasmiState?.activeAyah ?? null) : audioState.currentAyah);
+  const isAudioOnVisiblePage = isAyahOnVisiblePages(audioState.currentAyah);
+
+  const playTargetAyah = useMemo<AyahKey>(() => {
+    const picked = selected?.ayah ?? (isAyahOnVisiblePages(lastSelectedAyah) ? lastSelectedAyah : null);
+    let candidate: AyahKey =
+      picked ?? (isAudioOnVisiblePage && audioState.currentAyah ? audioState.currentAyah : fallbackAyah);
+
+    if (audioState.scope.kind === "custom" && audioState.scope.from && audioState.scope.to) {
+      const inRange =
+        compareAyahKeys(candidate, audioState.scope.from) >= 0 &&
+        compareAyahKeys(candidate, audioState.scope.to) <= 0;
+      if (!inRange) candidate = audioState.scope.from;
+    }
+    return candidate;
+  }, [
+    selected?.ayah,
+    lastSelectedAyah,
+    isAyahOnVisiblePages,
+    isAudioOnVisiblePage,
+    audioState.currentAyah,
+    audioState.scope,
+    fallbackAyah,
+  ]);
+
   const activeAyah: AyahKey =
     playingAyah ??
     (tasmiActive ? (tasmiState?.activeAyah ?? null) : null) ??
-    (audioState.isPlaying || audioState.isLoading ? audioState.currentAyah : null) ??
-    selected?.ayah ??
-    lastSelectedAyah ??
-    audioState.currentAyah ??
-    fallbackAyah;
-  const audioPage = audioState.currentAyah ? mushafMap.ayahToPage[audioState.currentAyah] : undefined;
+    (audioState.isPlaying || audioState.isLoading || audioState.isTalaqqiPause
+      ? (audioState.currentAyah ?? playTargetAyah)
+      : playTargetAyah);
   const isAudioRelevant = Boolean(
-    audioState.currentAyah &&
-      (audioState.isPlaying || audioPage === rightPage || audioPage === leftPage),
+    audioState.currentAyah && (audioState.isPlaying || isAudioOnVisiblePage),
   );
   const tasmiContextAyah: AyahKey =
     playingAyah ??
@@ -442,27 +478,23 @@ export function App({
   );
 
   const handleTogglePlay = useCallback(() => {
-    if (audioState.isPlaying || audioState.isLoading) {
+    if (audioState.isPlaying || audioState.isLoading || audioState.isTalaqqiPause) {
       audioController.togglePlay();
       return;
     }
-    const target = selected?.ayah ?? lastSelectedAyah;
-    if (target && target !== audioState.currentAyah) {
-      handlePlayAyah(target);
-    } else if (audioState.currentAyah) {
+    if (audioState.currentAyah && playTargetAyah === audioState.currentAyah) {
       audioController.togglePlay();
     } else {
-      handlePlayAyah(activeAyah);
+      handlePlayAyah(playTargetAyah);
     }
   }, [
     audioState.isPlaying,
     audioState.isLoading,
+    audioState.isTalaqqiPause,
     audioState.currentAyah,
-    selected,
-    lastSelectedAyah,
+    playTargetAyah,
     audioController,
     handlePlayAyah,
-    activeAyah,
   ]);
 
   const handleTurnPage = useCallback(
