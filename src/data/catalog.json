@@ -1,0 +1,1271 @@
+{
+  "surahs": [
+    {
+      "number": 1,
+      "name": "Al-Fatiha",
+      "arabicName": "الفاتحة",
+      "ayahs": 7,
+      "page": 1,
+      "location": "mecca"
+    },
+    {
+      "number": 2,
+      "name": "Al-Baqara",
+      "arabicName": "البقرة",
+      "ayahs": 286,
+      "page": 2,
+      "location": "medina"
+    },
+    {
+      "number": 3,
+      "name": "Al-Imran",
+      "arabicName": "آل عمران",
+      "ayahs": 200,
+      "page": 50,
+      "location": "medina"
+    },
+    {
+      "number": 4,
+      "name": "An-Nisa",
+      "arabicName": "النساء",
+      "ayahs": 176,
+      "page": 77,
+      "location": "medina"
+    },
+    {
+      "number": 5,
+      "name": "Al-Ma'ida",
+      "arabicName": "المائدة",
+      "ayahs": 120,
+      "page": 106,
+      "location": "medina"
+    },
+    {
+      "number": 6,
+      "name": "Al-An'am",
+      "arabicName": "الأنعام",
+      "ayahs": 165,
+      "page": 128,
+      "location": "mecca"
+    },
+    {
+      "number": 7,
+      "name": "Al-A'raf",
+      "arabicName": "الأعراف",
+      "ayahs": 206,
+      "page": 151,
+      "location": "mecca"
+    },
+    {
+      "number": 8,
+      "name": "Al-Anfal",
+      "arabicName": "الأنفال",
+      "ayahs": 75,
+      "page": 177,
+      "location": "medina"
+    },
+    {
+      "number": 9,
+      "name": "At-Tawba",
+      "arabicName": "التوبة",
+      "ayahs": 129,
+      "page": 187,
+      "location": "medina"
+    },
+    {
+      "number": 10,
+      "name": "Yunus",
+      "arabicName": "يونس",
+      "ayahs": 109,
+      "page": 208,
+      "location": "mecca"
+    },
+    {
+      "number": 11,
+      "name": "Hud",
+      "arabicName": "هود",
+      "ayahs": 123,
+      "page": 221,
+      "location": "mecca"
+    },
+    {
+      "number": 12,
+      "name": "Yusuf",
+      "arabicName": "يوسف",
+      "ayahs": 111,
+      "page": 235,
+      "location": "mecca"
+    },
+    {
+      "number": 13,
+      "name": "Ar-Ra'd",
+      "arabicName": "الرعد",
+      "ayahs": 43,
+      "page": 249,
+      "location": "medina"
+    },
+    {
+      "number": 14,
+      "name": "Ibrahim",
+      "arabicName": "ابراهيم",
+      "ayahs": 52,
+      "page": 255,
+      "location": "mecca"
+    },
+    {
+      "number": 15,
+      "name": "Al-Hijr",
+      "arabicName": "الحجر",
+      "ayahs": 99,
+      "page": 262,
+      "location": "mecca"
+    },
+    {
+      "number": 16,
+      "name": "An-Nahl",
+      "arabicName": "النحل",
+      "ayahs": 128,
+      "page": 267,
+      "location": "mecca"
+    },
+    {
+      "number": 17,
+      "name": "Al-Isra",
+      "arabicName": "الإسراء",
+      "ayahs": 111,
+      "page": 282,
+      "location": "mecca"
+    },
+    {
+      "number": 18,
+      "name": "Al-Kahf",
+      "arabicName": "الكهف",
+      "ayahs": 110,
+      "page": 293,
+      "location": "mecca"
+    },
+    {
+      "number": 19,
+      "name": "Maryam",
+      "arabicName": "مريم",
+      "ayahs": 98,
+      "page": 305,
+      "location": "mecca"
+    },
+    {
+      "number": 20,
+      "name": "Ta-Ha'",
+      "arabicName": "طه",
+      "ayahs": 135,
+      "page": 312,
+      "location": "mecca"
+    },
+    {
+      "number": 21,
+      "name": "Al-Anbiya",
+      "arabicName": "الأنبياء",
+      "ayahs": 112,
+      "page": 322,
+      "location": "mecca"
+    },
+    {
+      "number": 22,
+      "name": "Al-Hajj",
+      "arabicName": "الحج",
+      "ayahs": 78,
+      "page": 332,
+      "location": "medina"
+    },
+    {
+      "number": 23,
+      "name": "Al-Muminun",
+      "arabicName": "المؤمنون",
+      "ayahs": 118,
+      "page": 342,
+      "location": "mecca"
+    },
+    {
+      "number": 24,
+      "name": "An-Noor",
+      "arabicName": "النور",
+      "ayahs": 64,
+      "page": 350,
+      "location": "medina"
+    },
+    {
+      "number": 25,
+      "name": "Al-Furqan",
+      "arabicName": "الفرقان",
+      "ayahs": 77,
+      "page": 359,
+      "location": "mecca"
+    },
+    {
+      "number": 26,
+      "name": "Ash-Shu'ara",
+      "arabicName": "الشعراء",
+      "ayahs": 227,
+      "page": 367,
+      "location": "mecca"
+    },
+    {
+      "number": 27,
+      "name": "An-Naml",
+      "arabicName": "النمل",
+      "ayahs": 93,
+      "page": 377,
+      "location": "mecca"
+    },
+    {
+      "number": 28,
+      "name": "Al-Qasas",
+      "arabicName": "القصص",
+      "ayahs": 88,
+      "page": 385,
+      "location": "mecca"
+    },
+    {
+      "number": 29,
+      "name": "Al-Ankabut",
+      "arabicName": "العنكبوت",
+      "ayahs": 69,
+      "page": 396,
+      "location": "mecca"
+    },
+    {
+      "number": 30,
+      "name": "Ar-Rum",
+      "arabicName": "الروم",
+      "ayahs": 60,
+      "page": 404,
+      "location": "mecca"
+    },
+    {
+      "number": 31,
+      "name": "Luqman",
+      "arabicName": "لقمان",
+      "ayahs": 34,
+      "page": 411,
+      "location": "mecca"
+    },
+    {
+      "number": 32,
+      "name": "As-Sajda",
+      "arabicName": "السجدة",
+      "ayahs": 30,
+      "page": 415,
+      "location": "mecca"
+    },
+    {
+      "number": 33,
+      "name": "Al-Ahzab",
+      "arabicName": "الأحزاب",
+      "ayahs": 73,
+      "page": 418,
+      "location": "medina"
+    },
+    {
+      "number": 34,
+      "name": "Saba",
+      "arabicName": "سبإ",
+      "ayahs": 54,
+      "page": 428,
+      "location": "mecca"
+    },
+    {
+      "number": 35,
+      "name": "Fatir",
+      "arabicName": "فاطر",
+      "ayahs": 45,
+      "page": 434,
+      "location": "mecca"
+    },
+    {
+      "number": 36,
+      "name": "Ya-Seen",
+      "arabicName": "يس",
+      "ayahs": 83,
+      "page": 440,
+      "location": "mecca"
+    },
+    {
+      "number": 37,
+      "name": "As-Saaffat",
+      "arabicName": "الصافات",
+      "ayahs": 182,
+      "page": 446,
+      "location": "mecca"
+    },
+    {
+      "number": 38,
+      "name": "Sad",
+      "arabicName": "ص",
+      "ayahs": 88,
+      "page": 453,
+      "location": "mecca"
+    },
+    {
+      "number": 39,
+      "name": "Az-Zumar",
+      "arabicName": "الزمر",
+      "ayahs": 75,
+      "page": 458,
+      "location": "mecca"
+    },
+    {
+      "number": 40,
+      "name": "Ghafir",
+      "arabicName": "غافر",
+      "ayahs": 85,
+      "page": 467,
+      "location": "mecca"
+    },
+    {
+      "number": 41,
+      "name": "Fussilat",
+      "arabicName": "فصلت",
+      "ayahs": 54,
+      "page": 477,
+      "location": "mecca"
+    },
+    {
+      "number": 42,
+      "name": "Ash-Shura",
+      "arabicName": "الشورى",
+      "ayahs": 53,
+      "page": 483,
+      "location": "mecca"
+    },
+    {
+      "number": 43,
+      "name": "Az-Zukhruf",
+      "arabicName": "الزخرف",
+      "ayahs": 89,
+      "page": 489,
+      "location": "mecca"
+    },
+    {
+      "number": 44,
+      "name": "Ad-Dukhan",
+      "arabicName": "الدخان",
+      "ayahs": 59,
+      "page": 496,
+      "location": "mecca"
+    },
+    {
+      "number": 45,
+      "name": "Al-Jathiya",
+      "arabicName": "الجاثية",
+      "ayahs": 37,
+      "page": 499,
+      "location": "mecca"
+    },
+    {
+      "number": 46,
+      "name": "Al-Ahqaf",
+      "arabicName": "الأحقاف",
+      "ayahs": 35,
+      "page": 502,
+      "location": "mecca"
+    },
+    {
+      "number": 47,
+      "name": "Muhammad",
+      "arabicName": "محمد",
+      "ayahs": 38,
+      "page": 507,
+      "location": "medina"
+    },
+    {
+      "number": 48,
+      "name": "Al-Fath",
+      "arabicName": "الفتح",
+      "ayahs": 29,
+      "page": 511,
+      "location": "medina"
+    },
+    {
+      "number": 49,
+      "name": "Al-Hujraat",
+      "arabicName": "الحجرات",
+      "ayahs": 18,
+      "page": 515,
+      "location": "medina"
+    },
+    {
+      "number": 50,
+      "name": "Qaf",
+      "arabicName": "ق",
+      "ayahs": 45,
+      "page": 518,
+      "location": "mecca"
+    },
+    {
+      "number": 51,
+      "name": "Adh-Dhariyat",
+      "arabicName": "الذاريات",
+      "ayahs": 60,
+      "page": 520,
+      "location": "mecca"
+    },
+    {
+      "number": 52,
+      "name": "At-Tur",
+      "arabicName": "الطور",
+      "ayahs": 49,
+      "page": 523,
+      "location": "mecca"
+    },
+    {
+      "number": 53,
+      "name": "An-Najm",
+      "arabicName": "النجم",
+      "ayahs": 62,
+      "page": 526,
+      "location": "mecca"
+    },
+    {
+      "number": 54,
+      "name": "Al-Qamar",
+      "arabicName": "القمر",
+      "ayahs": 55,
+      "page": 528,
+      "location": "mecca"
+    },
+    {
+      "number": 55,
+      "name": "Ar-Rahman",
+      "arabicName": "الرحمن",
+      "ayahs": 78,
+      "page": 531,
+      "location": "medina"
+    },
+    {
+      "number": 56,
+      "name": "Al-Waqia",
+      "arabicName": "الواقعة",
+      "ayahs": 96,
+      "page": 534,
+      "location": "mecca"
+    },
+    {
+      "number": 57,
+      "name": "Al-Hadid",
+      "arabicName": "الحديد",
+      "ayahs": 29,
+      "page": 537,
+      "location": "medina"
+    },
+    {
+      "number": 58,
+      "name": "Al-Mujadila",
+      "arabicName": "المجادلة",
+      "ayahs": 22,
+      "page": 542,
+      "location": "medina"
+    },
+    {
+      "number": 59,
+      "name": "Al-Hashr",
+      "arabicName": "الحشر",
+      "ayahs": 24,
+      "page": 545,
+      "location": "medina"
+    },
+    {
+      "number": 60,
+      "name": "Al-Mumtahina",
+      "arabicName": "الممتحنة",
+      "ayahs": 13,
+      "page": 549,
+      "location": "medina"
+    },
+    {
+      "number": 61,
+      "name": "As-Saff",
+      "arabicName": "الصف",
+      "ayahs": 14,
+      "page": 551,
+      "location": "medina"
+    },
+    {
+      "number": 62,
+      "name": "Al-Jumua",
+      "arabicName": "الجمعة",
+      "ayahs": 11,
+      "page": 553,
+      "location": "medina"
+    },
+    {
+      "number": 63,
+      "name": "Al-Munafiqoon",
+      "arabicName": "المنافقون",
+      "ayahs": 11,
+      "page": 554,
+      "location": "medina"
+    },
+    {
+      "number": 64,
+      "name": "At-Taghabun",
+      "arabicName": "التغابن",
+      "ayahs": 18,
+      "page": 556,
+      "location": "medina"
+    },
+    {
+      "number": 65,
+      "name": "At-Talaq",
+      "arabicName": "الطلاق",
+      "ayahs": 12,
+      "page": 558,
+      "location": "medina"
+    },
+    {
+      "number": 66,
+      "name": "At-Tahrim",
+      "arabicName": "التحريم",
+      "ayahs": 12,
+      "page": 560,
+      "location": "medina"
+    },
+    {
+      "number": 67,
+      "name": "Al-Mulk",
+      "arabicName": "الملك",
+      "ayahs": 30,
+      "page": 562,
+      "location": "mecca"
+    },
+    {
+      "number": 68,
+      "name": "Al-Qalam",
+      "arabicName": "القلم",
+      "ayahs": 52,
+      "page": 564,
+      "location": "mecca"
+    },
+    {
+      "number": 69,
+      "name": "Al-Haaqqa",
+      "arabicName": "الحاقة",
+      "ayahs": 52,
+      "page": 566,
+      "location": "mecca"
+    },
+    {
+      "number": 70,
+      "name": "Al-Maarij",
+      "arabicName": "المعارج",
+      "ayahs": 44,
+      "page": 568,
+      "location": "mecca"
+    },
+    {
+      "number": 71,
+      "name": "Nooh",
+      "arabicName": "نوح",
+      "ayahs": 28,
+      "page": 570,
+      "location": "mecca"
+    },
+    {
+      "number": 72,
+      "name": "Al-Jinn",
+      "arabicName": "الجن",
+      "ayahs": 28,
+      "page": 572,
+      "location": "mecca"
+    },
+    {
+      "number": 73,
+      "name": "Al-Muzzammil",
+      "arabicName": "المزمل",
+      "ayahs": 20,
+      "page": 574,
+      "location": "mecca"
+    },
+    {
+      "number": 74,
+      "name": "Al-Muddaththir",
+      "arabicName": "المدثر",
+      "ayahs": 56,
+      "page": 575,
+      "location": "mecca"
+    },
+    {
+      "number": 75,
+      "name": "Al-Qiyama",
+      "arabicName": "القيامة",
+      "ayahs": 40,
+      "page": 577,
+      "location": "mecca"
+    },
+    {
+      "number": 76,
+      "name": "Al-Insan",
+      "arabicName": "الانسان",
+      "ayahs": 31,
+      "page": 578,
+      "location": "medina"
+    },
+    {
+      "number": 77,
+      "name": "Al-Mursalat",
+      "arabicName": "المرسلات",
+      "ayahs": 50,
+      "page": 580,
+      "location": "mecca"
+    },
+    {
+      "number": 78,
+      "name": "An-Naba",
+      "arabicName": "النبإ",
+      "ayahs": 40,
+      "page": 582,
+      "location": "mecca"
+    },
+    {
+      "number": 79,
+      "name": "An-Naziat",
+      "arabicName": "النازعات",
+      "ayahs": 46,
+      "page": 583,
+      "location": "mecca"
+    },
+    {
+      "number": 80,
+      "name": "Abasa",
+      "arabicName": "عبس",
+      "ayahs": 42,
+      "page": 585,
+      "location": "mecca"
+    },
+    {
+      "number": 81,
+      "name": "At-Takwir",
+      "arabicName": "التكوير",
+      "ayahs": 29,
+      "page": 586,
+      "location": "mecca"
+    },
+    {
+      "number": 82,
+      "name": "Al-Infitar",
+      "arabicName": "الإنفطار",
+      "ayahs": 19,
+      "page": 587,
+      "location": "mecca"
+    },
+    {
+      "number": 83,
+      "name": "Al-Mutaffifin",
+      "arabicName": "المطففين",
+      "ayahs": 36,
+      "page": 587,
+      "location": "mecca"
+    },
+    {
+      "number": 84,
+      "name": "Al-Inshiqaq",
+      "arabicName": "الإنشقاق",
+      "ayahs": 25,
+      "page": 589,
+      "location": "mecca"
+    },
+    {
+      "number": 85,
+      "name": "Al-Burooj",
+      "arabicName": "البروج",
+      "ayahs": 22,
+      "page": 590,
+      "location": "mecca"
+    },
+    {
+      "number": 86,
+      "name": "At-Tariq",
+      "arabicName": "الطارق",
+      "ayahs": 17,
+      "page": 591,
+      "location": "mecca"
+    },
+    {
+      "number": 87,
+      "name": "Al-Ala",
+      "arabicName": "الأعلى",
+      "ayahs": 19,
+      "page": 591,
+      "location": "mecca"
+    },
+    {
+      "number": 88,
+      "name": "Al-Ghashiya",
+      "arabicName": "الغاشية",
+      "ayahs": 26,
+      "page": 592,
+      "location": "mecca"
+    },
+    {
+      "number": 89,
+      "name": "Al-Fajr",
+      "arabicName": "الفجر",
+      "ayahs": 30,
+      "page": 593,
+      "location": "mecca"
+    },
+    {
+      "number": 90,
+      "name": "Al-Balad",
+      "arabicName": "البلد",
+      "ayahs": 20,
+      "page": 594,
+      "location": "mecca"
+    },
+    {
+      "number": 91,
+      "name": "Ash-Shams",
+      "arabicName": "الشمس",
+      "ayahs": 15,
+      "page": 595,
+      "location": "mecca"
+    },
+    {
+      "number": 92,
+      "name": "Al-Lail",
+      "arabicName": "الليل",
+      "ayahs": 21,
+      "page": 595,
+      "location": "mecca"
+    },
+    {
+      "number": 93,
+      "name": "Ad-Dhuha",
+      "arabicName": "الضحى",
+      "ayahs": 11,
+      "page": 596,
+      "location": "mecca"
+    },
+    {
+      "number": 94,
+      "name": "Al-Inshirah",
+      "arabicName": "الشرح",
+      "ayahs": 8,
+      "page": 596,
+      "location": "mecca"
+    },
+    {
+      "number": 95,
+      "name": "At-Tin",
+      "arabicName": "التين",
+      "ayahs": 8,
+      "page": 597,
+      "location": "mecca"
+    },
+    {
+      "number": 96,
+      "name": "Al-Alaq",
+      "arabicName": "العلق",
+      "ayahs": 19,
+      "page": 597,
+      "location": "mecca"
+    },
+    {
+      "number": 97,
+      "name": "Al-Qadr",
+      "arabicName": "القدر",
+      "ayahs": 5,
+      "page": 598,
+      "location": "mecca"
+    },
+    {
+      "number": 98,
+      "name": "Al-Bayyina",
+      "arabicName": "البينة",
+      "ayahs": 8,
+      "page": 598,
+      "location": "medina"
+    },
+    {
+      "number": 99,
+      "name": "Az-Zalzala",
+      "arabicName": "الزلزلة",
+      "ayahs": 8,
+      "page": 599,
+      "location": "medina"
+    },
+    {
+      "number": 100,
+      "name": "Al-Adiyat",
+      "arabicName": "العاديات",
+      "ayahs": 11,
+      "page": 599,
+      "location": "mecca"
+    },
+    {
+      "number": 101,
+      "name": "Al-Qaria",
+      "arabicName": "القارعة",
+      "ayahs": 11,
+      "page": 600,
+      "location": "mecca"
+    },
+    {
+      "number": 102,
+      "name": "At-Takathur",
+      "arabicName": "التكاثر",
+      "ayahs": 8,
+      "page": 600,
+      "location": "mecca"
+    },
+    {
+      "number": 103,
+      "name": "Al-Asr",
+      "arabicName": "العصر",
+      "ayahs": 3,
+      "page": 601,
+      "location": "mecca"
+    },
+    {
+      "number": 104,
+      "name": "Al-Humaza",
+      "arabicName": "الهمزة",
+      "ayahs": 9,
+      "page": 601,
+      "location": "mecca"
+    },
+    {
+      "number": 105,
+      "name": "Al-Fil",
+      "arabicName": "الفيل",
+      "ayahs": 5,
+      "page": 601,
+      "location": "mecca"
+    },
+    {
+      "number": 106,
+      "name": "Quraysh",
+      "arabicName": "قريش",
+      "ayahs": 4,
+      "page": 602,
+      "location": "mecca"
+    },
+    {
+      "number": 107,
+      "name": "Al-Ma'un",
+      "arabicName": "الماعون",
+      "ayahs": 7,
+      "page": 602,
+      "location": "mecca"
+    },
+    {
+      "number": 108,
+      "name": "Al-Kawthar",
+      "arabicName": "الكوثر",
+      "ayahs": 3,
+      "page": 602,
+      "location": "mecca"
+    },
+    {
+      "number": 109,
+      "name": "Al-Kafirun",
+      "arabicName": "الكافرون",
+      "ayahs": 6,
+      "page": 603,
+      "location": "mecca"
+    },
+    {
+      "number": 110,
+      "name": "An-Nasr",
+      "arabicName": "النصر",
+      "ayahs": 3,
+      "page": 603,
+      "location": "medina"
+    },
+    {
+      "number": 111,
+      "name": "Al-Masadd",
+      "arabicName": "المسد",
+      "ayahs": 5,
+      "page": 603,
+      "location": "mecca"
+    },
+    {
+      "number": 112,
+      "name": "Al-Ikhlas",
+      "arabicName": "الإخلاص",
+      "ayahs": 4,
+      "page": 604,
+      "location": "mecca"
+    },
+    {
+      "number": 113,
+      "name": "Al-Falaq",
+      "arabicName": "الفلق",
+      "ayahs": 5,
+      "page": 604,
+      "location": "mecca"
+    },
+    {
+      "number": 114,
+      "name": "Al-Nas",
+      "arabicName": "الناس",
+      "ayahs": 6,
+      "page": 604,
+      "location": "mecca"
+    }
+  ],
+  "juzs": [
+    {
+      "number": 1,
+      "page": 1,
+      "startSurah": 1,
+      "startAyah": 1
+    },
+    {
+      "number": 2,
+      "page": 22,
+      "startSurah": 2,
+      "startAyah": 142
+    },
+    {
+      "number": 3,
+      "page": 42,
+      "startSurah": 2,
+      "startAyah": 253
+    },
+    {
+      "number": 4,
+      "page": 62,
+      "startSurah": 3,
+      "startAyah": 93
+    },
+    {
+      "number": 5,
+      "page": 82,
+      "startSurah": 4,
+      "startAyah": 24
+    },
+    {
+      "number": 6,
+      "page": 102,
+      "startSurah": 4,
+      "startAyah": 148
+    },
+    {
+      "number": 7,
+      "page": 121,
+      "startSurah": 5,
+      "startAyah": 82
+    },
+    {
+      "number": 8,
+      "page": 142,
+      "startSurah": 6,
+      "startAyah": 111
+    },
+    {
+      "number": 9,
+      "page": 162,
+      "startSurah": 7,
+      "startAyah": 88
+    },
+    {
+      "number": 10,
+      "page": 182,
+      "startSurah": 8,
+      "startAyah": 41
+    },
+    {
+      "number": 11,
+      "page": 201,
+      "startSurah": 9,
+      "startAyah": 93
+    },
+    {
+      "number": 12,
+      "page": 222,
+      "startSurah": 11,
+      "startAyah": 6
+    },
+    {
+      "number": 13,
+      "page": 242,
+      "startSurah": 12,
+      "startAyah": 53
+    },
+    {
+      "number": 14,
+      "page": 262,
+      "startSurah": 15,
+      "startAyah": 1
+    },
+    {
+      "number": 15,
+      "page": 282,
+      "startSurah": 17,
+      "startAyah": 1
+    },
+    {
+      "number": 16,
+      "page": 302,
+      "startSurah": 18,
+      "startAyah": 75
+    },
+    {
+      "number": 17,
+      "page": 322,
+      "startSurah": 21,
+      "startAyah": 1
+    },
+    {
+      "number": 18,
+      "page": 342,
+      "startSurah": 23,
+      "startAyah": 1
+    },
+    {
+      "number": 19,
+      "page": 362,
+      "startSurah": 25,
+      "startAyah": 21
+    },
+    {
+      "number": 20,
+      "page": 382,
+      "startSurah": 27,
+      "startAyah": 56
+    },
+    {
+      "number": 21,
+      "page": 402,
+      "startSurah": 29,
+      "startAyah": 46
+    },
+    {
+      "number": 22,
+      "page": 422,
+      "startSurah": 33,
+      "startAyah": 31
+    },
+    {
+      "number": 23,
+      "page": 442,
+      "startSurah": 36,
+      "startAyah": 28
+    },
+    {
+      "number": 24,
+      "page": 462,
+      "startSurah": 39,
+      "startAyah": 32
+    },
+    {
+      "number": 25,
+      "page": 482,
+      "startSurah": 41,
+      "startAyah": 47
+    },
+    {
+      "number": 26,
+      "page": 502,
+      "startSurah": 46,
+      "startAyah": 1
+    },
+    {
+      "number": 27,
+      "page": 522,
+      "startSurah": 51,
+      "startAyah": 31
+    },
+    {
+      "number": 28,
+      "page": 542,
+      "startSurah": 58,
+      "startAyah": 1
+    },
+    {
+      "number": 29,
+      "page": 562,
+      "startSurah": 67,
+      "startAyah": 1
+    },
+    {
+      "number": 30,
+      "page": 582,
+      "startSurah": 78,
+      "startAyah": 1
+    }
+  ],
+  "reciters": [
+    {
+      "id": "Alafasy_128kbps",
+      "name": "Mishary Rashid Alafasy",
+      "arabicName": "مشاري راشد العفاسي",
+      "style": "Murattal",
+      "subfolder": "Alafasy_128kbps"
+    },
+    {
+      "id": "Husary_128kbps",
+      "name": "Mahmoud Khalil Al-Husary",
+      "arabicName": "محمود خليل الحصري",
+      "style": "Murattal",
+      "subfolder": "Husary_128kbps"
+    },
+    {
+      "id": "Abdul_Basit_Murattal_192kbps",
+      "name": "Abdul Basit 'Abdus-Samad",
+      "arabicName": "عبد الباسط عبد الصمد",
+      "style": "Murattal",
+      "subfolder": "Abdul_Basit_Murattal_192kbps"
+    },
+    {
+      "id": "Minshawy_Murattal_128kbps",
+      "name": "Mohamed Siddiq Al-Minshawy",
+      "arabicName": "محمد صديق المنشاوي",
+      "style": "Murattal",
+      "subfolder": "Minshawy_Murattal_128kbps"
+    },
+    {
+      "id": "Abdurrahmaan_As-Sudais_192kbps",
+      "name": "Abdurrahman As-Sudais",
+      "arabicName": "عبد الرحمن السديس",
+      "style": "Murattal",
+      "subfolder": "Abdurrahmaan_As-Sudais_192kbps"
+    },
+    {
+      "id": "Ghamadi_40kbps",
+      "name": "Saad Al-Ghamdi",
+      "arabicName": "سعد الغامدي",
+      "style": "Murattal",
+      "subfolder": "Ghamadi_40kbps"
+    },
+    {
+      "id": "MaherAlMuaiqly128kbps",
+      "name": "Maher Al-Muaiqly",
+      "arabicName": "ماهر المعيقلي",
+      "style": "Murattal",
+      "subfolder": "MaherAlMuaiqly128kbps"
+    },
+    {
+      "id": "Saood_ash-Shuraym_128kbps",
+      "name": "Saud Al-Shuraim",
+      "arabicName": "سعود الشريم",
+      "style": "Murattal",
+      "subfolder": "Saood_ash-Shuraym_128kbps"
+    },
+    {
+      "id": "Abu_Bakr_Ash-Shaatree_128kbps",
+      "name": "Abu Bakr Al-Shatri",
+      "arabicName": "أبو بكر الشاطري",
+      "style": "Murattal",
+      "subfolder": "Abu_Bakr_Ash-Shaatree_128kbps"
+    },
+    {
+      "id": "Hani_Rifai_192kbps",
+      "name": "Hani Ar-Rifai",
+      "arabicName": "هاني الرفاعي",
+      "style": "Murattal",
+      "subfolder": "Hani_Rifai_192kbps"
+    }
+  ],
+  "translations": [
+    {
+      "id": 33,
+      "name": "Kemenag RI (Bahasa Indonesia)",
+      "author": "Kementerian Agama RI",
+      "language": "indonesian"
+    },
+    {
+      "id": 134,
+      "name": "Kompleks Raja Fahd (Indonesia)",
+      "author": "King Fahad Quran Complex",
+      "language": "indonesian"
+    },
+    {
+      "id": 141,
+      "name": "The Sabiq Company (Indonesia)",
+      "author": "The Sabiq Company",
+      "language": "indonesian"
+    },
+    {
+      "id": 20,
+      "name": "Saheeh International",
+      "author": "Saheeh International",
+      "language": "english"
+    },
+    {
+      "id": 85,
+      "name": "M.A.S. Abdel Haleem",
+      "author": "Abdul Haleem",
+      "language": "english"
+    },
+    {
+      "id": 22,
+      "name": "A. Yusuf Ali",
+      "author": "Abdullah Yusuf Ali",
+      "language": "english"
+    },
+    {
+      "id": 57,
+      "name": "Transliteration",
+      "author": "Transliteration",
+      "language": "english"
+    }
+  ],
+  "tafsirs": [
+    {
+      "id": "equran-id",
+      "name": "Tafsir Kemenag RI (Lengkap)",
+      "author": "Kementerian Agama RI",
+      "language": "indonesian",
+      "source": "equran"
+    },
+    {
+      "id": "16",
+      "name": "Tafsir al-Muyassar",
+      "author": "King Fahad Quran Complex",
+      "language": "arabic",
+      "source": "qurancom",
+      "resourceId": 16
+    },
+    {
+      "id": "14",
+      "name": "Tafsir Ibn Kathir",
+      "author": "Hafiz Ibn Kathir",
+      "language": "arabic",
+      "source": "qurancom",
+      "resourceId": 14
+    },
+    {
+      "id": "15",
+      "name": "Tafsir al-Tabari",
+      "author": "Imam al-Tabari",
+      "language": "arabic",
+      "source": "qurancom",
+      "resourceId": 15
+    },
+    {
+      "id": "90",
+      "name": "Tafsir al-Qurtubi",
+      "author": "Imam al-Qurtubi",
+      "language": "arabic",
+      "source": "qurancom",
+      "resourceId": 90
+    },
+    {
+      "id": "91",
+      "name": "Tafsir al-Sa'di",
+      "author": "Abdurrahman al-Sa'di",
+      "language": "arabic",
+      "source": "qurancom",
+      "resourceId": 91
+    },
+    {
+      "id": "169",
+      "name": "Ibn Kathir (Abridged)",
+      "author": "Hafiz Ibn Kathir",
+      "language": "english",
+      "source": "qurancom",
+      "resourceId": 169
+    }
+  ]
+}
