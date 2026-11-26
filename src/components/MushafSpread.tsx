@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
 import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
@@ -116,8 +116,42 @@ export function MushafSpread({
 
   const isDouble = leftPageEntry !== null;
 
+  // Touch swipe page turning (RTL mushaf: swipe right → next page, swipe left → previous page)
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+
+  const handleTouchStart = (event: ReactTouchEvent) => {
+    if (event.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, t: Date.now() };
+  };
+
+  const handleTouchEnd = (event: ReactTouchEvent) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start || isModalOpen) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const elapsed = Date.now() - start.t;
+    if (elapsed > 800 || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx > 0 && canGoNext) onTurnPage("next");
+    else if (dx < 0 && canGoPrev) onTurnPage("prev");
+  };
+
   return (
-    <main className="reader-stage" onClick={onClearSelection}>
+    <main
+      className="reader-stage"
+      onClick={onClearSelection}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={() => {
+        touchStartRef.current = null;
+      }}
+    >
       <button
         type="button"
         className="turn-btn turn-btn--left"
