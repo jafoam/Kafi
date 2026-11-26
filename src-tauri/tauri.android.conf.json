@@ -4,6 +4,6 @@
     "beforeBuildCommand": "npm run build"
   },
   "bundle": {
-    "resources": {}
+    "resources": []
   }
 }
