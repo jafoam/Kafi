@@ -1377,6 +1377,651 @@ textarea:focus-visible {
   color: var(--text-primary);
 }
 
+/* Tasmi' Sheet & Summary Modal */
+.tasmi-sheet,
+.tasmi-summary {
+  width: 100%;
+  max-width: 540px;
+  max-height: min(84dvh, 680px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.tasmi-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tasmi-sheet__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tasmi-sheet__subtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tasmi-sheet__history-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tasmi-sheet__history-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.tasmi-sheet__modes {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tasmi-sheet__mode-btn {
+  flex: 1;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.tasmi-sheet__mode-btn--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(19, 111, 90, 0.28);
+}
+
+.tasmi-sheet__body,
+.tasmi-summary__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.tasmi-sheet__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tasmi-sheet__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.tasmi-sheet__option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.tasmi-sheet__option:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.tasmi-sheet__option--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tasmi-sheet__option-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tasmi-sheet__option-scope {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__range-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.tasmi-sheet__field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__field--num {
+  flex: 0 0 88px;
+}
+
+.tasmi-sheet__field select,
+.tasmi-sheet__field input {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.tasmi-sheet__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.tasmi-sheet__toggle input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.tasmi-sheet__toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.tasmi-sheet__toggle small {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__free-box {
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.tasmi-sheet__free-box p {
+  margin: 0;
+}
+
+.tasmi-sheet__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.tasmi-sheet__progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.tasmi-sheet__progress-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.tasmi-sheet__progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 160ms ease;
+}
+
+.tasmi-sheet__cancel-btn {
+  align-self: flex-end;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tasmi-sheet__error {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.tasmi-sheet__disclaimer {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.tasmi-sheet__footer {
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tasmi-sheet__start-btn {
+  width: 100%;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.tasmi-sheet__start-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.tasmi-sheet__start-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* Live Recitation Ribbon */
+.recitation-ribbon-zone {
+  position: fixed;
+  bottom: 74px;
+  left: 0;
+  right: 0;
+  z-index: 32;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.recitation-ribbon {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 760px;
+  padding: 8px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recitation-ribbon__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recitation-ribbon__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.recitation-ribbon__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.recitation-ribbon__dot--locked {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.recitation-ribbon__dot--acquiring,
+.recitation-ribbon__dot--ambiguous {
+  background: #f59e0b;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.recitation-ribbon__dot--lost {
+  background: var(--mistake-badge);
+}
+
+.recitation-ribbon__state-text {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.recitation-ribbon__loc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.recitation-ribbon__mistake-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+}
+
+.recitation-ribbon__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.recitation-ribbon__toggle-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.recitation-ribbon__stop-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--mistake-badge);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.recitation-ribbon__words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-arabic);
+  font-size: 20px;
+  line-height: 1.65;
+}
+
+.recitation-ribbon__word {
+  padding: 0 4px;
+  border-radius: 5px;
+  color: var(--text-muted);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.recitation-ribbon__word--passed {
+  color: var(--text-primary);
+}
+
+.recitation-ribbon__word--current {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.recitation-ribbon__word--mistake {
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+}
+
+/* Tasmi' Summary & History */
+.tasmi-summary__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+
+.tasmi-summary__surah {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tasmi-summary__meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.tasmi-summary__score {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.tasmi-summary__score--clean {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tasmi-summary__score--warn {
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+}
+
+.tasmi-summary__breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.tasmi-summary__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  text-align: center;
+}
+
+.tasmi-summary__stat-val {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tasmi-summary__stat-lbl {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.tasmi-summary__list,
+.tasmi-summary__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tasmi-summary__mistake {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tasmi-summary__mistake-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tasmi-summary__mistake-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+}
+
+.tasmi-summary__mistake-loc {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.tasmi-summary__arabic {
+  font-family: var(--font-arabic);
+  font-size: 20px;
+  line-height: 1.85;
+  color: var(--text-primary);
+}
+
+.tasmi-summary__word--flagged {
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+
+.tasmi-summary__mistake-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tasmi-summary__play-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.tasmi-summary__play-btn:hover {
+  background: var(--accent-hover);
+}
+
+.tasmi-summary__jump-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tasmi-summary__empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.tasmi-summary__history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tasmi-summary__history-item:hover {
+  border-color: var(--accent);
+}
+
+.tasmi-summary__history-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tasmi-summary__history-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .topbar {

@@ -64,7 +64,11 @@ export function MushafPage({
           const isPlaying = playingAyah === ayahKey;
           const highlightColor = highlights[ayahKey];
           const isBookmarked = bookmarks.has(ayahKey);
-          const isBlurred = Boolean(blurSet?.has(ayahKey) && !revealedSet?.has(ayahKey));
+          const isBlurred = Boolean(
+            pageEntry.leadingSplitAyah !== ayahKey &&
+              blurSet?.has(ayahKey) &&
+              !revealedSet?.has(ayahKey),
+          );
           const mistake = mistakeAyahs?.get(ayahKey);
 
           return segment.boxes.map((box, boxIndex) => {
