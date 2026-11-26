@@ -147,8 +147,9 @@ export function TasmiSheet({
               className="tasmi-sheet__history-btn"
               onClick={onOpenHistory}
               disabled={isBusy}
+              aria-label={`Riwayat Tasmi'${historyCount > 0 ? ` (${historyCount})` : ""}`}
             >
-              Riwayat Tasmi&apos;{historyCount > 0 ? ` (${historyCount})` : ""}
+              Riwayat{historyCount > 0 ? ` (${historyCount})` : ""}
             </button>
             <button
               type="button"

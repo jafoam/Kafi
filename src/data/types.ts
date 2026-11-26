@@ -114,6 +114,10 @@ export interface TasmiSessionRecord {
   fromAyah: number;
   toAyah: number;
   mistakes: TasmiMistakeRecord[];
+  /** Number of unique target ayahs detected as recited in this session. */
+  recitedAyahs?: number;
+  /** Number of unique words detected as recited in this session. */
+  recitedWords?: number;
 }
 
 export interface UserData {

@@ -1579,17 +1579,21 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .tasmi-sheet__history-btn {
-  height: 28px;
-  padding: 0 10px;
+  min-height: 30px;
+  height: auto;
+  padding: 4px 12px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
   background: var(--bg-subtle);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
 }
 
@@ -1607,7 +1611,14 @@ textarea:focus-visible {
 
 .tasmi-sheet__mode-btn {
   flex: 1;
-  height: 34px;
+  min-height: 38px;
+  height: auto;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: var(--bg-subtle);
@@ -2030,6 +2041,11 @@ textarea:focus-visible {
 .tasmi-summary__score--warn {
   background: var(--mistake-bg);
   color: var(--mistake-badge);
+}
+
+.tasmi-summary__score--muted {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
 }
 
 .tasmi-summary__breakdown {

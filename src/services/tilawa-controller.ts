@@ -7,84 +7,18 @@ import type {
   Tilawa,
   TilawaSession,
 } from "@tilawa/core";
-import type { PreparedMicrophone } from "@tilawa/core/web";
 import type { PlatformAdapter } from "../platform/types";
 import type { DeclaredPassage } from "./tasmi-logic";
 import { loadGzippedOrtWasm } from "./ort-wasm";
 
 export interface TilawaController {
-  /** Acquires mic + AudioContext synchronously inside a user tap (required on iOS Safari). */
-  prepareMic(): PreparedMicrophone | null;
+  /** Silently warms up the WASM engine if the model is already cached (never triggers a download). */
+  warmupIfCached(): Promise<void>;
   ensureReady(onProgress?: (p: LoadProgress) => void, signal?: AbortSignal): Promise<void>;
-  startFree(onEvent: (e: EngineEvent) => void, prepared?: PreparedMicrophone | null): Promise<void>;
-  startMemorization(
-    passage: DeclaredPassage,
-    onEvent: (e: EngineEvent) => void,
-    prepared?: PreparedMicrophone | null,
-  ): Promise<void>;
+  startFree(onEvent: (e: EngineEvent) => void): Promise<void>;
+  startMemorization(passage: DeclaredPassage, onEvent: (e: EngineEvent) => void): Promise<void>;
   stop(): Promise<CheckerEvent[]>;
   dispose(): void;
-}
-
-const MIC_CONSTRAINTS: MediaStreamConstraints = {
-  audio: {
-    channelCount: 1,
-    echoCancellation: false,
-    noiseSuppression: false,
-    autoGainControl: false,
-  },
-};
-
-const MIC_TIMEOUT_MS = 15_000;
-
-function prepareWebMicrophone(): PreparedMicrophone {
-  const nav = typeof navigator !== "undefined" ? navigator : undefined;
-  if (!nav?.mediaDevices?.getUserMedia) {
-    const err = new Error(
-      typeof globalThis.isSecureContext === "boolean" && !globalThis.isSecureContext
-        ? "Mikrofon hanya dapat digunakan melalui HTTPS atau localhost."
-        : "Mikrofon tidak ditemukan di perangkat ini.",
-    );
-    throw err;
-  }
-  const context = new AudioContext();
-  void context.resume().catch(() => {});
-  const stream = nav.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
-  stream.catch(() => {});
-  let released = false;
-  return {
-    context,
-    stream,
-    release() {
-      if (released) return;
-      released = true;
-      void stream.then((s) => s.getTracks().forEach((t) => t.stop()), () => {});
-      void context.close().catch(() => {});
-    },
-  };
-}
-
-function withMicTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      onTimeout();
-      reject(
-        new Error(
-          "Izin mikrofon tidak merespons. Pastikan akses mikrofon diizinkan di browser lalu coba lagi.",
-        ),
-      );
-    }, ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
 }
 
 function translateMicError(err: unknown): Error {
@@ -211,7 +145,6 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
   async function startSession(
     createSession: (engine: Tilawa) => TilawaSession,
     onEvent: (e: EngineEvent) => void,
-    prepared?: PreparedMicrophone | null,
   ): Promise<void> {
     if (stopPromise) {
       await stopPromise.catch(() => {});
@@ -232,7 +165,6 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
 
     try {
       if (platform.startNativeMic) {
-        prepared?.release();
         const stopNative = await platform.startNativeMic((pcm, sampleRate) => {
           void session.pushAudio(pcm, sampleRate).catch(() => {});
         });
@@ -245,11 +177,7 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
         }
         activeNativeMicStop = stopNative;
       } else {
-        const listenPromise = engine.listen(session, prepared ? { prepared } : undefined);
-        const mic = await withMicTimeout(listenPromise, MIC_TIMEOUT_MS, () => {
-          prepared?.release();
-          void listenPromise.then((m) => m.stop().catch(() => {}), () => {});
-        });
+        const mic = await engine.listen(session);
         if (activeSession !== session) {
           await mic.stop().catch(() => {});
           unsub();
@@ -258,7 +186,6 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
         activeWebMic = mic;
       }
     } catch (err) {
-      prepared?.release();
       activeSession = null;
       activeUnsub = null;
       activeWebMic = null;
@@ -270,21 +197,27 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
   }
 
   return {
-    prepareMic() {
-      if (platform.startNativeMic) return null;
-      return prepareWebMicrophone();
+    async warmupIfCached() {
+      if (tilawa || initPromise) return;
+      try {
+        const keys = await platform.createTilawaStorage().keys();
+        if (keys.length === 0) return;
+        await ensureTilawa();
+      } catch {
+        // Background warmup is best-effort; errors surface if the user starts Tasmi'.
+      }
     },
 
     async ensureReady(onProgress, signal) {
       await ensureTilawa(onProgress, signal);
     },
 
-    async startFree(onEvent, prepared) {
-      await startSession((engine) => engine.startFreeRecitation(), onEvent, prepared);
+    async startFree(onEvent) {
+      await startSession((engine) => engine.startFreeRecitation(), onEvent);
     },
 
-    async startMemorization(passage, onEvent, prepared) {
-      await startSession((engine) => engine.startMemorization(passage), onEvent, prepared);
+    async startMemorization(passage, onEvent) {
+      await startSession((engine) => engine.startMemorization(passage), onEvent);
     },
 
     stop() {

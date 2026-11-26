@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import {
   buildPageTasmiCandidates,
+  countRecitedAyahs,
   createTasmiState,
   reduceTilawaEvent,
   computeBlurMask,
@@ -69,6 +70,8 @@ describe("tasmi-logic", () => {
     );
     expect(st.activeAyah).toBe("1:1");
     expect(st.revealedAyahs.has("1:1")).toBe(true);
+    expect(st.recitedWords.size).toBe(2);
+    expect(countRecitedAyahs(st)).toBe(1);
 
     // suspected -> should NOT appear in confirmedMistakes
     st = reduceTilawaEvent(

@@ -41,6 +41,53 @@ function formatDate(iso: string): string {
   }
 }
 
+function evaluateRecord(record: TasmiSessionRecord): {
+  label: string;
+  tone: "clean" | "warn" | "muted";
+  emptyNote: string;
+  progressText: string | null;
+} {
+  const totalAyahs = Math.max(1, record.toAyah - record.fromAyah + 1);
+  const hasCounts = typeof record.recitedWords === "number" || typeof record.recitedAyahs === "number";
+  const words = record.recitedWords ?? 0;
+  const ayahs = record.recitedAyahs ?? 0;
+  const progressText = hasCounts
+    ? `${ayahs}/${totalAyahs} ayat · ${words} kata terbaca`
+    : null;
+
+  if (hasCounts && words === 0 && ayahs === 0) {
+    return {
+      label: "Belum ada bacaan",
+      tone: "muted",
+      emptyNote:
+        "Belum ada bacaan yang terdeteksi pada sesi ini. Pastikan mikrofon aktif dan bacalah dengan suara yang jelas.",
+      progressText,
+    };
+  }
+  if (record.mistakes.length > 0) {
+    return {
+      label: `${record.mistakes.length} catatan`,
+      tone: "warn",
+      emptyNote: "",
+      progressText,
+    };
+  }
+  if (hasCounts && ayahs < totalAyahs) {
+    return {
+      label: `${ayahs}/${totalAyahs} ayat`,
+      tone: "muted",
+      emptyNote: `Terbaca ${ayahs} dari ${totalAyahs} ayat (${words} kata) tanpa kesalahan terkonfirmasi.`,
+      progressText,
+    };
+  }
+  return {
+    label: "Lancar",
+    tone: "clean",
+    emptyNote: "Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.",
+    progressText,
+  };
+}
+
 export function TasmiSummaryModal({
   open,
   initialTab,
@@ -149,7 +196,9 @@ export function TasmiSummaryModal({
 
         <div className="tasmi-summary__body">
           {tab === "summary" ? (
-            activeRecord ? (
+            activeRecord ? (() => {
+              const status = evaluateRecord(activeRecord);
+              return (
               <>
                 <div className="tasmi-summary__hero">
                   <div>
@@ -160,18 +209,11 @@ export function TasmiSummaryModal({
                     <div className="tasmi-summary__meta">
                       Durasi {formatDuration(activeRecord.durationSec)} ·{" "}
                       {formatDate(activeRecord.startedAt)}
+                      {status.progressText ? ` · ${status.progressText}` : ""}
                     </div>
                   </div>
-                  <div
-                    className={`tasmi-summary__score ${
-                      activeRecord.mistakes.length === 0
-                        ? "tasmi-summary__score--clean"
-                        : "tasmi-summary__score--warn"
-                    }`}
-                  >
-                    {activeRecord.mistakes.length === 0
-                      ? "Lancar"
-                      : `${activeRecord.mistakes.length} catatan`}
+                  <div className={`tasmi-summary__score tasmi-summary__score--${status.tone}`}>
+                    {status.label}
                   </div>
                 </div>
 
@@ -185,9 +227,7 @@ export function TasmiSummaryModal({
                 </div>
 
                 {activeRecord.mistakes.length === 0 ? (
-                  <div className="tasmi-summary__empty">
-                    Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.
-                  </div>
+                  <div className="tasmi-summary__empty">{status.emptyNote}</div>
                 ) : (
                   <div className="tasmi-summary__list">
                     {activeRecord.mistakes.map((m) => {
@@ -248,7 +288,8 @@ export function TasmiSummaryModal({
                   </div>
                 )}
               </>
-            ) : (
+              );
+            })() : (
               <div className="tasmi-summary__empty">Belum ada sesi Tasmi&apos; yang selesai.</div>
             )
           ) : history.length === 0 ? (
@@ -259,6 +300,7 @@ export function TasmiSummaryModal({
             <div className="tasmi-summary__history-list">
               {history.map((item) => {
                 const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
+                const status = evaluateRecord(item);
                 return (
                   <button
                     key={item.id}
@@ -275,16 +317,11 @@ export function TasmiSummaryModal({
                       </div>
                       <div className="tasmi-summary__history-sub">
                         {formatDate(item.startedAt)} · {formatDuration(item.durationSec)}
+                        {status.progressText ? ` · ${status.progressText}` : ""}
                       </div>
                     </div>
-                    <span
-                      className={`tasmi-summary__score ${
-                        item.mistakes.length === 0
-                          ? "tasmi-summary__score--clean"
-                          : "tasmi-summary__score--warn"
-                      }`}
-                    >
-                      {item.mistakes.length === 0 ? "Lancar" : `${item.mistakes.length} catatan`}
+                    <span className={`tasmi-summary__score tasmi-summary__score--${status.tone}`}>
+                      {status.label}
                     </span>
                   </button>
                 );

@@ -31,6 +31,7 @@ export interface TasmiLiveState {
   activeAyah: AyahKey | null;
   expectedWord: WordRef | null;
   revealedAyahs: Set<AyahKey>;
+  recitedWords: Set<string>;
   mistakesById: Map<string, TasmiMistakeRecord>;
   confirmedMistakes: TasmiMistakeRecord[];
   lastErrorAt: number | null;
@@ -136,10 +137,23 @@ export function createTasmiState(
     activeAyah: null,
     expectedWord: null,
     revealedAyahs: new Set<AyahKey>(),
+    recitedWords: new Set<string>(),
     mistakesById: new Map<string, TasmiMistakeRecord>(),
     confirmedMistakes: [],
     lastErrorAt: null,
   };
+}
+
+export function countRecitedAyahs(state: TasmiLiveState): number {
+  if (!state.passage) return state.revealedAyahs.size;
+  let count = 0;
+  for (const key of state.revealedAyahs) {
+    const [s, a] = key.split(":").map(Number);
+    if (s === state.passage.surah && a >= state.passage.fromAyah && a <= state.passage.toAyah) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 export function reduceTilawaEvent(
@@ -156,6 +170,7 @@ export function reduceTilawaEvent(
     let activeWord = state.activeWord;
     let activeAyah = state.activeAyah;
     let revealedAyahs = state.revealedAyahs;
+    let recitedWords = state.recitedWords;
 
     if (top && event.state === "locked") {
       activeWord = top.word;
@@ -172,6 +187,17 @@ export function reduceTilawaEvent(
         }
       }
       revealedAyahs = nextRevealed;
+
+      const nextWords = new Set(state.recitedWords);
+      nextWords.add(`${top.word.surah}:${top.word.ayah}:${top.word.word}`);
+      nextWords.add(`${start.surah}:${start.ayah}:${start.word}`);
+      nextWords.add(`${end.surah}:${end.ayah}:${end.word}`);
+      if (start.surah === end.surah && start.ayah === end.ayah && end.word >= start.word) {
+        for (let w = start.word; w <= end.word; w += 1) {
+          nextWords.add(`${start.surah}:${start.ayah}:${w}`);
+        }
+      }
+      recitedWords = nextWords;
     }
 
     return {
@@ -181,6 +207,7 @@ export function reduceTilawaEvent(
       activeAyah,
       expectedWord: event.expected,
       revealedAyahs,
+      recitedWords,
     };
   }
 

@@ -32,6 +32,7 @@ import { createQuranApi } from "./services/quran-api";
 import {
   buildMistakeBadges,
   computeBlurMask,
+  countRecitedAyahs,
   createTasmiState,
   reduceTilawaEvent,
   type DeclaredPassage,
@@ -604,6 +605,20 @@ export function App({
     void platform.kvSet(TASMI_HINT_KEY, "1").catch(() => undefined);
   }, [platform]);
 
+  // Pre-warm the Tasmi' WASM engine in the background if the model is already cached on device
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void tilawaController.warmupIfCached();
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [tilawaController]);
+
+  useEffect(() => {
+    if (tasmiSheetOpen) {
+      void tilawaController.warmupIfCached();
+    }
+  }, [tasmiSheetOpen, tilawaController]);
+
   const handleOpenTasmi = useCallback(
     (ayah: AyahKey) => {
       if (onStartTasmi) {
@@ -638,13 +653,7 @@ export function App({
       const abort = new AbortController();
       tilawaAbortRef.current = abort;
 
-      let preparedMic: ReturnType<typeof tilawaController.prepareMic> = null;
-      let micHandedOff = false;
-
       try {
-        // Acquire mic + AudioContext synchronously in the click gesture before awaiting model load.
-        preparedMic = tilawaController.prepareMic();
-
         const [lookup] = await Promise.all([
           ensureWordLookup(),
           tilawaController.ensureReady((progress) => {
@@ -672,11 +681,9 @@ export function App({
         };
 
         if (mode === "free") {
-          micHandedOff = true;
-          await tilawaController.startFree(onEvent, preparedMic);
+          await tilawaController.startFree(onEvent);
         } else if (passage) {
-          micHandedOff = true;
-          await tilawaController.startMemorization(passage, onEvent, preparedMic);
+          await tilawaController.startMemorization(passage, onEvent);
           const startPage = mushafMap.ayahToPage[`${passage.surah}:${passage.fromAyah}`];
           if (startPage && startPage !== rightPage && startPage !== leftPage) {
             navigateToPage(startPage);
@@ -693,7 +700,6 @@ export function App({
         const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
         setTasmiError(message);
       } finally {
-        if (!micHandedOff) preparedMic?.release();
         tasmiStartingRef.current = false;
         if (mountedRef.current) setTasmiStarting(false);
       }
@@ -724,6 +730,8 @@ export function App({
         fromAyah: finalState.passage.fromAyah,
         toAyah: finalState.passage.toAyah,
         mistakes: finalState.confirmedMistakes,
+        recitedAyahs: countRecitedAyahs(finalState),
+        recitedWords: finalState.recitedWords.size,
       };
       persistUser(userStore.addTasmiHistory(record));
       setSummaryModal({ open: true, tab: "summary", record });

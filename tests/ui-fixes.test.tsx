@@ -282,4 +282,36 @@ describe("Unified word gloss inside AyahPopover", () => {
     );
     expect(el.querySelector(".ayah-popover__word")).toBeNull();
   });
+
+  it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {
+    const silentRecord: TasmiSessionRecord = {
+      id: "silent-1",
+      startedAt: "2026-11-26T10:00:00Z",
+      durationSec: 12,
+      surah: 2,
+      fromAyah: 1,
+      toAyah: 5,
+      mistakes: [],
+      recitedAyahs: 0,
+      recitedWords: 0,
+    };
+
+    const el = mount(
+      <TasmiSummaryModal
+        open={true}
+        initialTab="summary"
+        record={silentRecord}
+        history={[silentRecord]}
+        surahs={catalog.surahs}
+        getAyahWords={() => []}
+        onClose={() => {}}
+        onPlayAyah={() => {}}
+        onJumpToAyah={() => {}}
+      />,
+    );
+
+    expect(el.textContent).toContain("Belum ada bacaan");
+    expect(el.textContent).not.toContain("Lancar");
+    expect(el.textContent).toContain("0/5 ayat · 0 kata terbaca");
+  });
 });
