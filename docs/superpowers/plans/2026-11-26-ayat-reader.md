@@ -120,12 +120,12 @@
   - `src/data/types.ts`: `AyahKey` (`"${number}:${number}"`), `NormRect` (`[x: number, y: number, w: number, h: number]`), `AyahSegment` (`{ surah: number; ayah: number; boxes: NormRect[] }`), `PageEntry` (`{ page: number; image: string; surahs: number[]; ayahs: AyahSegment[]; leadingSplitAyah?: AyahKey }`), `MushafMap` (`{ width: 699; height: 1020; pages: PageEntry[]; ayahToPage: Record<AyahKey, number>; surahToPage: Record<number, number> }`), `Catalog` (`{ surahs: SurahInfo[]; juzs: JuzInfo[]; reciters: ReciterInfo[]; translations: ResourceInfo[]; tafsirs: TafsirInfo[] }`)
   - `scripts/extract-mushaf.mjs`: exports `parsePageXhtml(html: string, pageNum: number)` and CLI runner producing `src/data/mushaf-map.json`, `src/data/catalog.json`, and `public/mushaf/pages/001.gif`..`604.gif`
 
-- [ ] **Step 1: Initialize Git repo, `.gitignore`, `package.json`, `tsconfig.json`, `vite.config.ts`, and `src/data/types.ts`**
+- [x] **Step 1: Initialize Git repo, `.gitignore`, `package.json`, `tsconfig.json`, `vite.config.ts`, and `src/data/types.ts`**
 
 Create `.gitignore` ignoring `Quranflash.pkg`, `public/mushaf/pages/`, `public/ort/`, `dist/`, `node_modules/`, `src-tauri/target/`, `src-tauri/resources/mushaf/`, `.DS_Store`.
 Create `package.json` with `react`, `react-dom`, `@tilawa/core@1.0.0-rc.1`, `onnxruntime-web@1.30.0`, `@tauri-apps/api@2.12.5`, and devDeps `vite`, `@vitejs/plugin-react`, `typescript`, `@types/react`, `@types/react-dom`, `vitest`, `jsdom`, `@tauri-apps/cli@2.12.6`, `adm-zip` (for clean cross-platform zip reading in `extract-mushaf.mjs`). Configure `vite.config.ts` to copy `node_modules/onnxruntime-web/dist/ort-wasm*.{wasm,mjs}` into `public/ort/` on dev/build and enable Vitest `jsdom` environment. Run `git init && npm install`.
 
-- [ ] **Step 2: Write the failing test in `tests/extract-mushaf.test.ts`**
+- [x] **Step 2: Write the failing test in `tests/extract-mushaf.test.ts`**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -171,12 +171,12 @@ describe("extract-mushaf", () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npx vitest run tests/extract-mushaf.test.ts`
 Expected: FAIL with module `../scripts/extract-mushaf.mjs` not found.
 
-- [ ] **Step 4: Implement `scripts/extract-mushaf.mjs` and run extraction**
+- [x] **Step 4: Implement `scripts/extract-mushaf.mjs` and run extraction**
 
 Implement `parsePageXhtml(html, pageNum)` applying exact nested transform math:
 - Read `btnScaler` `scale(S)`, `btnContainer` `left: L`, `top: T`, `scale(SX, SY)`, and each `.vBtn` `id="v{s}_{a}(_{p})?"` with `left`, `top`, `width`, `height`.
@@ -185,12 +185,12 @@ Implement `parsePageXhtml(html, pageNum)` applying exact nested transform math:
 - Populate `src/data/catalog.json` with all 114 surahs (Arabic + Latin names, ayah counts, Meccan/Medinan, start page from `chapters.xml`), 30 juzs, curated verified public EveryAyah reciters (default `Alafasy_128kbps`, plus `Husary_128kbps`, `Abdul_Basit_Murattal_192kbps`, `Minshawy_Murattal_128kbps`, `Abdurrahmaan_As-Sudais_192kbps`, `Ghamadi_40kbps`, `MaherAlMuaiqly128kbps`, `Saood_ash-Shuraym_128kbps`, `Abu_Bakr_Ash-Shaatree_128kbps`, `Hani_Rifai_192kbps`), Quran.com translations (`33`, `134`, `141`, `20`, `85`, `22`, `57`), and tafsirs (`equran-id` Kemenag RI default + Quran.com `16` Muyassar, `14` Ibn Kathir, `15` Tabari, `90` Qurtubi, `91` Sa'di, `169` English Ibn Kathir).
 - Read `app.nw` directly from `/Applications/Quranflash.app/Contents/Resources/app.nw` (fallback: unpack `Quranflash.pkg` `Payload` to a temp dir) and extract `001.gif`..`604.gif` into `public/mushaf/pages/`. Also check `git check-ignore Quranflash.pkg public/mushaf/pages/001.gif`.
 
-- [ ] **Step 5: Run extraction and tests to verify PASS**
+- [x] **Step 5: Run extraction and tests to verify PASS**
 
 Run: `npm run extract:mushaf && npx vitest run tests/extract-mushaf.test.ts && git check-ignore Quranflash.pkg public/mushaf/pages/001.gif`
 Expected: PASS (2 tests pass; both paths reported as gitignored).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .gitignore package.json package-lock.json tsconfig.json vite.config.ts src/data/types.ts src/data/mushaf-map.json src/data/catalog.json scripts/extract-mushaf.mjs tests/extract-mushaf.test.ts docs/
