@@ -3355,3 +3355,76 @@ textarea:focus-visible {
     max-width: none;
   }
 }
+
+/* Phone landscape: expand the mushaf page to full screen width and scroll vertically so glyphs stay large and legible */
+@media (orientation: landscape) and (max-height: 540px) {
+  .reader-stage {
+    container-type: normal;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: calc(52px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(62px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .app-shell--focus .reader-stage {
+    padding: calc(8px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .mushaf-spread {
+    width: 100%;
+    max-height: none;
+    flex-shrink: 0;
+  }
+
+  .mushaf-page {
+    container-type: inline-size;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 699 / 1020;
+  }
+
+  .mushaf-spread--double .mushaf-page {
+    width: 50%;
+    height: auto;
+  }
+
+  .turn-btn {
+    position: fixed;
+    top: 50%;
+  }
+}
+
+/* Phone portrait: edge-to-edge page with minimal side margins (Tarteel-style) for larger, clearer glyphs */
+@media (max-width: 640px) and (orientation: portrait) {
+  .reader-stage {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .app-shell--focus .reader-stage {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .mushaf-spread {
+    width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .mushaf-page {
+    width: 100%;
+    height: min(100cqh, calc(100cqw * 1020 / 699));
+  }
+
+  .glyph-page {
+    inset: 2.4% 2% 3.6%;
+    font-size: calc(5.75cqw * var(--glyph-fit));
+  }
+}
