@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
 import type { SpreadMode, ThemeMode } from "../data/types";
-import type { OfflinePages } from "../state/useOfflinePages";
 
 export interface TopBarProps {
   surahLabel: string;
@@ -12,8 +11,6 @@ export interface TopBarProps {
   focusMode: boolean;
   wordTranslation: boolean;
   theme: ThemeMode;
-  /** Offline download control; omitted where it does not apply (desktop app). */
-  offline?: OfflinePages;
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
@@ -45,7 +42,6 @@ export function TopBar({
   focusMode,
   wordTranslation,
   theme,
-  offline,
   onOpenPalette,
   onChangeSpreadMode,
   onToggleHifzBlur,
@@ -157,7 +153,6 @@ export function TopBar({
           focusMode={focusMode}
           wordTranslation={wordTranslation}
           theme={theme}
-          offline={offline}
           onChangeSpreadMode={onChangeSpreadMode}
           onToggleHifzBlur={onToggleHifzBlur}
           onToggleFocusMode={onToggleFocusMode}
@@ -178,7 +173,6 @@ interface AppMenuProps {
   focusMode: boolean;
   wordTranslation: boolean;
   theme: ThemeMode;
-  offline?: OfflinePages;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
   onToggleFocusMode: () => void;
@@ -195,7 +189,6 @@ function AppMenu({
   focusMode,
   wordTranslation,
   theme,
-  offline,
   onChangeSpreadMode,
   onToggleHifzBlur,
   onToggleFocusMode,
@@ -305,34 +298,10 @@ function AppMenu({
           }}
         >
           <span className="app-menu__text">
-            <span className="app-menu__title">Unduh Suara</span>
-            <span className="app-menu__sub">Simpan murottal per surah, juz, atau seluruh Al-Quran untuk didengar tanpa internet</span>
+            <span className="app-menu__title">Unduh Offline</span>
+            <span className="app-menu__sub">Kelola unduhan murottal, terjemahan, tafsir, mushaf &amp; AI Tasmi&apos;</span>
           </span>
         </button>
-
-        {offline?.supported && (
-          <button
-            type="button"
-            className="app-menu__row"
-            onClick={offline.toggle}
-            disabled={offline.status === "done"}
-          >
-            <span className="app-menu__text">
-              <span className="app-menu__title">
-                {offline.status === "done" ? "Offline siap" : "Unduh Offline"}
-              </span>
-              <span className="app-menu__sub">
-                {offline.status === "running"
-                  ? `Mengunduh ${offline.done}/${offline.total}. Ketuk untuk membatalkan.`
-                  : offline.status === "done"
-                    ? "Semua 604 halaman tersimpan untuk dibaca tanpa internet."
-                    : offline.status === "error"
-                      ? "Sebagian gagal. Ketuk untuk mengulang."
-                      : "Simpan semua 604 halaman (±47 MB) agar bisa dibaca tanpa internet."}
-              </span>
-            </span>
-          </button>
-        )}
       </div>
     </>
   );

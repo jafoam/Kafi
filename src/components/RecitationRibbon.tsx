@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { SurahInfo } from "../data/types";
+import { useEffect, useState } from "react";
+import type { AyahKey, SurahInfo } from "../data/types";
+import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { TasmiLiveState } from "../services/tasmi-logic";
 
 export interface RecitationRibbonProps {
@@ -8,7 +9,14 @@ export interface RecitationRibbonProps {
   blurActive: boolean;
   isPeeking: boolean;
   getAyahWords: (surah: number, ayah: number) => string[];
+  glyphLoader?: GlyphPageLoader;
+  ayahToPage?: Record<AyahKey, number>;
   onStop: () => void;
+}
+
+interface QcfGlyph {
+  code: string;
+  fontFamily: string;
 }
 
 const TRACKER_LABELS: Record<TasmiLiveState["trackerState"], string> = {
@@ -24,17 +32,61 @@ export function RecitationRibbon({
   blurActive,
   isPeeking,
   getAyahWords,
+  glyphLoader,
+  ayahToPage,
   onStop,
 }: RecitationRibbonProps) {
   const [manualExpand, setManualExpand] = useState(false);
+  const [qcfWords, setQcfWords] = useState<{ ayah: AyahKey; glyphs: QcfGlyph[] } | null>(null);
 
   const activeWord = state.activeWord;
+  const activeAyahKey: AyahKey | null = activeWord ? `${activeWord.surah}:${activeWord.ayah}` : null;
   const surahNum = activeWord?.surah ?? state.passage?.surah ?? null;
   const surahName =
     surahNum !== null ? surahs.find((s) => s.number === surahNum)?.name ?? `Surah ${surahNum}` : "";
 
   const ayahWords =
     activeWord !== null ? getAyahWords(activeWord.surah, activeWord.ayah) : [];
+
+  useEffect(() => {
+    if (!activeAyahKey || !glyphLoader || !ayahToPage || ayahWords.length === 0) return;
+    const page = ayahToPage[activeAyahKey];
+    if (!page) return;
+    let live = true;
+
+    const collectFromPage = async (p: number): Promise<QcfGlyph[]> => {
+      const data = await glyphLoader.load(p);
+      return data.lines
+        .flatMap((line) => line.words)
+        .filter((w) => w.ayah === activeAyahKey)
+        .map((w) => ({ code: w.code, fontFamily: data.fontFamily }));
+    };
+
+    void (async () => {
+      try {
+        const glyphs = await collectFromPage(page);
+        if (glyphs.length - 1 < ayahWords.length && page < 604) {
+          const nextGlyphs = await collectFromPage(page + 1).catch(() => [] as QcfGlyph[]);
+          glyphs.push(...nextGlyphs);
+        }
+        if (!live) return;
+        // Strip the trailing ayah-end ornament glyph when word counts match 1:1 with ref-v2.
+        if (glyphs.length - 1 === ayahWords.length) {
+          setQcfWords({ ayah: activeAyahKey, glyphs: glyphs.slice(0, -1) });
+        } else {
+          setQcfWords(null);
+        }
+      } catch {
+        if (live) setQcfWords(null);
+      }
+    })();
+
+    return () => {
+      live = false;
+    };
+  }, [activeAyahKey, glyphLoader, ayahToPage, ayahWords.length]);
+
+  const activeQcf = qcfWords && qcfWords.ayah === activeAyahKey ? qcfWords.glyphs : null;
 
   const mistakeWordsInAyah = new Set<number>();
   if (activeWord) {
@@ -103,8 +155,10 @@ export function RecitationRibbon({
               const isPassed = wordNum < activeWord.word;
               const isMistake = mistakeWordsInAyah.has(wordNum);
 
+              const qcf = activeQcf?.[idx];
               const classes = [
                 "recitation-ribbon__word",
+                qcf ? "recitation-ribbon__word--qcf" : "",
                 isCurrent ? "recitation-ribbon__word--current" : "",
                 isPassed ? "recitation-ribbon__word--passed" : "",
                 isMistake ? "recitation-ribbon__word--mistake" : "",
@@ -113,8 +167,12 @@ export function RecitationRibbon({
                 .join(" ");
 
               return (
-                <span key={`${activeWord.surah}:${activeWord.ayah}:${wordNum}`} className={classes}>
-                  {word}
+                <span
+                  key={`${activeWord.surah}:${activeWord.ayah}:${wordNum}`}
+                  className={classes}
+                  style={qcf ? { fontFamily: `"${qcf.fontFamily}"` } : undefined}
+                >
+                  {qcf ? qcf.code : word}
                 </span>
               );
             })}

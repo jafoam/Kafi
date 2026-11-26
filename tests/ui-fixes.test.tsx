@@ -3,7 +3,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import fs from "node:fs";
 import type { Catalog, MushafMap, TasmiSessionRecord } from "../src/data/types";
+import { AudioDock } from "../src/components/AudioDock";
+import { RecitationRibbon } from "../src/components/RecitationRibbon";
 import { isCrossOriginHttpUrl, MushafPage } from "../src/components/MushafPage";
+import { DEFAULT_SCOPE } from "../src/services/audio-controller";
+import type { GlyphPageLoader } from "../src/services/glyph-pages";
 import { MushafSpread } from "../src/components/MushafSpread";
 import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
@@ -236,5 +240,120 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
 
     const updatedTabs = el.querySelectorAll('[role="tab"]');
     expect(updatedTabs[1].getAttribute("aria-selected")).toBe("true");
+  });
+});
+
+describe("AudioDock reciter display and switcher", () => {
+  it("shows the active reciter name and switches reciters via the picker", () => {
+    const onChangeReciter = vi.fn();
+    const el = mount(
+      <AudioDock
+        audioState={{
+          currentAyah: "1:1",
+          isPlaying: false,
+          isLoading: false,
+          isBismillah: false,
+          reciterId: catalog.reciters[0].id,
+          repeatCount: 1,
+          scope: DEFAULT_SCOPE,
+          speed: 1,
+          fromCache: false,
+          error: null,
+        }}
+        activeAyah="1:1"
+        surahName="Al-Fatiha"
+        surahNumber={1}
+        surahAyahCount={7}
+        reciters={catalog.reciters}
+        hidden={false}
+        downloadProgress={null}
+        isSurahDownloaded={false}
+        onTogglePlay={() => {}}
+        onPrev={() => {}}
+        onNext={() => {}}
+        onChangeReciter={onChangeReciter}
+        onCycleRepeat={() => {}}
+        onCycleSpeed={() => {}}
+        onChangeScope={() => {}}
+        onDownloadSurah={() => {}}
+        onOpenStudy={() => {}}
+        onOpenTasmi={() => {}}
+      />,
+    );
+
+    const reciterBtn = el.querySelector(".audio-dock__reciter-btn") as HTMLButtonElement;
+    expect(reciterBtn).not.toBeNull();
+    expect(reciterBtn.textContent).toContain(catalog.reciters[0].name);
+
+    act(() => {
+      reciterBtn.click();
+    });
+
+    const items = el.querySelectorAll(".reciter-menu__item");
+    expect(items.length).toBe(catalog.reciters.length);
+    expect(items[0].getAttribute("aria-checked")).toBe("true");
+
+    act(() => {
+      (items[1] as HTMLButtonElement).click();
+    });
+
+    expect(onChangeReciter).toHaveBeenCalledWith(catalog.reciters[1].id);
+    expect(el.querySelector(".reciter-menu")).toBeNull();
+  });
+});
+
+describe("RecitationRibbon QCF mushaf font", () => {
+  it("renders words using the mushaf page QCFv1 glyph font when available", async () => {
+    const loader: GlyphPageLoader = {
+      load: async () => ({
+        page: 1,
+        fontFamily: "QCFv1-p1",
+        lines: [
+          {
+            line: 1,
+            words: [
+              { code: "\uFB51", ayah: "1:1" },
+              { code: "\uFB52", ayah: "1:1" },
+              { code: "\uFB53", ayah: "1:1" },
+              { code: "\uFB54", ayah: "1:1" },
+              { code: "\uFB55", ayah: "1:1" }, // trailing ayah ornament
+            ],
+          },
+        ],
+        rows: [],
+      }),
+      prefetch: () => {},
+    };
+
+    const el = mount(
+      <RecitationRibbon
+        state={{
+          mode: "free",
+          passage: null,
+          trackerState: "locked",
+          activeAyah: "1:1",
+          activeWord: { surah: 1, ayah: 1, word: 2 },
+          revealedAyahs: new Set(["1:1"]),
+          confirmedMistakes: [],
+        }}
+        surahs={catalog.surahs}
+        blurActive={false}
+        isPeeking={false}
+        getAyahWords={() => ["بِسْمِ", "ٱللَّهِ", "ٱلرَّحْمَـٰنِ", "ٱلرَّحِيمِ"]}
+        glyphLoader={loader}
+        ayahToPage={mushafMap.ayahToPage}
+        onStop={() => {}}
+      />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const wordEls = el.querySelectorAll<HTMLSpanElement>(".recitation-ribbon__word--qcf");
+    expect(wordEls).toHaveLength(4);
+    expect(wordEls[0].style.fontFamily).toContain("QCFv1-p1");
+    expect(wordEls[0].textContent).toBe("\uFB51");
+    expect(wordEls[1].classList.contains("recitation-ribbon__word--current")).toBe(true);
   });
 });

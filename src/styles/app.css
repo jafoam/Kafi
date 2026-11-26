@@ -1045,18 +1045,21 @@ textarea:focus-visible {
 
 .audio-dock__info {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
   min-width: 0;
-  flex: 0 1 200px;
+  flex: 0 1 230px;
 }
 
 .audio-dock__ayah-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   max-width: 100%;
-  height: 34px;
-  padding: 0 10px;
+  height: 22px;
+  padding: 0 8px;
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -1067,6 +1070,42 @@ textarea:focus-visible {
 
 .audio-dock__ayah-btn:hover {
   background: var(--bg-hover);
+}
+
+.audio-dock__reciter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.audio-dock__reciter-btn:hover,
+.audio-dock__reciter-btn--open {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+.audio-dock__reciter-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-dock__reciter-chevron {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .audio-dock__ayah-title {
@@ -1945,6 +1984,12 @@ textarea:focus-visible {
   transition: background-color 120ms ease, color 120ms ease;
 }
 
+.recitation-ribbon__word--qcf {
+  font-size: 24px;
+  line-height: 1.45;
+  padding: 0 2px;
+}
+
 .recitation-ribbon__word--passed {
   color: var(--text-primary);
 }
@@ -2454,6 +2499,108 @@ textarea:focus-visible {
   color: var(--text-secondary);
 }
 
+/* Reciter picker popover (opens above the left side of the audio dock) */
+.reciter-menu {
+  position: fixed;
+  z-index: 32;
+  bottom: 86px;
+  left: max(16px, calc(50vw - 490px));
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(60dvh, 400px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  pointer-events: auto;
+}
+
+.reciter-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.reciter-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.reciter-menu__item:hover {
+  background: var(--bg-hover);
+}
+
+.reciter-menu__item--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.reciter-menu__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reciter-menu__latin {
+  font-size: 13px;
+  font-weight: 550;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reciter-menu__arabic {
+  font-family: var(--font-arabic);
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+
+.reciter-menu__item--active .reciter-menu__arabic {
+  color: var(--accent);
+}
+
+.reciter-menu__check {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.study-drawer__dl-btn {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.study-drawer__dl-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 
 /* The bar keeps only what is used all the time; the rest lives in the ☰ menu */
 .topbar__tasmi {
@@ -2904,8 +3051,9 @@ textarea:focus-visible {
     gap: 4px;
   }
 
-  .audio-dock__ayah-btn {
-    min-width: 56px;
+  .audio-dock__ayah-btn,
+  .audio-dock__reciter-btn {
+    min-width: 0;
     padding: 0 6px;
   }
 
@@ -3007,6 +3155,47 @@ textarea:focus-visible {
 
 .dl-panel__close:hover {
   background: var(--bg-hover);
+}
+
+.dl-tabs {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dl-tabs__btn {
+  flex: 1;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.dl-tabs__btn:hover {
+  color: var(--text-primary);
+}
+
+.dl-tabs__btn--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.dl-item__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 .dl-panel__scroll {

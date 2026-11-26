@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
 import type { AyahKey, ReciterInfo } from "../data/types";
 import type { AudioState, PlaybackScope, RepeatCount } from "../services/audio-controller";
@@ -52,9 +52,22 @@ export function AudioDock({
   onOpenTasmi,
 }: AudioDockProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [reciterOpen, setReciterOpen] = useState(false);
   useBackClose(menuOpen, () => setMenuOpen(false));
+  useBackClose(reciterOpen, () => setReciterOpen(false));
+
+  useEffect(() => {
+    if (!reciterOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReciterOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reciterOpen]);
+
   const ayahNum = activeAyah.split(":")[1];
   const isDownloading = downloadProgress !== null;
+  const activeReciter = reciters.find((r) => r.id === audioState.reciterId) ?? reciters[0];
 
   return (
     <div className="audio-dock-zone">
@@ -85,6 +98,37 @@ export function AudioDock({
               <span className="audio-dock__status">Offline</span>
             ) : null}
           </button>
+
+          {activeReciter && (
+            <button
+              type="button"
+              className={`audio-dock__reciter-btn ${reciterOpen ? "audio-dock__reciter-btn--open" : ""}`}
+              onClick={() => {
+                setMenuOpen(false);
+                setReciterOpen((open) => !open);
+              }}
+              aria-label={`Qari: ${activeReciter.name}. Ketuk untuk mengganti`}
+              aria-haspopup="dialog"
+              aria-expanded={reciterOpen}
+              title={`Qari: ${activeReciter.name} — klik untuk mengganti`}
+            >
+              <span className="audio-dock__reciter-name">{activeReciter.name}</span>
+              <svg
+                className="audio-dock__reciter-chevron"
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="audio-dock__transport">
@@ -154,7 +198,10 @@ export function AudioDock({
           <button
             type="button"
             className={`audio-dock__pill-btn ${audioState.scope.kind !== "continue" ? "audio-dock__pill-btn--active" : ""}`}
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => {
+              setReciterOpen(false);
+              setMenuOpen((open) => !open);
+            }}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
             title="Mode putar: ulang surah, halaman, juz, atau rentang ayat"
@@ -175,19 +222,6 @@ export function AudioDock({
           >
             {audioState.speed}×
           </button>
-
-          <select
-            className="audio-dock__select"
-            aria-label="Pilih Qari"
-            value={audioState.reciterId}
-            onChange={(e) => onChangeReciter(e.target.value)}
-          >
-            {reciters.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
 
           <button
             type="button"
@@ -216,6 +250,60 @@ export function AudioDock({
           </button>
         </div>
       </section>
+      {reciterOpen && (
+        <>
+          <button
+            type="button"
+            className="playback-menu__backdrop"
+            aria-label="Tutup daftar qari"
+            onClick={() => setReciterOpen(false)}
+          />
+          <div className="reciter-menu" role="dialog" aria-label="Pilih Qari">
+            <div className="playback-menu__title">Pilih Qari</div>
+            <div className="reciter-menu__list" role="radiogroup" aria-label="Daftar Qari">
+              {reciters.map((r) => {
+                const active = r.id === audioState.reciterId;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={`reciter-menu__item ${active ? "reciter-menu__item--active" : ""}`}
+                    onClick={() => {
+                      onChangeReciter(r.id);
+                      setReciterOpen(false);
+                    }}
+                  >
+                    <span className="reciter-menu__names">
+                      <span className="reciter-menu__latin">{r.name}</span>
+                      <span className="reciter-menu__arabic" lang="ar" dir="rtl">
+                        {r.arabicName}
+                      </span>
+                    </span>
+                    {active && (
+                      <svg
+                        className="reciter-menu__check"
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
       {menuOpen && (
         <PlaybackMenu
           scope={audioState.scope}
