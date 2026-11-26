@@ -55,7 +55,9 @@ import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
+import type { SelectedWord } from "./services/word-translations";
 import { useOfflinePages } from "./state/useOfflinePages";
+import { usePwaInstall } from "./state/usePwaInstall";
 import { RecitationRibbon } from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
 import { TasmiSheet } from "./components/TasmiSheet";
@@ -164,7 +166,11 @@ export function App({
     typeof window !== "undefined" ? window.innerWidth : 1280,
   );
   const [pageUrls, setPageUrls] = useState<Record<number, string>>({});
-  const [selected, setSelected] = useState<{ ayah: AyahKey; rect: DOMRect } | null>(null);
+  const [selected, setSelected] = useState<{
+    ayah: AyahKey;
+    rect: DOMRect;
+    word?: SelectedWord;
+  } | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -632,7 +638,13 @@ export function App({
       const abort = new AbortController();
       tilawaAbortRef.current = abort;
 
+      let preparedMic: ReturnType<typeof tilawaController.prepareMic> = null;
+      let micHandedOff = false;
+
       try {
+        // Acquire mic + AudioContext synchronously in the click gesture before awaiting model load.
+        preparedMic = tilawaController.prepareMic();
+
         const [lookup] = await Promise.all([
           ensureWordLookup(),
           tilawaController.ensureReady((progress) => {
@@ -660,9 +672,11 @@ export function App({
         };
 
         if (mode === "free") {
-          await tilawaController.startFree(onEvent);
+          micHandedOff = true;
+          await tilawaController.startFree(onEvent, preparedMic);
         } else if (passage) {
-          await tilawaController.startMemorization(passage, onEvent);
+          micHandedOff = true;
+          await tilawaController.startMemorization(passage, onEvent, preparedMic);
           const startPage = mushafMap.ayahToPage[`${passage.surah}:${passage.fromAyah}`];
           if (startPage && startPage !== rightPage && startPage !== leftPage) {
             navigateToPage(startPage);
@@ -679,6 +693,7 @@ export function App({
         const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
         setTasmiError(message);
       } finally {
+        if (!micHandedOff) preparedMic?.release();
         tasmiStartingRef.current = false;
         if (mountedRef.current) setTasmiStarting(false);
       }
@@ -799,14 +814,24 @@ export function App({
   ]);
 
   const handleSelectAyah = useCallback(
-    (ayah: AyahKey, anchorRect: DOMRect) => {
-      setSelected((prev) => (prev?.ayah === ayah ? null : { ayah, rect: anchorRect }));
+    (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => {
       if (studyOpen) {
         setStudyAyah(ayah);
       }
+      if (focusMode) return;
+      setSelected((prev) =>
+        prev?.ayah === ayah && prev.word?.key === word?.key
+          ? null
+          : { ayah, rect: anchorRect, word },
+      );
     },
-    [studyOpen],
+    [focusMode, studyOpen],
   );
+
+  // Dismiss ayah/word popover when entering focus mode
+  useEffect(() => {
+    if (focusMode) setSelected(null);
+  }, [focusMode]);
 
   const bookmarkSet = useMemo(() => new Set(userData.bookmarks), [userData.bookmarks]);
 
@@ -929,6 +954,7 @@ export function App({
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
   const offlinePages = useOfflinePages(!platform.isDesktop);
+  const pwaInstall = usePwaInstall(!platform.isDesktop);
 
   const getPageImageUrl = useCallback(
     (page: number) => platform.getPageImageUrl(page),
@@ -937,7 +963,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherVisible ? "app-shell--fab" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -953,6 +979,7 @@ export function App({
         wordTranslation={userData.settings.wordTranslation}
         theme={userData.settings.theme}
         offline={offlinePages}
+        pwaInstall={pwaInstall}
         onOpenPalette={(tab = "surah") => {
           setPaletteTab(tab);
           setPaletteOpen(true);
@@ -1008,7 +1035,7 @@ export function App({
         blurSet={blurSet}
         revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
         mistakeAyahs={effectiveMistakeAyahs}
-        wordTranslation={userData.settings.wordTranslation}
+        wordTranslation={userData.settings.wordTranslation && !focusMode}
         canGoPrev={canGoPrev}
         canGoNext={canGoNext}
         isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
@@ -1027,11 +1054,12 @@ export function App({
         }}
       />
 
-      {selected && (
+      {selected && !focusMode && (
         <AyahPopover
           ayah={selected.ayah}
           surahName={selectedSurahName}
           anchorRect={selected.rect}
+          word={selected.word}
           isBookmarked={bookmarkSet.has(selected.ayah)}
           highlightColor={userData.highlights[selected.ayah] ?? null}
           onClose={() => setSelected(null)}

@@ -136,7 +136,7 @@ export function AudioDock({
         <div className="audio-dock__controls">
           <button
             type="button"
-            className={`audio-dock__pill-btn ${audioState.repeatCount !== 1 ? "audio-dock__pill-btn--active" : ""}`}
+            className={`audio-dock__pill-btn audio-dock__repeat-btn ${audioState.repeatCount !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onCycleRepeat}
             aria-label={`Ulang ayat: ${formatRepeat(audioState.repeatCount)}`}
             title="Ulang ayat"
@@ -153,11 +153,12 @@ export function AudioDock({
 
           <button
             type="button"
-            className={`audio-dock__pill-btn ${audioState.scope.kind !== "continue" ? "audio-dock__pill-btn--active" : ""}`}
+            className={`audio-dock__pill-btn audio-dock__scope-btn ${audioState.scope.kind !== "continue" || audioState.repeatCount !== 1 || audioState.speed !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={() => setMenuOpen((open) => !open)}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
-            title="Mode putar: ulang surah, halaman, juz, atau rentang ayat"
+            aria-label="Mode putar, ulang ayat, dan kecepatan"
+            title="Mode putar: ulang surah, halaman, juz, ulang ayat, dan kecepatan"
           >
             <svg className="audio-dock__pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 7h11M4 12h11M4 17h7" />
@@ -168,7 +169,7 @@ export function AudioDock({
 
           <button
             type="button"
-            className={`audio-dock__pill-btn ${audioState.speed !== 1 ? "audio-dock__pill-btn--active" : ""}`}
+            className={`audio-dock__pill-btn audio-dock__speed-btn ${audioState.speed !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onCycleSpeed}
             aria-label={`Kecepatan: ${audioState.speed}x`}
             title="Kecepatan bacaan"
@@ -219,11 +220,15 @@ export function AudioDock({
       {menuOpen && (
         <PlaybackMenu
           scope={audioState.scope}
+          repeatCount={audioState.repeatCount}
+          speed={audioState.speed}
           surahNumber={surahNumber}
           surahName={surahName}
           ayahCount={surahAyahCount}
           activeAyah={activeAyah}
           onChange={onChangeScope}
+          onCycleRepeat={onCycleRepeat}
+          onCycleSpeed={onCycleSpeed}
           onClose={() => setMenuOpen(false)}
         />
       )}

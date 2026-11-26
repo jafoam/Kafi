@@ -2,6 +2,7 @@ import { useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
 import type { GlyphPageLoader } from "../services/glyph-pages";
+import type { SelectedWord } from "../services/word-translations";
 import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
 
 export interface MushafSpreadProps {
@@ -23,7 +24,7 @@ export interface MushafSpreadProps {
   glyphLoader?: GlyphPageLoader;
   onRetryPage?: (page: number) => void;
   onTurnPage: (direction: "next" | "prev") => void;
-  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
+  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onClearSelection: () => void;
   onToggleFocus: () => void;

@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData } from "../services/glyph-pages";
-import { createWordTranslationLoader, type PageWords } from "../services/word-translations";
+import {
+  createWordTranslationLoader,
+  type PageWords,
+  type SelectedWord,
+} from "../services/word-translations";
 import { SurahBanner } from "./SurahBanner";
 
 const wordLoader = createWordTranslationLoader();
@@ -20,7 +24,7 @@ export interface GlyphPageBodyProps {
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   /** Show the per-word translation tooltip (default on). */
   wordTranslation?: boolean;
-  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
+  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
 }
 
@@ -57,8 +61,8 @@ export function GlyphPageBody({
   }, [data.page, wordTranslation]);
 
   useEffect(() => {
-    if (!wordTranslation) setTip(null);
-  }, [wordTranslation]);
+    if (!wordTranslation || selectedAyah) setTip(null);
+  }, [wordTranslation, selectedAyah]);
 
   const showTip = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return setTip(null);
@@ -110,7 +114,7 @@ export function GlyphPageBody({
       onPointerOver={(event) => {
         setHoveredAyah(resolveAyah(event.target));
         setHoveredWord(resolveWord(event.target));
-        if (event.pointerType === "mouse") showTip(event.target);
+        if (event.pointerType === "mouse" && !selectedAyah) showTip(event.target);
       }}
       onPointerLeave={() => {
         setHoveredAyah(null);
@@ -118,8 +122,9 @@ export function GlyphPageBody({
         setTip(null);
       }}
       onClick={(event) => {
-        showTip(event.target);
-        setPickedWord(resolveWord(event.target));
+        setTip(null);
+        const wordKey = resolveWord(event.target);
+        setPickedWord(wordKey);
         const ayah = resolveAyah(event.target);
         if (!ayah) return;
         event.stopPropagation();
@@ -131,7 +136,17 @@ export function GlyphPageBody({
           return;
         }
         const el = (event.target as HTMLElement).closest<HTMLElement>("[data-ayah]");
-        onSelectAyah(ayah, (el ?? event.currentTarget).getBoundingClientRect());
+        const code = el?.dataset.code;
+        const info = wordTranslation && code ? words?.get(code) : undefined;
+        const selectedWord: SelectedWord | undefined =
+          info && wordKey && info.translation
+            ? {
+                key: `${data.page}:${wordKey}`,
+                translation: info.translation,
+                transliteration: info.transliteration,
+              }
+            : undefined;
+        onSelectAyah(ayah, (el ?? event.currentTarget).getBoundingClientRect(), selectedWord);
       }}
     >
       {rows.map((row) => {
@@ -207,7 +222,18 @@ export function GlyphPageBody({
                     if (!isFirst || (event.key !== "Enter" && event.key !== " ")) return;
                     event.preventDefault();
                     event.stopPropagation();
-                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect());
+                    setTip(null);
+                    setPickedWord(wordKey);
+                    const info = wordTranslation ? words?.get(word.code) : undefined;
+                    const selectedWord: SelectedWord | undefined =
+                      info && info.translation
+                        ? {
+                            key: `${data.page}:${wordKey}`,
+                            translation: info.translation,
+                            transliteration: info.transliteration,
+                          }
+                        : undefined;
+                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect(), selectedWord);
                   }}
                 >
                   {word.code}

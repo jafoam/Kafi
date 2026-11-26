@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData, GlyphPageLoader } from "../services/glyph-pages";
+import type { SelectedWord } from "../services/word-translations";
 import { GlyphPageBody } from "./GlyphPageBody";
 
 export type { MistakeBadge };
@@ -29,7 +30,7 @@ export interface MushafPageProps {
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   wordTranslation?: boolean;
-  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
+  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onRetryPage?: (page: number) => void;
 }

@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import fs from "node:fs";
 import type { Catalog, MushafMap, TasmiSessionRecord } from "../src/data/types";
+import { AyahPopover } from "../src/components/AyahPopover";
 import { isCrossOriginHttpUrl, MushafPage } from "../src/components/MushafPage";
 import { MushafSpread } from "../src/components/MushafSpread";
 import { TasmiSheet } from "../src/components/TasmiSheet";
@@ -236,5 +237,49 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
 
     const updatedTabs = el.querySelectorAll('[role="tab"]');
     expect(updatedTabs[1].getAttribute("aria-selected")).toBe("true");
+  });
+});
+
+describe("Unified word gloss inside AyahPopover", () => {
+  it("renders word translation and transliteration alongside ayah actions, and omits them when absent", () => {
+    const rect = { left: 100, top: 300, width: 40, height: 24, bottom: 324, right: 140 } as DOMRect;
+    const el = mount(
+      <AyahPopover
+        ayah="1:1"
+        surahName="Al-Fatihah"
+        anchorRect={rect}
+        word={{
+          key: "1:2-0",
+          translation: "dengan nama",
+          transliteration: "bis'mi",
+        }}
+        isBookmarked={false}
+        highlightColor={null}
+        onClose={() => {}}
+        onToggleBookmark={() => {}}
+        onSetHighlight={() => {}}
+      />,
+    );
+
+    expect(el.querySelector(".ayah-popover__word-translation")?.textContent).toBe("dengan nama");
+    expect(el.querySelector(".ayah-popover__word-translit")?.textContent).toBe("bis'mi");
+    expect(el.textContent).toContain("Putar");
+    expect(el.textContent).toContain("Tafsir & Terjemahan");
+    expect(el.textContent).toContain("Tasmi' dari sini");
+
+    mount(
+      <AyahPopover
+        ayah="1:1"
+        surahName="Al-Fatihah"
+        anchorRect={rect}
+        word={undefined}
+        isBookmarked={false}
+        highlightColor={null}
+        onClose={() => {}}
+        onToggleBookmark={() => {}}
+        onSetHighlight={() => {}}
+      />,
+    );
+    expect(el.querySelector(".ayah-popover__word")).toBeNull();
   });
 });

@@ -1,16 +1,20 @@
 import { useEffect, useState } from "react";
 import type { AyahKey } from "../data/types";
-import type { PlaybackScope, PlaybackScopeKind } from "../services/audio-controller";
+import type { PlaybackScope, PlaybackScopeKind, RepeatCount } from "../services/audio-controller";
 import { customRange } from "../services/playback-ranges";
 
 export interface PlaybackMenuProps {
   scope: PlaybackScope;
+  repeatCount: RepeatCount;
+  speed: number;
   surahNumber: number;
   surahName: string;
   ayahCount: number;
   /** Ayah currently active, used as the default start of a custom range. */
   activeAyah: AyahKey;
   onChange: (scope: PlaybackScope) => void;
+  onCycleRepeat: () => void;
+  onCycleSpeed: () => void;
   onClose: () => void;
 }
 
@@ -54,11 +58,15 @@ function describe(scope: PlaybackScope, surahName: string): string {
 
 export function PlaybackMenu({
   scope,
+  repeatCount,
+  speed,
   surahNumber,
   surahName,
   ayahCount,
   activeAyah,
   onChange,
+  onCycleRepeat,
+  onCycleSpeed,
   onClose,
 }: PlaybackMenuProps) {
   const activeNumber = Number(activeAyah.split(":")[1]) || 1;
@@ -150,6 +158,23 @@ export function PlaybackMenu({
           />
           <span>Ulang terus-menerus</span>
         </label>
+
+        <div className="playback-menu__toggles">
+          <button
+            type="button"
+            className={`playback-menu__option ${repeatCount !== 1 ? "playback-menu__option--active" : ""}`}
+            onClick={onCycleRepeat}
+          >
+            Ulang ayat: {repeatCount === Infinity ? "∞" : `${repeatCount}×`}
+          </button>
+          <button
+            type="button"
+            className={`playback-menu__option ${speed !== 1 ? "playback-menu__option--active" : ""}`}
+            onClick={onCycleSpeed}
+          >
+            Kecepatan: {speed}×
+          </button>
+        </div>
 
         <p className="playback-menu__hint">{describe(scope, surahName)}</p>
       </div>

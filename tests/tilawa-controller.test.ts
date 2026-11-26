@@ -120,4 +120,19 @@ describe("tilawa-controller concurrency", () => {
       "https://cdn.example.com/ort/",
     );
   });
+
+  it("forces wasm execution provider to avoid WebGPU JSEP Expand kernel failure", async () => {
+    const { createTilawa } = await import("@tilawa/core/web");
+    const mockCreate = vi.mocked(createTilawa);
+    mockCreate.mockClear();
+
+    const controller = createTilawaController(createDesktopMockPlatform());
+    await controller.ensureReady();
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providers: ["wasm"],
+      }),
+    );
+    controller.dispose();
+  });
 });
