@@ -39,7 +39,8 @@ async function idbGet(key: string): Promise<string | null> {
       const tx = db.transaction(IDB_STORE, "readonly");
       const req = tx.objectStore(IDB_STORE).get(key);
       req.onsuccess = () => resolve(typeof req.result === "string" ? req.result : null);
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error ?? new Error("IndexedDB read failed"));
+      tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
     });
   } finally {
     db.close();
@@ -53,7 +54,8 @@ async function idbSet(key: string, value: string): Promise<void> {
       const tx = db.transaction(IDB_STORE, "readwrite");
       tx.objectStore(IDB_STORE).put(value, key);
       tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error ?? new Error("IndexedDB write failed"));
+      tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
     });
   } finally {
     db.close();

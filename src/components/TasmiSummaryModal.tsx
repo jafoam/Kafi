@@ -65,7 +65,9 @@ export function TasmiSummaryModal({
     if (!open) return;
     setTab(initialTab);
     setSelectedRecord(record ?? history[0] ?? null);
-  }, [open, initialTab, record, history]);
+    // Omit `history` so async addTasmiHistory updates don't reset the user's open tab or record.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialTab, record]);
 
   useEffect(() => {
     if (!open) return;

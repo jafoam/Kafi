@@ -4,15 +4,23 @@ export type SwRouteStrategy =
   | "network-first-shell"
   | "passthrough";
 
-const MEDIA_HOSTS = new Set([
-  "everyayah.com",
-  "www.everyayah.com",
-  "api.quran.com",
-  "equran.id",
-  "www.equran.id",
-]);
+function normalizeMushafBasePrefix(mushafBaseUrl?: string, origin?: string): string {
+  const trimmed = mushafBaseUrl?.trim() ?? "";
+  if (!trimmed) return "";
+  try {
+    const resolved = new URL(trimmed, origin);
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return "";
+    return resolved.href.replace(/\/+$/, "") + "/";
+  } catch {
+    return "";
+  }
+}
 
-export function classifyRequest(url: string): SwRouteStrategy {
+export function classifyRequest(
+  url: string,
+  selfOrigin?: string,
+  mushafBaseUrl?: string,
+): SwRouteStrategy {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -31,8 +39,22 @@ export function classifyRequest(url: string): SwRouteStrategy {
     return "passthrough";
   }
 
-  if (MEDIA_HOSTS.has(host)) {
+  let origin = parsed.origin;
+  if (selfOrigin) {
+    try {
+      origin = new URL(selfOrigin).origin;
+    } catch {
+      return "passthrough";
+    }
+  }
+
+  const mushafPrefix = normalizeMushafBasePrefix(mushafBaseUrl, origin);
+  if (mushafPrefix && parsed.href.startsWith(mushafPrefix)) {
     return "cache-first-media";
+  }
+
+  if (parsed.origin !== origin) {
+    return "passthrough";
   }
 
   const { pathname } = parsed;

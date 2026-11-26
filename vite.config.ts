@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import { defaultClientConditions } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+
+const ORT_WASM_FILES = new Set([
+  "ort-wasm-simd-threaded.jsep.wasm",
+  "ort-wasm-simd-threaded.jsep.mjs",
+]);
 
 function copyOrtAssetsPlugin() {
   return {
@@ -13,9 +19,15 @@ function copyOrtAssetsPlugin() {
       if (!fs.existsSync(srcDir)) return;
 
       fs.mkdirSync(destDir, { recursive: true });
-      for (const file of fs.readdirSync(srcDir)) {
-        if (!/^ort-wasm.*\.(wasm|mjs)$/.test(file)) continue;
+      for (const existing of fs.readdirSync(destDir)) {
+        if (/^ort-wasm/.test(existing) && !ORT_WASM_FILES.has(existing)) {
+          fs.rmSync(path.join(destDir, existing), { force: true });
+        }
+      }
+
+      for (const file of ORT_WASM_FILES) {
         const srcPath = path.join(srcDir, file);
+        if (!fs.existsSync(srcPath)) continue;
         const destPath = path.join(destDir, file);
         if (fs.existsSync(destPath) && fs.statSync(destPath).size === fs.statSync(srcPath).size) {
           continue;
@@ -33,6 +45,9 @@ function copyOrtAssetsPlugin() {
 
 export default defineConfig({
   plugins: [react(), copyOrtAssetsPlugin()],
+  resolve: {
+    conditions: ["onnxruntime-web-use-extern-wasm", ...defaultClientConditions],
+  },
   test: {
     environment: "jsdom",
   },

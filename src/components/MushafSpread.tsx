@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
-import { MushafPage } from "./MushafPage";
+import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
 
 export interface MushafSpreadProps {
   rightPageEntry: PageEntry;
@@ -16,8 +16,9 @@ export interface MushafSpreadProps {
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   canGoPrev: boolean;
   canGoNext: boolean;
-  isPaletteOpen: boolean;
+  isModalOpen: boolean;
   getPageImageUrl: (page: number) => Promise<string>;
+  onRetryPage?: (page: number) => void;
   onTurnPage: (direction: "next" | "prev") => void;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
@@ -45,8 +46,9 @@ export function MushafSpread({
   mistakeAyahs,
   canGoPrev,
   canGoNext,
-  isPaletteOpen,
+  isModalOpen,
   getPageImageUrl,
+  onRetryPage,
   onTurnPage,
   onSelectAyah,
   onPeekAyah,
@@ -66,6 +68,9 @@ export function MushafSpread({
       void getPageImageUrl(page).then((url) => {
         if (cancelled || !url) return;
         const img = new Image();
+        if (isCrossOriginHttpUrl(url)) {
+          img.crossOrigin = "anonymous";
+        }
         img.src = url;
       });
     }
@@ -83,7 +88,7 @@ export function MushafSpread({
         return;
       }
 
-      if (isPaletteOpen) return;
+      if (isModalOpen) return;
 
       if (event.key === "Escape") {
         onClearSelection();
@@ -107,7 +112,7 @@ export function MushafSpread({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPaletteOpen, onClearSelection, onToggleFocus, onTogglePalette, onTurnPage]);
+  }, [isModalOpen, onClearSelection, onToggleFocus, onTogglePalette, onTurnPage]);
 
   const isDouble = leftPageEntry !== null;
 
@@ -145,6 +150,7 @@ export function MushafSpread({
             mistakeAyahs={mistakeAyahs}
             onSelectAyah={onSelectAyah}
             onPeekAyah={onPeekAyah}
+            onRetryPage={onRetryPage}
           />
         )}
 
@@ -162,6 +168,7 @@ export function MushafSpread({
           mistakeAyahs={mistakeAyahs}
           onSelectAyah={onSelectAyah}
           onPeekAyah={onPeekAyah}
+          onRetryPage={onRetryPage}
         />
       </div>
 

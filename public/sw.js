@@ -4,15 +4,29 @@ const VALID_CACHES = new Set([SHELL_CACHE, MEDIA_CACHE]);
 
 const SHELL_PRECACHE_URLS = ["/", "/manifest.webmanifest", "/icons/icon.svg"];
 
-const MEDIA_HOSTS = new Set([
-  "everyayah.com",
-  "www.everyayah.com",
-  "api.quran.com",
-  "equran.id",
-  "www.equran.id",
-]);
+function normalizeMushafBasePrefix(mushafBaseUrl, origin) {
+  const trimmed = (mushafBaseUrl || "").trim();
+  if (!trimmed) return "";
+  try {
+    const resolved = new URL(trimmed, origin);
+    if (resolved.protocol !== "http:" && resolved.protocol !== "https:") return "";
+    return resolved.href.replace(/\/+$/, "") + "/";
+  } catch {
+    return "";
+  }
+}
 
-function classifyRequest(url, mode) {
+const MUSHAF_BASE_PREFIX = normalizeMushafBasePrefix(
+  new URL(self.location.href).searchParams.get("mushafBase"),
+  self.location.origin,
+);
+
+function classifyRequest(
+  url,
+  mode,
+  origin = self.location.origin,
+  mushafBasePrefix = MUSHAF_BASE_PREFIX,
+) {
   let parsed;
   try {
     parsed = new URL(url);
@@ -31,8 +45,12 @@ function classifyRequest(url, mode) {
     return "passthrough";
   }
 
-  if (MEDIA_HOSTS.has(host)) {
+  if (mushafBasePrefix && parsed.href.startsWith(mushafBasePrefix)) {
     return "cache-first-media";
+  }
+
+  if (parsed.origin !== origin) {
+    return "passthrough";
   }
 
   const { pathname } = parsed;

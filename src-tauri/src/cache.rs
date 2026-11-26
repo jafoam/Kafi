@@ -91,10 +91,40 @@ pub fn delete_cache_entry(base: &Path, bucket: &str, key: &str) -> Result<(), St
     }
 }
 
+fn backup_corrupt_kv(path: &Path, reason: &dyn std::fmt::Display) {
+    let mut backup_os = path.as_os_str().to_os_string();
+    backup_os.push(".corrupt");
+    let backup = PathBuf::from(backup_os);
+    let _ = fs::remove_file(&backup);
+    if let Err(rename_err) = fs::rename(path, &backup) {
+        eprintln!(
+            "Warning: KV store {} is corrupt ({reason}); failed to back up to {}: {rename_err}",
+            path.display(),
+            backup.display()
+        );
+    } else {
+        eprintln!(
+            "Warning: KV store {} is corrupt ({reason}); backed up to {} and resetting",
+            path.display(),
+            backup.display()
+        );
+    }
+}
+
 fn load_kv_map(path: &Path) -> Result<BTreeMap<String, String>, String> {
     match fs::read_to_string(path) {
-        Ok(raw) => serde_json::from_str(&raw).map_err(|e| format!("Corrupt KV store: {e}")),
+        Ok(raw) => match serde_json::from_str(&raw) {
+            Ok(map) => Ok(map),
+            Err(e) => {
+                backup_corrupt_kv(path, &e);
+                Ok(BTreeMap::new())
+            }
+        },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(BTreeMap::new()),
+        Err(e) if e.kind() == std::io::ErrorKind::InvalidData => {
+            backup_corrupt_kv(path, &e);
+            Ok(BTreeMap::new())
+        }
         Err(e) => Err(format!("Failed to read KV store: {e}")),
     }
 }
@@ -184,6 +214,24 @@ mod tests {
         write_kv(&base, "lastPage", "42").unwrap();
         assert_eq!(read_kv(&base, "theme").unwrap(), Some("sepia".to_string()));
         assert_eq!(read_kv(&base, "lastPage").unwrap(), Some("42".to_string()));
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_kv_recovers_from_corrupt_json() {
+        let base = unique_temp_dir("corrupt-kv");
+        let kv_path = base.join("user.json");
+        let backup_path = base.join("user.json.corrupt");
+
+        fs::write(&kv_path, "{broken-json").unwrap();
+
+        assert_eq!(read_kv(&base, "theme").unwrap(), None);
+        assert!(!kv_path.exists());
+        assert_eq!(fs::read_to_string(&backup_path).unwrap(), "{broken-json");
+
+        write_kv(&base, "theme", "dark").unwrap();
+        assert_eq!(read_kv(&base, "theme").unwrap(), Some("dark".to_string()));
 
         let _ = fs::remove_dir_all(&base);
     }

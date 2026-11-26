@@ -42,11 +42,21 @@ impl Drop for MicSession {
 #[derive(Clone, Default)]
 pub struct MicState {
     session: Arc<Mutex<Option<MicSession>>>,
+    op_lock: Arc<Mutex<()>>,
 }
 
 impl MicState {
+    fn stop_session(&self) {
+        let session = {
+            let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
+            guard.take()
+        };
+        drop(session);
+    }
+
     pub fn start(&self, on_chunk: Channel<MicChunk>) -> Result<u32, String> {
-        self.stop()?;
+        let _op = self.op_lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.stop_session();
 
         let stop = Arc::new(AtomicBool::new(false));
         let stop_thread = Arc::clone(&stop);
@@ -83,11 +93,8 @@ impl MicState {
     }
 
     pub fn stop(&self) -> Result<(), String> {
-        let session = {
-            let mut guard = self.session.lock().unwrap_or_else(|e| e.into_inner());
-            guard.take()
-        };
-        drop(session);
+        let _op = self.op_lock.lock().unwrap_or_else(|e| e.into_inner());
+        self.stop_session();
         Ok(())
     }
 }
@@ -253,5 +260,43 @@ mod tests {
 
         assert!(stop.load(Ordering::Acquire));
         assert!(exited.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn test_mic_state_stop_serializes_behind_op_lock() {
+        let state = MicState::default();
+        let op_guard = state.op_lock.lock().unwrap();
+
+        let state_bg = state.clone();
+        let stop_done = Arc::new(AtomicBool::new(false));
+        let stop_done_bg = Arc::clone(&stop_done);
+
+        let stopper = thread::spawn(move || {
+            state_bg.stop().unwrap();
+            stop_done_bg.store(true, Ordering::Release);
+        });
+
+        thread::sleep(Duration::from_millis(25));
+        assert!(!stop_done.load(Ordering::Acquire));
+
+        let session_stop = Arc::new(AtomicBool::new(false));
+        let session_stop_thread = Arc::clone(&session_stop);
+        let handle = thread::spawn(move || {
+            while !session_stop_thread.load(Ordering::Acquire) {
+                thread::park_timeout(Duration::from_secs(5));
+            }
+        });
+        {
+            let mut guard = state.session.lock().unwrap();
+            *guard = Some(MicSession {
+                stop: Arc::clone(&session_stop),
+                handle: Some(handle),
+            });
+        }
+        drop(op_guard);
+
+        stopper.join().unwrap();
+        assert!(stop_done.load(Ordering::Acquire));
+        assert!(session_stop.load(Ordering::Acquire));
     }
 }

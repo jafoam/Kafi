@@ -222,19 +222,37 @@ export function App({
     toastTimerRef.current = window.setTimeout(() => setToast(null), 2400);
   }, []);
 
+  const persistUser = useCallback(
+    (promise: Promise<UserData>) => {
+      void promise
+        .then((next) => {
+          if (mountedRef.current) setUserData(next);
+        })
+        .catch(() => {
+          if (mountedRef.current) showToast("Gagal menyimpan data lokal");
+        });
+    },
+    [showToast],
+  );
+
   // Load persisted user data on mount
   useEffect(() => {
     let active = true;
-    void userStore.load().then((loaded) => {
-      if (!active) return;
-      setUserData(loaded);
-      setCurrentPage(loaded.lastPage);
-      audioController.setReciter(loaded.settings.reciterId);
-    });
+    void userStore
+      .load()
+      .then((loaded) => {
+        if (!active) return;
+        setUserData(loaded);
+        setCurrentPage(loaded.lastPage);
+        audioController.setReciter(loaded.settings.reciterId);
+      })
+      .catch(() => {
+        if (active) showToast("Gagal memuat data lokal");
+      });
     return () => {
       active = false;
     };
-  }, [userStore, audioController]);
+  }, [userStore, audioController, showToast]);
 
   // Sync theme attribute on <html>
   useEffect(() => {
@@ -272,6 +290,23 @@ export function App({
     }
   }, [rightPage, leftPage, platform]);
 
+  const handleRetryPage = useCallback(
+    (page: number) => {
+      requestedPagesRef.current.delete(page);
+      requestedPagesRef.current.add(page);
+      void platform
+        .getPageImageUrl(page)
+        .then((url) => {
+          if (!mountedRef.current) return;
+          setPageUrls((prev) => ({ ...prev, [page]: url }));
+        })
+        .catch(() => {
+          requestedPagesRef.current.delete(page);
+        });
+    },
+    [platform],
+  );
+
   // Clear temporary Hifz peeks and selection when navigating pages
   useEffect(() => {
     setSelected(null);
@@ -283,9 +318,9 @@ export function App({
     (page: number) => {
       const clamped = clampPage(page);
       setCurrentPage(clamped);
-      void userStore.setLastPage(clamped).then(setUserData);
+      persistUser(userStore.setLastPage(clamped));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   // Auto-turn mushaf page when active playing ayah moves outside the visible spread
@@ -340,6 +375,13 @@ export function App({
   const effectivePlayingAyah =
     playingAyah ?? (tasmiActive ? (tasmiState?.activeAyah ?? null) : audioState.currentAyah);
   const activeAyah: AyahKey = effectivePlayingAyah ?? selected?.ayah ?? fallbackAyah;
+  const audioPage = audioState.currentAyah ? mushafMap.ayahToPage[audioState.currentAyah] : undefined;
+  const isAudioRelevant = Boolean(
+    audioState.currentAyah &&
+      (audioState.isPlaying || audioPage === rightPage || audioPage === leftPage),
+  );
+  const tasmiContextAyah: AyahKey =
+    playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? fallbackAyah));
   const activeSurahNum = parseAyahKey(activeAyah).surah;
   const activeSurah = surahByNumber.get(activeSurahNum);
 
@@ -397,38 +439,38 @@ export function App({
 
   const handleChangeSpreadMode = useCallback(
     (spreadMode: SpreadMode) => {
-      void userStore.updateSettings({ spreadMode }).then(setUserData);
+      persistUser(userStore.updateSettings({ spreadMode }));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleChangeTheme = useCallback(
     (theme: ThemeMode) => {
-      void userStore.updateSettings({ theme }).then(setUserData);
+      persistUser(userStore.updateSettings({ theme }));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleChangeReciter = useCallback(
     (reciterId: string) => {
       audioController.setReciter(reciterId);
-      void userStore.updateSettings({ reciterId }).then(setUserData);
+      persistUser(userStore.updateSettings({ reciterId }));
     },
-    [audioController, userStore],
+    [audioController, userStore, persistUser],
   );
 
   const handleChangeTranslation = useCallback(
     (translationId: number) => {
-      void userStore.updateSettings({ translationId }).then(setUserData);
+      persistUser(userStore.updateSettings({ translationId }));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleChangeTafsir = useCallback(
     (tafsirId: string) => {
-      void userStore.updateSettings({ tafsirId }).then(setUserData);
+      persistUser(userStore.updateSettings({ tafsirId }));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleCycleRepeat = useCallback(() => {
@@ -485,28 +527,28 @@ export function App({
   const handleToggleHifzBlur = useCallback(() => {
     const next = !userData.settings.hifzBlur;
     setRevealedSet(new Set());
-    void userStore.updateSettings({ hifzBlur: next }).then(setUserData);
-  }, [userData.settings.hifzBlur, userStore]);
+    persistUser(userStore.updateSettings({ hifzBlur: next }));
+  }, [userData.settings.hifzBlur, userStore, persistUser]);
 
   const handleToggleBookmark = useCallback(
     (ayah: AyahKey) => {
-      void userStore.toggleBookmark(ayah).then(setUserData);
+      persistUser(userStore.toggleBookmark(ayah));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleSetHighlight = useCallback(
     (ayah: AyahKey, color: HighlightColor | null) => {
-      void userStore.setHighlight(ayah, color).then(setUserData);
+      persistUser(userStore.setHighlight(ayah, color));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleSaveNote = useCallback(
     (ayah: AyahKey, text: string) => {
-      void userStore.setNote(ayah, text).then(setUserData);
+      persistUser(userStore.setNote(ayah, text));
     },
-    [userStore],
+    [userStore, persistUser],
   );
 
   const handleOpenStudy = useCallback(
@@ -633,12 +675,12 @@ export function App({
         toAyah: finalState.passage.toAyah,
         mistakes: finalState.confirmedMistakes,
       };
-      void userStore.addTasmiHistory(record).then(setUserData);
+      persistUser(userStore.addTasmiHistory(record));
       setSummaryModal({ open: true, tab: "summary", record });
     } else if (finalState) {
       showToast("Sesi Baca Bebas selesai");
     }
-  }, [tilawaController, userStore, showToast]);
+  }, [tilawaController, userStore, persistUser, showToast]);
 
   const handleOpenTasmiHistory = useCallback(() => {
     void ensureWordLookup();
@@ -683,7 +725,7 @@ export function App({
           void handleStopTasmi();
         } else {
           setTasmiError(null);
-          setTasmiInitialAyah(activeAyah);
+          setTasmiInitialAyah(tasmiContextAyah);
           setTasmiSheetOpen((prev) => !prev);
         }
         return;
@@ -715,7 +757,7 @@ export function App({
     tasmiSheetOpen,
     tasmiActive,
     tasmiState?.mode,
-    activeAyah,
+    tasmiContextAyah,
     handleStopTasmi,
     handleToggleHifzBlur,
     handleTogglePlay,
@@ -851,14 +893,16 @@ export function App({
         mistakeAyahs={effectiveMistakeAyahs}
         canGoPrev={canGoPrev}
         canGoNext={canGoNext}
-        isPaletteOpen={paletteOpen}
+        isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
         getPageImageUrl={getPageImageUrl}
+        onRetryPage={handleRetryPage}
         onTurnPage={handleTurnPage}
         onSelectAyah={handleSelectAyah}
         onPeekAyah={handlePeekAyah}
         onClearSelection={() => setSelected(null)}
         onToggleFocus={() => setFocusMode((prev) => !prev)}
         onTogglePalette={() => {
+          if (tasmiSheetOpen || summaryModal.open) return;
           setPaletteTab("search");
           setPaletteOpen((prev) => !prev);
         }}
@@ -909,7 +953,7 @@ export function App({
         onCycleSpeed={handleCycleSpeed}
         onDownloadSurah={handleDownloadSurah}
         onOpenStudy={() => handleOpenStudy(activeAyah)}
-        onOpenTasmi={() => handleOpenTasmi(activeAyah)}
+        onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
       />
 
       <StudyDrawer

@@ -44,6 +44,7 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
   let activeUnsub: (() => void) | null = null;
   let activeWebMic: Microphone | null = null;
   let activeNativeMicStop: (() => Promise<void>) | null = null;
+  let stopPromise: Promise<CheckerEvent[]> | null = null;
 
   async function ensureTilawa(
     onProgress?: (p: LoadProgress) => void,
@@ -103,13 +104,30 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
     }
   }
 
+  function stop(): Promise<CheckerEvent[]> {
+    if (stopPromise) return stopPromise;
+    const currentStop = stopActive().finally(() => {
+      if (stopPromise === currentStop) {
+        stopPromise = null;
+      }
+    });
+    stopPromise = currentStop;
+    return currentStop;
+  }
+
   async function startSession(
     createSession: (engine: Tilawa) => TilawaSession,
     onEvent: (e: EngineEvent) => void,
   ): Promise<void> {
+    if (stopPromise) {
+      await stopPromise.catch(() => {});
+    }
     const engine = await ensureTilawa();
+    if (stopPromise) {
+      await stopPromise.catch(() => {});
+    }
     if (activeSession) {
-      await stopActive();
+      await stop();
     }
 
     const session = createSession(engine);
@@ -164,8 +182,8 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
       await startSession((engine) => engine.startMemorization(passage), onEvent);
     },
 
-    async stop() {
-      return stopActive();
+    stop() {
+      return stop();
     },
 
     dispose() {
@@ -180,6 +198,7 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
       activeUnsub = null;
       activeWebMic = null;
       activeNativeMicStop = null;
+      stopPromise = null;
       tilawa = null;
       initPromise = null;
 

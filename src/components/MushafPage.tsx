@@ -1,7 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 
 export type { MistakeBadge };
+
+export function isCrossOriginHttpUrl(url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "asset.localhost") return false;
+    return typeof window !== "undefined" && parsed.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 export interface MushafPageProps {
   pageEntry: PageEntry;
@@ -16,6 +27,7 @@ export interface MushafPageProps {
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
+  onRetryPage?: (page: number) => void;
 }
 
 export function MushafPage({
@@ -31,9 +43,17 @@ export function MushafPage({
   mistakeAyahs,
   onSelectAyah,
   onPeekAyah,
+  onRetryPage,
 }: MushafPageProps) {
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgError(false);
+  }, [imageUrl]);
 
   return (
     <div
@@ -41,17 +61,46 @@ export function MushafPage({
       data-side={side}
       data-page={pageEntry.page}
     >
-      {(!imageUrl || !imgLoaded) && <div className="mushaf-page__skeleton" aria-hidden="true" />}
+      {(!imageUrl || (!imgLoaded && !imgError)) && (
+        <div className="mushaf-page__skeleton" aria-hidden="true" />
+      )}
 
-      {imageUrl && (
+      {imageUrl && !imgError && (
         <img
-          key={imageUrl}
+          key={`${imageUrl}-${retryCount}`}
           className="mushaf-page__img"
           src={imageUrl}
+          crossOrigin={isCrossOriginHttpUrl(imageUrl) ? "anonymous" : undefined}
           alt={`Halaman Mushaf ${pageEntry.page}`}
           draggable={false}
           onLoad={() => setImgLoaded(true)}
+          onError={() => {
+            setImgLoaded(false);
+            setImgError(true);
+          }}
         />
+      )}
+
+      {imgError && (
+        <div
+          className="mushaf-page__error"
+          role="status"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <p className="mushaf-page__error-text">Halaman belum tersedia offline</p>
+          <button
+            type="button"
+            className="mushaf-page__retry-btn"
+            onClick={() => {
+              setImgError(false);
+              setImgLoaded(false);
+              setRetryCount((count) => count + 1);
+              onRetryPage?.(pageEntry.page);
+            }}
+          >
+            Coba lagi
+          </button>
+        </div>
       )}
 
       {side !== "single" && <div className="mushaf-page__spine" aria-hidden="true" />}

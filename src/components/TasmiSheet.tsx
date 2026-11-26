@@ -70,19 +70,20 @@ export function TasmiSheet({
       const [sStr, aStr] = initialAyah.split(":");
       const s = Number(sStr);
       const a = Number(aStr);
-      const match = candidates.find((c) => c.surah === s);
+      const match = candidates.find((c) => c.surah === s && a >= c.fromAyah && a <= c.toAyah);
       const info = surahByNum.get(s);
       if (match) {
         setSelectedOptionId(match.id);
         setSelectedSurah(match.surah);
-        setFromAyah(Math.max(match.fromAyah, a));
+        setFromAyah(a);
         setToAyah(match.toAyah);
         return;
       }
       if (info) {
+        const clampedA = Number.isFinite(a) ? Math.max(1, Math.min(a, info.ayahs)) : 1;
         setSelectedOptionId("custom");
         setSelectedSurah(info.number);
-        setFromAyah(Math.max(1, Math.min(a, info.ayahs)));
+        setFromAyah(clampedA);
         setToAyah(info.ayahs);
         return;
       }

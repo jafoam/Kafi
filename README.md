@@ -40,6 +40,8 @@ VITE_MUSHAF_BASE_URL="https://cdn.example.com/mushaf/pages" npm run build
 
 When `VITE_MUSHAF_BASE_URL` is unset, the web app serves pages from `/mushaf/pages/{NNN}.gif`. Ensure your asset host complies with KFGQPC attribution and distribution terms and sends CORS headers if cached by the Service Worker.
 
+> **WASM bundle size:** `dist/ort/ort-wasm-simd-threaded.jsep.wasm` is ~27 MB, exceeding Cloudflare Pages' 25 MiB single-file limit; host `/ort/` on R2/CDN or deploy to Vercel, Netlify, or a self-hosted static server.
+
 ## 3. Native Desktop Builds (Tauri v2)
 
 ### macOS (`.app` & `.dmg`)

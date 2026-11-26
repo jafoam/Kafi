@@ -356,6 +356,44 @@ textarea:focus-visible {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+.mushaf-page__error {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+  background: var(--bg-subtle);
+}
+
+.mushaf-page__error-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.mushaf-page__retry-btn {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.mushaf-page__retry-btn:hover {
+  background: var(--accent-hover);
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.75; }

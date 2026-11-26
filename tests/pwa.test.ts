@@ -4,28 +4,53 @@ import path from "node:path";
 import { classifyRequest } from "../src/platform/sw-routing";
 import { registerServiceWorker } from "../src/platform/register-sw";
 
+const ORIGIN = "https://ayat.app";
+
 describe("PWA manifest and SW routing", () => {
-  it("routes mushaf pages, ORT wasm, and EveryAyah audio to cache-first strategies", () => {
-    expect(classifyRequest("https://ayat.app/mushaf/pages/001.gif")).toBe("cache-first-media");
-    expect(classifyRequest("https://ayat.app/ort/ort-wasm-simd-threaded.wasm")).toBe("cache-first-static");
-    expect(classifyRequest("https://everyayah.com/data/Alafasy_128kbps/001001.mp3")).toBe("cache-first-media");
-    expect(classifyRequest("https://api.quran.com/api/v4/verses/by_key/1:1?translations=33")).toBe("cache-first-media");
-    expect(classifyRequest("https://equran.id/api/v2/tafsir/1")).toBe("cache-first-media");
-    expect(classifyRequest("https://ayat.app/")).toBe("network-first-shell");
+  it("routes same-origin mushaf pages, ORT wasm, static assets, and shell paths", () => {
+    expect(classifyRequest("https://ayat.app/mushaf/pages/001.gif", ORIGIN)).toBe("cache-first-media");
+    expect(classifyRequest("https://ayat.app/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://ayat.app/assets/index-abc123.js", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://ayat.app/icons/icon.svg", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://ayat.app/manifest.webmanifest", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://ayat.app/", ORIGIN)).toBe("network-first-shell");
+    expect(classifyRequest("https://ayat.app/index.html", ORIGIN)).toBe("network-first-shell");
   });
 
-  it("passes through tilawa.dev model downloads and unknown third-party URLs", () => {
-    expect(classifyRequest("https://tilawa.dev/v1/models/fastconformer-ar.onnx")).toBe("passthrough");
-    expect(classifyRequest("https://cdn.tilawa.dev/v1/models/vocab.json")).toBe("passthrough");
-    expect(classifyRequest("https://example.com/analytics")).toBe("passthrough");
-    expect(classifyRequest("not-a-valid-url")).toBe("passthrough");
+  it("enforces same-origin on pathname rules so third-party origins pass through", () => {
+    expect(classifyRequest("https://evil.com/mushaf/pages/001.gif", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/assets/index.js", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/icons/icon.svg", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/manifest.webmanifest", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://evil.com/index.html", ORIGIN)).toBe("passthrough");
   });
 
-  it("routes static app assets and navigation shell paths appropriately", () => {
-    expect(classifyRequest("https://ayat.app/assets/index-abc123.js")).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/icons/icon.svg")).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/manifest.webmanifest")).toBe("cache-first-static");
-    expect(classifyRequest("https://ayat.app/index.html")).toBe("network-first-shell");
+  it("passes through Quran API, audio hosts, tilawa.dev models, and invalid URLs", () => {
+    expect(classifyRequest("https://everyayah.com/data/Alafasy_128kbps/001001.mp3", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://api.quran.com/api/v4/verses/by_key/1:1?translations=33", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://equran.id/api/v2/tafsir/1", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://tilawa.dev/v1/models/fastconformer-ar.onnx", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://cdn.tilawa.dev/v1/models/vocab.json", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("https://example.com/analytics", ORIGIN)).toBe("passthrough");
+    expect(classifyRequest("not-a-valid-url", ORIGIN)).toBe("passthrough");
+  });
+
+  it("routes custom VITE_MUSHAF_BASE_URL prefix to cache-first-media while preserving tilawa.dev passthrough", () => {
+    const cdnBase = "https://cdn.example.com/mushaf/pages";
+    expect(classifyRequest("https://cdn.example.com/mushaf/pages/001.gif", ORIGIN, cdnBase)).toBe(
+      "cache-first-media",
+    );
+    expect(
+      classifyRequest("https://cdn.example.com/mushaf/pages/001.gif", ORIGIN, `${cdnBase}/`),
+    ).toBe("cache-first-media");
+    expect(
+      classifyRequest("https://cdn.example.com/mushaf/pages-other/001.gif", ORIGIN, cdnBase),
+    ).toBe("passthrough");
+    expect(
+      classifyRequest("https://tilawa.dev/v1/models/fastconformer-ar.onnx", ORIGIN, "https://tilawa.dev/v1"),
+    ).toBe("passthrough");
   });
 
   it("ships a valid webmanifest with Ayat name, standalone display, and existing icon", () => {
@@ -41,16 +66,18 @@ describe("PWA manifest and SW routing", () => {
     }
   });
 
-  it("ships public/sw.js aligned with routing rules and never intercepting tilawa.dev", () => {
+  it("ships public/sw.js aligned with routing rules and never intercepting tilawa.dev or API hosts", () => {
     const swSource = fs.readFileSync("public/sw.js", "utf8");
     expect(swSource).toContain("ayat-shell-v1");
     expect(swSource).toContain("ayat-media-v1");
     expect(swSource).toContain("tilawa.dev");
+    expect(swSource).toContain("mushafBase");
+    expect(swSource).toContain("parsed.origin !== origin");
     expect(swSource).toContain("/mushaf/");
     expect(swSource).toContain("/ort/");
-    expect(swSource).toContain("everyayah.com");
-    expect(swSource).toContain("api.quran.com");
-    expect(swSource).toContain("equran.id");
+    expect(swSource).not.toContain("everyayah.com");
+    expect(swSource).not.toContain("api.quran.com");
+    expect(swSource).not.toContain("equran.id");
     expect(swSource).toContain("navigate");
     expect(swSource).toContain('startsWith("ayat-")');
   });
@@ -92,7 +119,7 @@ describe("registerServiceWorker", () => {
     expect(register).not.toHaveBeenCalled();
   });
 
-  it("registers /sw.js in web production builds", async () => {
+  it("registers /sw.js in web production builds and appends mushafBase when configured", async () => {
     const fakeReg = { scope: "/" } as ServiceWorkerRegistration;
     const register = vi.fn().mockResolvedValue(fakeReg);
     Object.defineProperty(navigator, "serviceWorker", {
@@ -100,8 +127,13 @@ describe("registerServiceWorker", () => {
       configurable: true,
     });
 
-    const result = await registerServiceWorker(true);
+    const result = await registerServiceWorker(true, "");
     expect(register).toHaveBeenCalledWith("/sw.js");
     expect(result).toBe(fakeReg);
+
+    await registerServiceWorker(true, "https://cdn.example.com/mushaf/pages/");
+    expect(register).toHaveBeenCalledWith(
+      "/sw.js?mushafBase=https%3A%2F%2Fcdn.example.com%2Fmushaf%2Fpages",
+    );
   });
 });
