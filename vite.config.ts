@@ -23,6 +23,11 @@ function copyOrtAssetsPlugin() {
         fs.copyFileSync(srcPath, destPath);
       }
     },
+    closeBundle() {
+      // Desktop Tauri builds bundle Mushaf pages via bundle.resources; avoid duplicating ~60 MB inside the binary.
+      if (!process.env.TAURI_ENV_PLATFORM) return;
+      fs.rmSync(path.resolve(process.cwd(), "dist/mushaf"), { recursive: true, force: true });
+    },
   };
 }
 
