@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   AyahKey,
+  HifzBlurLevel,
   HighlightColor,
   SpreadMode,
   TasmiSessionRecord,
@@ -13,6 +14,7 @@ export const USER_DATA_KEY = "kafi:user";
 
 export const DEFAULT_USER_DATA: UserData = {
   lastPage: 1,
+  recentPages: [],
   bookmarks: [],
   highlights: {},
   notes: {},
@@ -23,6 +25,7 @@ export const DEFAULT_USER_DATA: UserData = {
     translationId: 33,
     tafsirId: "equran-id",
     hifzBlur: false,
+    hifzBlurLevel: "full",
     wordTranslation: true,
     mistakeSound: false,
   },
@@ -32,6 +35,8 @@ export const DEFAULT_USER_DATA: UserData = {
 const VALID_THEMES = new Set<ThemeMode>(["light", "sepia", "dark"]);
 const VALID_SPREADS = new Set<SpreadMode>(["auto", "single", "double"]);
 const VALID_HIGHLIGHTS = new Set<HighlightColor>(["amber", "emerald", "sky", "rose"]);
+const VALID_BLUR_LEVELS = new Set<HifzBlurLevel>(["full", "first-word"]);
+const MAX_RECENT_PAGES = 5;
 
 function clampPage(page: number): number {
   if (!Number.isFinite(page)) return 1;
@@ -41,6 +46,7 @@ function clampPage(page: number): number {
 function cloneDefaultData(): UserData {
   return {
     lastPage: DEFAULT_USER_DATA.lastPage,
+    recentPages: [],
     bookmarks: [],
     highlights: {},
     notes: {},
@@ -79,6 +85,9 @@ function normalizeUserData(raw: unknown): UserData {
         ? rawSettings.tafsirId
         : defaults.tafsirId,
     hifzBlur: typeof rawSettings.hifzBlur === "boolean" ? rawSettings.hifzBlur : defaults.hifzBlur,
+    hifzBlurLevel: VALID_BLUR_LEVELS.has(rawSettings.hifzBlurLevel as HifzBlurLevel)
+      ? (rawSettings.hifzBlurLevel as HifzBlurLevel)
+      : defaults.hifzBlurLevel,
     wordTranslation:
       typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
     mistakeSound:
@@ -121,9 +130,21 @@ function normalizeUserData(raw: unknown): UserData {
       )
     : [];
 
+  const lastPage =
+    typeof raw.lastPage === "number" ? clampPage(raw.lastPage) : DEFAULT_USER_DATA.lastPage;
+  const recentPages = Array.isArray(raw.recentPages)
+    ? Array.from(
+        new Set(
+          raw.recentPages
+            .filter((p): p is number => typeof p === "number" && Number.isFinite(p))
+            .map(clampPage),
+        ),
+      ).slice(0, MAX_RECENT_PAGES)
+    : [];
+
   return {
-    lastPage:
-      typeof raw.lastPage === "number" ? clampPage(raw.lastPage) : DEFAULT_USER_DATA.lastPage,
+    lastPage,
+    recentPages,
     bookmarks,
     highlights,
     notes,
@@ -216,10 +237,16 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
       }));
     },
     setLastPage(page: number) {
-      return mutate((current) => ({
-        ...current,
-        lastPage: clampPage(page),
-      }));
+      return mutate((current) => {
+        const clamped = clampPage(page);
+        const prev = current.recentPages ?? [];
+        const recentPages = [clamped, ...prev.filter((p) => p !== clamped)].slice(0, MAX_RECENT_PAGES);
+        return {
+          ...current,
+          lastPage: clamped,
+          recentPages,
+        };
+      });
     },
     addTasmiHistory(record: TasmiSessionRecord) {
       return mutate((current) => ({

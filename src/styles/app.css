@@ -2570,15 +2570,46 @@ textarea:focus-visible {
   color: var(--text-secondary);
 }
 
-.playback-menu__range input {
-  width: 92px;
+.playback-menu__range input,
+.playback-menu__range select {
   height: 34px;
   padding: 0 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-subtle);
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-primary);
+}
+
+.playback-menu__range input {
+  width: 92px;
+}
+
+.playback-menu__surah-field {
+  flex: 1 1 100%;
+}
+
+.playback-menu__surah-field select {
+  width: 100%;
+}
+
+.palette__recent {
+  padding: 6px 4px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.palette__section-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tasmi-sheet__blur-level {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .playback-menu__range-note {

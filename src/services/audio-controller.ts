@@ -37,6 +37,8 @@ export interface AudioState {
   repeatCount: RepeatCount;
   scope: PlaybackScope;
   speed: number;
+  talaqqi: boolean;
+  isTalaqqiPause: boolean;
   fromCache: boolean;
   error: string | null;
 }
@@ -46,6 +48,7 @@ export interface AudioElementLike {
   playbackRate: number;
   paused: boolean;
   currentTime?: number;
+  duration?: number;
   onended: ((...args: never[]) => unknown) | null;
   onerror?: ((...args: never[]) => unknown) | null;
   play(): Promise<void>;
@@ -79,6 +82,7 @@ export interface AudioController {
   setSpeed(rate: number): void;
   /** Current playback position in milliseconds for word-level highlighting. */
   getCurrentTimeMs(): number;
+  setTalaqqi(enabled: boolean): void;
   subscribe(fn: (s: AudioState) => void): () => void;
   dispose(): void;
 }
@@ -139,6 +143,8 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     repeatCount: 1,
     scope: DEFAULT_SCOPE,
     speed: 1,
+    talaqqi: false,
+    isTalaqqiPause: false,
     fromCache: false,
     error: null,
   };
@@ -148,7 +154,15 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   let loadedKey: string | null = null;
   let currentAbort: AbortController | null = null;
   let prefetchAbort: AbortController | null = null;
+  let talaqqiTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
+
+  function clearTalaqqiTimer(): void {
+    if (talaqqiTimer !== null) {
+      clearTimeout(talaqqiTimer);
+      talaqqiTimer = null;
+    }
+  }
 
   function emit(): void {
     const snapshot: AudioState = { ...state };
@@ -237,6 +251,26 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   async function handleEnded(seq: number, surah: number, ayah: number): Promise<void> {
     if (disposed || seq !== requestSeq) return;
 
+    if (state.talaqqi) {
+      const rawDur =
+        typeof audio.duration === "number" && Number.isFinite(audio.duration) && audio.duration > 0
+          ? audio.duration / state.speed
+          : 3;
+      const delayMs = Math.min(Math.max(Math.round(rawDur * 1000), 1500), 30000);
+      state = { ...state, isTalaqqiPause: true };
+      emit();
+      await new Promise<void>((resolve) => {
+        clearTalaqqiTimer();
+        talaqqiTimer = setTimeout(() => {
+          talaqqiTimer = null;
+          resolve();
+        }, delayMs);
+      });
+      if (disposed || seq !== requestSeq) return;
+      state = { ...state, isTalaqqiPause: false };
+      emit();
+    }
+
     if (remainingRepeats > 0) {
       if (remainingRepeats !== Infinity) {
         remainingRepeats -= 1;
@@ -277,6 +311,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     if (disposed) return;
 
     const seq = ++requestSeq;
+    clearTalaqqiTimer();
     abortInFlight();
 
     const abort = new AbortController();
@@ -298,6 +333,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       isLoading: true,
       isPlaying: false,
       isBismillah: withBismillah,
+      isTalaqqiPause: false,
       error: null,
     };
     emit();
@@ -355,13 +391,14 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   }
 
   function pause(): void {
-    if (state.isLoading) {
+    clearTalaqqiTimer();
+    if (state.isLoading || state.isTalaqqiPause) {
       requestSeq += 1;
       abortInFlight();
     }
     audio.pause();
-    if (state.isPlaying || state.isLoading) {
-      state = { ...state, isPlaying: false, isLoading: false };
+    if (state.isPlaying || state.isLoading || state.isTalaqqiPause) {
+      state = { ...state, isPlaying: false, isLoading: false, isTalaqqiPause: false };
       emit();
     }
   }
@@ -449,6 +486,13 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     emit();
   }
 
+  function setTalaqqi(enabled: boolean): void {
+    if (disposed) return;
+    if (!enabled) clearTalaqqiTimer();
+    state = { ...state, talaqqi: enabled, ...(enabled ? {} : { isTalaqqiPause: false }) };
+    emit();
+  }
+
   function subscribe(fn: (s: AudioState) => void): () => void {
     // Re-arm if remounted after React StrictMode cleanup
     disposed = false;
@@ -463,11 +507,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     disposed = true;
     requestSeq += 1;
     loadedKey = null;
+    clearTalaqqiTimer();
     abortInFlight();
     audio.onended = null;
     audio.pause();
     audio.src = "";
-    state = { ...state, isPlaying: false, isLoading: false };
+    state = { ...state, isPlaying: false, isLoading: false, isTalaqqiPause: false };
     emit();
     listeners.clear();
   }
@@ -487,6 +532,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         ? audio.currentTime * 1000
         : 0;
     },
+    setTalaqqi,
     subscribe,
     dispose,
   };

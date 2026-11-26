@@ -78,6 +78,8 @@ export type SpreadMode = "auto" | "single" | "double";
 
 export type ThemeMode = "light" | "sepia" | "dark";
 
+export type HifzBlurLevel = "full" | "first-word";
+
 export interface AppSettings {
   theme: ThemeMode;
   spreadMode: SpreadMode;
@@ -85,6 +87,7 @@ export interface AppSettings {
   translationId: number;
   tafsirId: string;
   hifzBlur: boolean;
+  hifzBlurLevel: HifzBlurLevel;
   /** Show the word-by-word translation tooltip on mushaf words. */
   wordTranslation: boolean;
   mistakeSound: boolean;
@@ -122,6 +125,7 @@ export interface TasmiSessionRecord {
 
 export interface UserData {
   lastPage: number;
+  recentPages?: number[];
   bookmarks: AyahKey[];
   highlights: Record<AyahKey, HighlightColor>;
   notes: Record<AyahKey, string>;

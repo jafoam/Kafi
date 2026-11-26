@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AyahKey } from "../data/types";
+import type { AyahKey, SurahInfo } from "../data/types";
 import type { PlaybackScope, PlaybackScopeKind, RepeatCount } from "../services/audio-controller";
 import { customRange } from "../services/playback-ranges";
 
@@ -7,6 +7,8 @@ export interface PlaybackMenuProps {
   scope: PlaybackScope;
   repeatCount: RepeatCount;
   speed: number;
+  talaqqi: boolean;
+  surahs?: SurahInfo[];
   surahNumber: number;
   surahName: string;
   ayahCount: number;
@@ -15,6 +17,7 @@ export interface PlaybackMenuProps {
   onChange: (scope: PlaybackScope) => void;
   onCycleRepeat: () => void;
   onCycleSpeed: () => void;
+  onToggleTalaqqi: (enabled: boolean) => void;
   onClose: () => void;
 }
 
@@ -60,6 +63,8 @@ export function PlaybackMenu({
   scope,
   repeatCount,
   speed,
+  talaqqi,
+  surahs,
   surahNumber,
   surahName,
   ayahCount,
@@ -67,11 +72,17 @@ export function PlaybackMenu({
   onChange,
   onCycleRepeat,
   onCycleSpeed,
+  onToggleTalaqqi,
   onClose,
 }: PlaybackMenuProps) {
   const activeNumber = Number(activeAyah.split(":")[1]) || 1;
+  const scopeSurah = scope.from ? Number(scope.from.split(":")[0]) || surahNumber : surahNumber;
+  const [rangeSurah, setRangeSurah] = useState(scopeSurah);
+  const pickedSurahInfo = surahs?.find((s) => s.number === rangeSurah);
+  const rangeSurahName = pickedSurahInfo?.name ?? surahName;
+  const rangeAyahCount = pickedSurahInfo?.ayahs ?? ayahCount;
   const [from, setFrom] = useState(String(scope.from?.split(":")[1] ?? activeNumber));
-  const [to, setTo] = useState(String(scope.to?.split(":")[1] ?? ayahCount));
+  const [to, setTo] = useState(String(scope.to?.split(":")[1] ?? rangeAyahCount));
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -83,7 +94,7 @@ export function PlaybackMenu({
 
   const choose = (kind: PlaybackScopeKind) => {
     if (kind === "custom") {
-      const range = customRange(surahNumber, Number(from), Number(to), ayahCount);
+      const range = customRange(rangeSurah, Number(from), Number(to), rangeAyahCount);
       onChange({ kind, loop: true, ...range });
     } else {
       // Choosing a bounded scope loops by default: "ulang surah ini terus-menerus" is one tap.
@@ -91,10 +102,12 @@ export function PlaybackMenu({
     }
   };
 
-  const updateRange = (nextFrom: string, nextTo: string) => {
+  const updateRange = (nextSurah: number, nextFrom: string, nextTo: string) => {
+    const max = surahs?.find((s) => s.number === nextSurah)?.ayahs ?? ayahCount;
+    setRangeSurah(nextSurah);
     setFrom(nextFrom);
     setTo(nextTo);
-    const range = customRange(surahNumber, Number(nextFrom), Number(nextTo), ayahCount);
+    const range = customRange(nextSurah, Number(nextFrom), Number(nextTo), max);
     onChange({ kind: "custom", loop: scope.loop, ...range });
   };
 
@@ -121,15 +134,34 @@ export function PlaybackMenu({
 
         {scope.kind === "custom" && (
           <div className="playback-menu__range">
+            {surahs && surahs.length > 0 && (
+              <label className="playback-menu__surah-field">
+                <span>Surah</span>
+                <select
+                  value={rangeSurah}
+                  onChange={(e) => {
+                    const nextS = Number(e.target.value);
+                    const max = surahs.find((s) => s.number === nextS)?.ayahs ?? 1;
+                    updateRange(nextS, "1", String(max));
+                  }}
+                >
+                  {surahs.map((s) => (
+                    <option key={s.number} value={s.number}>
+                      {s.number}. {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               <span>Dari ayat</span>
               <input
                 type="number"
                 min={1}
-                max={ayahCount}
+                max={rangeAyahCount}
                 value={from}
-                onChange={(e) => updateRange(e.target.value, to)}
-                aria-label={`Dari ayat (1 sampai ${ayahCount})`}
+                onChange={(e) => updateRange(rangeSurah, e.target.value, to)}
+                aria-label={`Dari ayat (1 sampai ${rangeAyahCount})`}
               />
             </label>
             <label>
@@ -137,14 +169,14 @@ export function PlaybackMenu({
               <input
                 type="number"
                 min={1}
-                max={ayahCount}
+                max={rangeAyahCount}
                 value={to}
-                onChange={(e) => updateRange(from, e.target.value)}
-                aria-label={`Sampai ayat (1 sampai ${ayahCount})`}
+                onChange={(e) => updateRange(rangeSurah, from, e.target.value)}
+                aria-label={`Sampai ayat (1 sampai ${rangeAyahCount})`}
               />
             </label>
             <span className="playback-menu__range-note">
-              {surahName}, ayat 1–{ayahCount}
+              {rangeSurahName}, ayat 1–{rangeAyahCount}
             </span>
           </div>
         )}
@@ -175,6 +207,15 @@ export function PlaybackMenu({
             Kecepatan: {speed}×
           </button>
         </div>
+
+        <label className="playback-menu__loop">
+          <input
+            type="checkbox"
+            checked={talaqqi}
+            onChange={(e) => onToggleTalaqqi(e.target.checked)}
+          />
+          <span>Mode Talaqqi (jeda setelah ayat untuk menirukan)</span>
+        </label>
 
         <p className="playback-menu__hint">{describe(scope, surahName)}</p>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
-import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
+import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { SelectedWord } from "../services/word-translations";
@@ -15,6 +15,7 @@ export interface MushafSpreadProps {
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
+  blurLevel?: HifzBlurLevel;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   wordTranslation?: boolean;
@@ -48,6 +49,7 @@ export function MushafSpread({
   highlights,
   bookmarks,
   blurSet,
+  blurLevel,
   revealedSet,
   mistakeAyahs,
   wordTranslation,
@@ -222,6 +224,7 @@ export function MushafSpread({
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}
+          blurLevel={blurLevel}
           revealedSet={revealedSet}
           mistakeAyahs={mistakeAyahs}
           wordTranslation={wordTranslation}

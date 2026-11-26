@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LoadProgress } from "@tilawa/core";
-import type { AyahKey, PageEntry, SurahInfo } from "../data/types";
+import type { AyahKey, HifzBlurLevel, PageEntry, SurahInfo } from "../data/types";
 import { buildPageTasmiCandidates, type DeclaredPassage } from "../services/tasmi-logic";
 
 export interface TasmiSheetProps {
@@ -13,10 +13,13 @@ export interface TasmiSheetProps {
   loadingProgress: LoadProgress | null;
   isStarting: boolean;
   error: string | null;
+  hifzBlurLevel?: HifzBlurLevel;
+  onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onClose: () => void;
   onCancelLoad: () => void;
   onStartFree: () => void;
   onStartMemorization: (passage: DeclaredPassage, enableBlur: boolean) => void;
+  onStartRandom?: (passage: DeclaredPassage, enableBlur: boolean, pool: DeclaredPassage) => void;
   onOpenHistory: () => void;
 }
 
@@ -40,10 +43,13 @@ export function TasmiSheet({
   loadingProgress,
   isStarting,
   error,
+  hifzBlurLevel = "full",
+  onChangeHifzBlurLevel,
   onClose,
   onCancelLoad,
   onStartFree,
   onStartMemorization,
+  onStartRandom,
   onOpenHistory,
 }: TasmiSheetProps) {
   const candidates = useMemo(
@@ -57,7 +63,7 @@ export function TasmiSheet({
     return map;
   }, [surahs]);
 
-  const [mode, setMode] = useState<"memorization" | "free">("memorization");
+  const [mode, setMode] = useState<"memorization" | "random" | "free">("memorization");
   const [selectedSurah, setSelectedSurah] = useState<number>(1);
   const [fromAyah, setFromAyah] = useState<number>(1);
   const [toAyah, setToAyah] = useState<number>(7);
@@ -176,7 +182,19 @@ export function TasmiSheet({
             disabled={isBusy}
             onClick={() => setMode("memorization")}
           >
-            Tasmi&apos; Hafalan (Per Surat)
+            Tasmi&apos; Hafalan
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "random"}
+            className={`tasmi-sheet__mode-btn ${
+              mode === "random" ? "tasmi-sheet__mode-btn--active" : ""
+            }`}
+            disabled={isBusy}
+            onClick={() => setMode("random")}
+          >
+            Uji Acak
           </button>
           <button
             type="button"
@@ -193,8 +211,15 @@ export function TasmiSheet({
         </div>
 
         <div className="tasmi-sheet__body">
-          {mode === "memorization" ? (
+          {mode === "memorization" || mode === "random" ? (
             <>
+              {mode === "random" && (
+                <div className="tasmi-sheet__free-box">
+                  <p>
+                    Pilih surah atau rentang ayat. Aplikasi akan membuka 1 ayat acak sebagai pemicu — lanjutkan hafalannya dengan suara.
+                  </p>
+                </div>
+              )}
               <div className="tasmi-sheet__section">
                 <span className="tasmi-sheet__label">Pilih cakupan di halaman ini</span>
                 <div className="tasmi-sheet__options">
@@ -313,6 +338,27 @@ export function TasmiSheet({
                   <small>Ayat terbuka otomatis saat dibaca; ketuk ayat untuk mengintip.</small>
                 </span>
               </label>
+
+              {enableBlur && onChangeHifzBlurLevel && (
+                <div className="tasmi-sheet__blur-level" role="group" aria-label="Tingkat sembunyi">
+                  <button
+                    type="button"
+                    className={`app-menu__choice ${hifzBlurLevel === "full" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={hifzBlurLevel === "full"}
+                    onClick={() => onChangeHifzBlurLevel("full")}
+                  >
+                    Sembunyi Penuh
+                  </button>
+                  <button
+                    type="button"
+                    className={`app-menu__choice ${hifzBlurLevel === "first-word" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={hifzBlurLevel === "first-word"}
+                    onClick={() => onChangeHifzBlurLevel("first-word")}
+                  >
+                    Tampilkan Kata Pertama
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <div className="tasmi-sheet__free-box">
@@ -371,6 +417,16 @@ export function TasmiSheet({
             onClick={() => {
               if (mode === "free") {
                 onStartFree();
+              } else if (mode === "random" && onStartRandom) {
+                const maxStart = Math.max(clampedFrom, clampedTo - 1);
+                const span = maxStart - clampedFrom + 1;
+                const start = clampedFrom + Math.floor(Math.random() * span);
+                const end = Math.min(clampedTo, start + 3);
+                onStartRandom(
+                  { surah: selectedSurah, fromAyah: start, toAyah: end },
+                  enableBlur,
+                  { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },
+                );
               } else {
                 onStartMemorization(
                   { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },
@@ -383,7 +439,9 @@ export function TasmiSheet({
               ? "Menyiapkan..."
               : mode === "free"
                 ? "Mulai Baca Bebas"
-                : "Mulai Tasmi'"}
+                : mode === "random"
+                  ? "Mulai Uji Acak"
+                  : "Mulai Tasmi'"}
           </button>
         </div>
       </div>

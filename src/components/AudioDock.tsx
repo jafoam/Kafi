@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
-import type { AyahKey, ReciterInfo } from "../data/types";
+import type { AyahKey, ReciterInfo, SurahInfo } from "../data/types";
 import type { AudioState, PlaybackScope, RepeatCount } from "../services/audio-controller";
 import { PlaybackMenu, scopeLabel } from "./PlaybackMenu";
 
 export interface AudioDockProps {
   audioState: AudioState;
   activeAyah: AyahKey;
+  surahs?: SurahInfo[];
   surahName: string;
   surahNumber: number;
   surahAyahCount: number;
@@ -21,6 +22,7 @@ export interface AudioDockProps {
   onCycleRepeat: () => void;
   onCycleSpeed: () => void;
   onChangeScope: (scope: PlaybackScope) => void;
+  onToggleTalaqqi?: (enabled: boolean) => void;
   onDownloadSurah: () => void;
   onOpenStudy: () => void;
   onOpenTasmi: () => void;
@@ -33,6 +35,7 @@ function formatRepeat(repeat: RepeatCount): string {
 export function AudioDock({
   audioState,
   activeAyah,
+  surahs,
   surahName,
   surahNumber,
   surahAyahCount,
@@ -47,6 +50,7 @@ export function AudioDock({
   onCycleRepeat,
   onCycleSpeed,
   onChangeScope,
+  onToggleTalaqqi,
   onDownloadSurah,
   onOpenStudy,
   onOpenTasmi,
@@ -92,6 +96,8 @@ export function AudioDock({
               <span className="audio-dock__status audio-dock__status--error">
                 Gagal memuat
               </span>
+            ) : audioState.isTalaqqiPause ? (
+              <span className="audio-dock__status">Tirukan…</span>
             ) : audioState.isBismillah ? (
               <span className="audio-dock__status">Basmalah</span>
             ) : audioState.fromCache && audioState.currentAyah ? (
@@ -310,6 +316,8 @@ export function AudioDock({
           scope={audioState.scope}
           repeatCount={audioState.repeatCount}
           speed={audioState.speed}
+          talaqqi={audioState.talaqqi}
+          surahs={surahs}
           surahNumber={surahNumber}
           surahName={surahName}
           ayahCount={surahAyahCount}
@@ -317,6 +325,7 @@ export function AudioDock({
           onChange={onChangeScope}
           onCycleRepeat={onCycleRepeat}
           onCycleSpeed={onCycleSpeed}
+          onToggleTalaqqi={(enabled) => onToggleTalaqqi?.(enabled)}
           onClose={() => setMenuOpen(false)}
         />
       )}

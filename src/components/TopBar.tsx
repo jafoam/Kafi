@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
-import type { SpreadMode, ThemeMode } from "../data/types";
+import type { HifzBlurLevel, SpreadMode, ThemeMode } from "../data/types";
 import type { PwaInstall } from "../state/usePwaInstall";
 
 export interface TopBarProps {
@@ -9,6 +9,7 @@ export interface TopBarProps {
   pageLabel: string;
   spreadMode: SpreadMode;
   hifzBlur: boolean;
+  hifzBlurLevel?: HifzBlurLevel;
   focusMode: boolean;
   wordTranslation: boolean;
   theme: ThemeMode;
@@ -17,6 +18,7 @@ export interface TopBarProps {
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
+  onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
   onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
@@ -42,6 +44,7 @@ export function TopBar({
   pageLabel,
   spreadMode,
   hifzBlur,
+  hifzBlurLevel = "full",
   focusMode,
   wordTranslation,
   theme,
@@ -49,6 +52,7 @@ export function TopBar({
   onOpenPalette,
   onChangeSpreadMode,
   onToggleHifzBlur,
+  onChangeHifzBlurLevel,
   onToggleFocusMode,
   onToggleWordTranslation,
   onChangeTheme,
@@ -180,11 +184,13 @@ export function TopBar({
         <AppMenu
           spreadMode={spreadMode}
           hifzBlur={hifzBlur}
+          hifzBlurLevel={hifzBlurLevel}
           focusMode={focusMode}
           wordTranslation={wordTranslation}
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
           onToggleHifzBlur={onToggleHifzBlur}
+          onChangeHifzBlurLevel={onChangeHifzBlurLevel}
           onToggleFocusMode={onToggleFocusMode}
           onToggleWordTranslation={onToggleWordTranslation}
           onChangeTheme={onChangeTheme}
@@ -268,11 +274,13 @@ function InstallGuide({
 interface AppMenuProps {
   spreadMode: SpreadMode;
   hifzBlur: boolean;
+  hifzBlurLevel: HifzBlurLevel;
   focusMode: boolean;
   wordTranslation: boolean;
   theme: ThemeMode;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
+  onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
   onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
@@ -284,11 +292,13 @@ interface AppMenuProps {
 function AppMenu({
   spreadMode,
   hifzBlur,
+  hifzBlurLevel,
   focusMode,
   wordTranslation,
   theme,
   onChangeSpreadMode,
   onToggleHifzBlur,
+  onChangeHifzBlurLevel,
   onToggleFocusMode,
   onToggleWordTranslation,
   onChangeTheme,
@@ -337,6 +347,30 @@ function AppMenu({
           </span>
           <span className={`app-menu__switch ${hifzBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
         </button>
+
+        {hifzBlur && onChangeHifzBlurLevel && (
+          <div className="app-menu__group">
+            <span className="app-menu__label">Tingkat Sembunyi</span>
+            <div className="app-menu__choices" role="group" aria-label="Tingkat Sembunyi">
+              {(
+                [
+                  ["full", "Penuh"],
+                  ["first-word", "Kata Pertama"],
+                ] as const
+              ).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  className={`app-menu__choice ${hifzBlurLevel === val ? "app-menu__choice--active" : ""}`}
+                  aria-pressed={hifzBlurLevel === val}
+                  onClick={() => onChangeHifzBlurLevel(val)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           type="button"
