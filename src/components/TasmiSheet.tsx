@@ -6,6 +6,7 @@ import { buildPageTasmiCandidates, type DeclaredPassage } from "../services/tasm
 export interface TasmiSheetProps {
   open: boolean;
   visiblePages: PageEntry[];
+  glyphAyahs?: Record<number, AyahKey[]>;
   surahs: SurahInfo[];
   initialAyah: AyahKey | null;
   historyCount: number;
@@ -32,6 +33,7 @@ function formatMb(bytes: number): string {
 export function TasmiSheet({
   open,
   visiblePages,
+  glyphAyahs,
   surahs,
   initialAyah,
   historyCount,
@@ -45,8 +47,8 @@ export function TasmiSheet({
   onOpenHistory,
 }: TasmiSheetProps) {
   const candidates = useMemo(
-    () => buildPageTasmiCandidates(visiblePages, surahs),
-    [visiblePages, surahs],
+    () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs),
+    [visiblePages, surahs, glyphAyahs],
   );
 
   const surahByNum = useMemo(() => {

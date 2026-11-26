@@ -146,4 +146,17 @@ describe("tasmi-logic", () => {
     expect(tasmiMasked.has("1:5")).toBe(true);
     expect(tasmiMasked.has("1:6")).toBe(false);
   });
+
+  it("uses actual QCF glyphAyahs when building page Tasmi' candidates", () => {
+    const p593 = map.pages[592]; // scanned map has 88:23..26 and 89:1..22
+    const printed593 = Array.from({ length: 23 }, (_, i) => `89:${i + 1}` as const);
+    const candidates = buildPageTasmiCandidates([p593], catalog.surahs, { 593: printed593 });
+    expect(candidates[0]).toMatchObject({
+      surah: 89,
+      fromAyah: 1,
+      toAyah: 23,
+      scopeLabel: "Hal. 593 (1–23)",
+    });
+    expect(candidates.some((c) => c.surah === 88)).toBe(false);
+  });
 });

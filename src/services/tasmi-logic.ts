@@ -50,6 +50,7 @@ export function formatErrorClass(errorClass: string): string {
 export function buildPageTasmiCandidates(
   pages: PageEntry[],
   surahs: SurahInfo[],
+  glyphAyahs?: Record<number, AyahKey[]>,
 ): TasmiPassageOption[] {
   const surahByNum = new Map<number, SurahInfo>();
   for (const s of surahs) surahByNum.set(s.number, s);
@@ -62,17 +63,34 @@ export function buildPageTasmiCandidates(
 
   for (const page of pages) {
     const perPageRanges = new Map<number, { fromAyah: number; toAyah: number }>();
+    const printed = glyphAyahs?.[page.page];
 
-    for (const seg of page.ayahs) {
-      const key: AyahKey = `${seg.surah}:${seg.ayah}`;
-      if (page.leadingSplitAyah === key) continue;
+    if (printed && printed.length > 0) {
+      for (const key of printed) {
+        const [sStr, aStr] = key.split(":");
+        const surah = Number(sStr);
+        const ayah = Number(aStr);
+        if (!Number.isFinite(surah) || !Number.isFinite(ayah)) continue;
+        const existing = perPageRanges.get(surah);
+        if (existing) {
+          existing.fromAyah = Math.min(existing.fromAyah, ayah);
+          existing.toAyah = Math.max(existing.toAyah, ayah);
+        } else {
+          perPageRanges.set(surah, { fromAyah: ayah, toAyah: ayah });
+        }
+      }
+    } else {
+      for (const seg of page.ayahs) {
+        const key: AyahKey = `${seg.surah}:${seg.ayah}`;
+        if (page.leadingSplitAyah === key) continue;
 
-      const existing = perPageRanges.get(seg.surah);
-      if (existing) {
-        existing.fromAyah = Math.min(existing.fromAyah, seg.ayah);
-        existing.toAyah = Math.max(existing.toAyah, seg.ayah);
-      } else {
-        perPageRanges.set(seg.surah, { fromAyah: seg.ayah, toAyah: seg.ayah });
+        const existing = perPageRanges.get(seg.surah);
+        if (existing) {
+          existing.fromAyah = Math.min(existing.fromAyah, seg.ayah);
+          existing.toAyah = Math.max(existing.toAyah, seg.ayah);
+        } else {
+          perPageRanges.set(seg.surah, { fromAyah: seg.ayah, toAyah: seg.ayah });
+        }
       }
     }
 
