@@ -1226,6 +1226,8 @@ export function App({
         history={userData.tasmiHistory}
         surahs={catalog.surahs}
         getAyahWords={wordLookup}
+        glyphLoader={glyphLoader}
+        ayahToPage={mushafMap.ayahToPage}
         onClose={() => setSummaryModal((prev) => ({ ...prev, open: false }))}
         onPlayAyah={(ayah) => {
           setSummaryModal((prev) => ({ ...prev, open: false }));

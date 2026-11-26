@@ -560,17 +560,24 @@ export function AudioDownloadsPanel({
           <section className="dl-panel__section">
             <h3 className="dl-panel__heading">Unduh cepat</h3>
             <div className="dl-panel__quick">
-              <button type="button" className="dl-btn" onClick={() => download([activeSurah])}>
-                Surah ini{active ? ` · ${active.name}` : ""}
+              <button
+                type="button"
+                className="dl-btn"
+                onClick={() => download([activeSurah])}
+                title={active ? `Unduh Surah ${active.name}` : "Unduh surah ini"}
+              >
+                {active ? active.name : "Surah ini"}
               </button>
               <button type="button" className="dl-btn" onClick={() => download(juzSurahs)}>
-                Juz {juzNumber} ini
+                Juz {juzNumber}
               </button>
-              <button type="button" className="dl-btn" onClick={() => download(JUZ_AMMA)}>
-                Juz 30 (Amma)
-              </button>
+              {juzNumber !== 30 && (
+                <button type="button" className="dl-btn" onClick={() => download(JUZ_AMMA)}>
+                  Juz 30
+                </button>
+              )}
               <button type="button" className={`dl-btn ${confirm === "all" ? "dl-btn--danger" : ""}`} onClick={askAll}>
-                {confirm === "all" ? "Ketuk lagi: unduh semua" : "Seluruh Al-Quran"}
+                {confirm === "all" ? "Konfirmasi" : "Semua"}
               </button>
             </div>
             {confirm === "all" && (
