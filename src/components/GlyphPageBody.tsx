@@ -17,6 +17,8 @@ export interface GlyphPageBodyProps {
   pageEntry: PageEntry;
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
+  /** 0-based [start, end) word range currently spoken inside `playingAyah`. */
+  playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
@@ -33,6 +35,7 @@ export function GlyphPageBody({
   pageEntry,
   selectedAyah,
   playingAyah,
+  playingWordRange,
   highlights,
   bookmarks,
   blurSet,
@@ -183,6 +186,13 @@ export function GlyphPageBody({
                 !isLeadingSplit(ayah) && blurSet?.has(ayah) && !revealedSet?.has(ayah),
               );
               const mistake = mistakeAyahs?.get(ayah);
+              const isPlayingWord = Boolean(
+                playingAyah === ayah &&
+                  playingWordRange &&
+                  typeof word.wordIndex === "number" &&
+                  word.wordIndex >= playingWordRange[0] &&
+                  word.wordIndex < playingWordRange[1],
+              );
               const classes = [
                 "glyph-word",
                 hl ? `glyph-word--hl-${hl}` : "",
@@ -195,6 +205,7 @@ export function GlyphPageBody({
                   ? "glyph-word--selected"
                   : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
+                isPlayingWord ? "glyph-word--playing-word" : "",
                 mistake ? "glyph-word--mistake" : "",
                 blurred ? "glyph-word--blurred" : "",
               ]

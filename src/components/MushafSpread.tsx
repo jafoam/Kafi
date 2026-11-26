@@ -11,6 +11,7 @@ export interface MushafSpreadProps {
   pageUrls: Record<number, string>;
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
+  playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
@@ -43,6 +44,7 @@ export function MushafSpread({
   pageUrls,
   selectedAyah,
   playingAyah,
+  playingWordRange,
   highlights,
   bookmarks,
   blurSet,
@@ -188,6 +190,7 @@ export function MushafSpread({
             side="left"
             selectedAyah={selectedAyah}
             playingAyah={playingAyah}
+            playingWordRange={playingWordRange}
             highlights={highlights}
             bookmarks={bookmarks}
             blurSet={blurSet}
@@ -208,6 +211,7 @@ export function MushafSpread({
           side={isDouble ? "right" : "single"}
           selectedAyah={selectedAyah}
           playingAyah={playingAyah}
+          playingWordRange={playingWordRange}
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}

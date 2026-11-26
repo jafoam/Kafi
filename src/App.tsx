@@ -56,6 +56,11 @@ import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
+import {
+  createWordSegmentLoader,
+  findActiveWordRange,
+  type WordSegment,
+} from "./services/word-segments";
 import type { SelectedWord } from "./services/word-translations";
 import { useOfflinePages } from "./state/useOfflinePages";
 import { usePwaInstall } from "./state/usePwaInstall";
@@ -139,6 +144,24 @@ export function App({
   const userStore = useMemo(() => createUserStore(platform), [platform]);
   const quranApi = useMemo(() => createQuranApi(platform), [platform]);
   const tilawaController = useMemo(() => createTilawaController(platform), [platform]);
+  const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
+  const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
+  const [ayahPages, setAyahPages] = useState<Map<AyahKey, number[]> | null>(null);
+  const [surahSegments, setSurahSegments] = useState<Map<AyahKey, WordSegment[]> | null>(null);
+  const [playingWordRange, setPlayingWordRange] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    glyphLoader.loadAyahPages().then(
+      (idx) => {
+        if (live) setAyahPages(idx);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [glyphLoader]);
 
   const reciterById = useMemo(() => {
     const map = new Map<string, Catalog["reciters"][number]>();
@@ -342,20 +365,40 @@ export function App({
     [userStore, persistUser],
   );
 
+  const getPagesForAyah = useCallback(
+    (ayah: AyahKey): number[] => {
+      const qcfPages = ayahPages?.get(ayah);
+      if (qcfPages && qcfPages.length > 0) return qcfPages;
+      const fallback = mushafMap.ayahToPage[ayah];
+      return fallback ? [fallback] : [];
+    },
+    [ayahPages],
+  );
+
   // Auto-turn mushaf page when active playing ayah moves outside the visible spread
   useEffect(() => {
     if (!audioState.currentAyah) {
       lastAutoTurnAyahRef.current = null;
       return;
     }
+    if (!audioState.isPlaying && !audioState.isLoading) return;
     if (audioState.currentAyah === lastAutoTurnAyahRef.current) return;
     lastAutoTurnAyahRef.current = audioState.currentAyah;
 
-    const targetPage = mushafMap.ayahToPage[audioState.currentAyah];
-    if (targetPage && targetPage !== rightPage && targetPage !== leftPage) {
-      navigateToPage(targetPage);
+    const pages = getPagesForAyah(audioState.currentAyah);
+    const isVisible = pages.includes(rightPage) || (leftPage !== null && pages.includes(leftPage));
+    if (!isVisible && pages[0]) {
+      navigateToPage(pages[0]);
     }
-  }, [audioState.currentAyah, rightPage, leftPage, navigateToPage]);
+  }, [
+    audioState.currentAyah,
+    audioState.isPlaying,
+    audioState.isLoading,
+    rightPage,
+    leftPage,
+    getPagesForAyah,
+    navigateToPage,
+  ]);
 
   // Auto-turn mushaf page when active Tasmi' / Baca Bebas ayah moves outside visible spread
   useEffect(() => {
@@ -367,11 +410,54 @@ export function App({
     if (tasmiAyah === lastTasmiTurnAyahRef.current) return;
     lastTasmiTurnAyahRef.current = tasmiAyah;
 
-    const targetPage = mushafMap.ayahToPage[tasmiAyah];
-    if (targetPage && targetPage !== rightPage && targetPage !== leftPage) {
-      navigateToPage(targetPage);
+    const pages = getPagesForAyah(tasmiAyah);
+    const isVisible = pages.includes(rightPage) || (leftPage !== null && pages.includes(leftPage));
+    if (!isVisible && pages[0]) {
+      navigateToPage(pages[0]);
     }
-  }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, navigateToPage]);
+  }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, getPagesForAyah, navigateToPage]);
+
+  // Load word-level audio timing segments for the currently playing surah & reciter
+  const playingSurahNum = audioState.currentAyah ? parseAyahKey(audioState.currentAyah).surah : null;
+  useEffect(() => {
+    if (!playingSurahNum) {
+      setSurahSegments(null);
+      return;
+    }
+    let live = true;
+    setSurahSegments(null);
+    segmentLoader.load(audioState.reciterId, playingSurahNum).then(
+      (map) => {
+        if (live) setSurahSegments(map);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [segmentLoader, audioState.reciterId, playingSurahNum]);
+
+  // Sync per-glyph highlight with audio.currentTime while playing
+  useEffect(() => {
+    const ayah = audioState.currentAyah;
+    const segments =
+      audioState.isPlaying && !audioState.isBismillah && ayah ? surahSegments?.get(ayah) : null;
+    if (!segments || segments.length === 0) {
+      setPlayingWordRange(null);
+      return;
+    }
+
+    let rafId = 0;
+    const tick = () => {
+      const next = findActiveWordRange(segments, audioController.getCurrentTimeMs());
+      setPlayingWordRange((prev) =>
+        prev?.[0] === next?.[0] && prev?.[1] === next?.[1] ? prev : next,
+      );
+      rafId = window.requestAnimationFrame(tick);
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [audioState.isPlaying, audioState.isBismillah, audioState.currentAyah, surahSegments, audioController]);
 
   // Sync open StudyDrawer only when active playing ayah actually changes
   useEffect(() => {
@@ -394,10 +480,11 @@ export function App({
   const effectivePlayingAyah =
     playingAyah ?? (tasmiActive ? (tasmiState?.activeAyah ?? null) : audioState.currentAyah);
   const activeAyah: AyahKey = effectivePlayingAyah ?? selected?.ayah ?? fallbackAyah;
-  const audioPage = audioState.currentAyah ? mushafMap.ayahToPage[audioState.currentAyah] : undefined;
+  const audioPages = audioState.currentAyah ? getPagesForAyah(audioState.currentAyah) : [];
+  const isAudioOnVisiblePage =
+    audioPages.includes(rightPage) || (leftPage !== null && audioPages.includes(leftPage));
   const isAudioRelevant = Boolean(
-    audioState.currentAyah &&
-      (audioState.isPlaying || audioPage === rightPage || audioPage === leftPage),
+    audioState.currentAyah && (audioState.isPlaying || isAudioOnVisiblePage),
   );
   const tasmiContextAyah: AyahKey =
     playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? fallbackAyah));
@@ -429,12 +516,23 @@ export function App({
   );
 
   const handleTogglePlay = useCallback(() => {
-    if (audioState.currentAyah) {
+    if (audioState.isPlaying || audioState.isLoading) {
+      audioController.togglePlay();
+    } else if (audioState.currentAyah && isAudioOnVisiblePage) {
       audioController.togglePlay();
     } else {
-      handlePlayAyah(activeAyah);
+      handlePlayAyah(selected?.ayah ?? fallbackAyah);
     }
-  }, [audioState.currentAyah, audioController, handlePlayAyah, activeAyah]);
+  }, [
+    audioState.isPlaying,
+    audioState.isLoading,
+    audioState.currentAyah,
+    isAudioOnVisiblePage,
+    audioController,
+    handlePlayAyah,
+    selected?.ayah,
+    fallbackAyah,
+  ]);
 
   const handleTurnPage = useCallback(
     (direction: "next" | "prev") => {
@@ -448,12 +546,12 @@ export function App({
 
   const handleJumpToAyah = useCallback(
     (ayah: AyahKey) => {
-      const targetPage = mushafMap.ayahToPage[ayah];
+      const targetPage = getPagesForAyah(ayah)[0];
       if (targetPage) {
         navigateToPage(targetPage);
       }
     },
-    [navigateToPage],
+    [getPagesForAyah, navigateToPage],
   );
 
   const handleChangeSpreadMode = useCallback(
@@ -862,8 +960,6 @@ export function App({
 
   const tasmiLauncherVisible = !focusMode && !tasmiActive && !studyOpen && !paletteOpen;
 
-  const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
-
   // Which ayahs each glyph page really prints; the scanned-image map can disagree at page breaks.
   const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
   useEffect(() => {
@@ -1038,6 +1134,7 @@ export function App({
         pageUrls={pageUrls}
         selectedAyah={selected?.ayah ?? null}
         playingAyah={effectivePlayingAyah}
+        playingWordRange={tasmiActive ? null : playingWordRange}
         highlights={userData.highlights}
         bookmarks={bookmarkSet}
         blurSet={blurSet}

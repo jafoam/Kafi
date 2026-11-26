@@ -16,9 +16,9 @@ describe("page parsing", () => {
     expect(data?.rows[0]).toMatchObject({ kind: "header", surah: 2 });
     expect(data?.lines).toHaveLength(1);
     expect(data?.lines[0].words).toEqual([
-      { code: "a", ayah: "2:1" },
-      { code: "b", ayah: "2:1" },
-      { code: "c", ayah: "2:2" },
+      { code: "a", ayah: "2:1", wordIndex: 0 },
+      { code: "b", ayah: "2:1", wordIndex: 1 },
+      { code: "c", ayah: "2:2", wordIndex: 0 },
     ]);
   });
 

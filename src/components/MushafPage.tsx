@@ -24,6 +24,7 @@ export interface MushafPageProps {
   side?: "left" | "right" | "single";
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
+  playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
@@ -42,6 +43,7 @@ export function MushafPage({
   side = "single",
   selectedAyah,
   playingAyah,
+  playingWordRange,
   highlights,
   bookmarks,
   blurSet,
@@ -105,6 +107,7 @@ export function MushafPage({
           pageEntry={pageEntry}
           selectedAyah={selectedAyah}
           playingAyah={playingAyah}
+          playingWordRange={playingWordRange}
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}

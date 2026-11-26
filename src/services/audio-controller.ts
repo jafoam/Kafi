@@ -77,6 +77,8 @@ export interface AudioController {
   setRepeat(count: RepeatCount): void;
   setScope(scope: PlaybackScope): void;
   setSpeed(rate: number): void;
+  /** Current playback position in milliseconds for word-level highlighting. */
+  getCurrentTimeMs(): number;
   subscribe(fn: (s: AudioState) => void): () => void;
   dispose(): void;
 }
@@ -480,6 +482,11 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     setRepeat,
     setScope,
     setSpeed,
+    getCurrentTimeMs() {
+      return typeof audio.currentTime === "number" && Number.isFinite(audio.currentTime)
+        ? audio.currentTime * 1000
+        : 0;
+    },
     subscribe,
     dispose,
   };
