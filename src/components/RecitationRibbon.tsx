@@ -9,6 +9,15 @@ export interface RandomPromptInfo {
   reciterName?: string;
 }
 
+export interface ErrorDrillInfo {
+  ayah: AyahKey;
+  index: number;
+  total: number;
+  phase: "listen" | "recite";
+  loop: number;
+  totalLoops: number;
+}
+
 export interface RecitationRibbonProps {
   state: TasmiLiveState;
   surahs: SurahInfo[];
@@ -20,8 +29,12 @@ export interface RecitationRibbonProps {
   glyphLoader?: GlyphPageLoader;
   ayahToPage?: Record<AyahKey, number>;
   randomPrompt?: RandomPromptInfo | null;
+  errorDrill?: ErrorDrillInfo | null;
   onReplayPrompt?: () => void;
   onNextRandom?: () => void;
+  onDrillSkipListen?: () => void;
+  onDrillRepeat?: () => void;
+  onDrillNext?: () => void;
   onStop: () => void;
 }
 
@@ -47,8 +60,12 @@ export function RecitationRibbon({
   glyphLoader,
   ayahToPage,
   randomPrompt,
+  errorDrill,
   onReplayPrompt,
   onNextRandom,
+  onDrillSkipListen,
+  onDrillRepeat,
+  onDrillNext,
   onStop,
 }: RecitationRibbonProps) {
   const [manualExpand, setManualExpand] = useState(false);
@@ -56,7 +73,8 @@ export function RecitationRibbon({
 
   const activeWord = state.activeWord;
   const activeAyahKey: AyahKey | null = activeWord ? `${activeWord.surah}:${activeWord.ayah}` : null;
-  const promptParts = randomPrompt ? randomPrompt.ayah.split(":").map(Number) : null;
+  const cueAyah = errorDrill?.ayah ?? randomPrompt?.ayah ?? null;
+  const promptParts = cueAyah ? cueAyah.split(":").map(Number) : null;
   const surahNum = activeWord?.surah ?? promptParts?.[0] ?? state.passage?.surah ?? null;
   const surahName =
     surahNum !== null ? surahs.find((s) => s.number === surahNum)?.name ?? `Surah ${surahNum}` : "";
@@ -125,13 +143,19 @@ export function RecitationRibbon({
           <div className="recitation-ribbon__status">
             <span
               className={`recitation-ribbon__dot recitation-ribbon__dot--${
-                startingStatus || randomPrompt?.playing ? "acquiring" : state.trackerState
+                startingStatus || randomPrompt?.playing || errorDrill?.phase === "listen"
+                  ? "acquiring"
+                  : state.trackerState
               }`}
               aria-hidden="true"
             />
             <span className="recitation-ribbon__state-text">
               {startingStatus
                 ? startingStatus
+                : errorDrill
+                  ? errorDrill.phase === "listen"
+                    ? `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · Dengarkan ${errorDrill.loop}/${errorDrill.totalLoops}…`
+                    : `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · ${TRACKER_LABELS[state.trackerState]}`
                 : randomPrompt
                   ? randomPrompt.playing
                     ? "Uji Acak · Membacakan pemicu…"
@@ -162,6 +186,33 @@ export function RecitationRibbon({
                 onClick={() => setManualExpand((prev) => !prev)}
               >
                 {manualExpand ? "Sembunyikan kata" : "Tampilkan kata"}
+              </button>
+            )}
+            {errorDrill && errorDrill.phase === "listen" && onDrillSkipListen && (
+              <button
+                type="button"
+                className="recitation-ribbon__toggle-btn"
+                onClick={onDrillSkipListen}
+              >
+                Mulai Tasmi&apos;
+              </button>
+            )}
+            {errorDrill && errorDrill.phase === "recite" && onDrillRepeat && (
+              <button
+                type="button"
+                className="recitation-ribbon__toggle-btn"
+                onClick={onDrillRepeat}
+              >
+                Ulangi
+              </button>
+            )}
+            {errorDrill && errorDrill.phase === "recite" && onDrillNext && (
+              <button
+                type="button"
+                className="recitation-ribbon__toggle-btn"
+                onClick={onDrillNext}
+              >
+                {errorDrill.index + 1 < errorDrill.total ? "Ayat berikut" : "Selesai drill"}
               </button>
             )}
             {onReplayPrompt && (

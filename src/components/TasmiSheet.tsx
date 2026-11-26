@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LoadProgress } from "@tilawa/core";
-import type { AyahKey, HifzBlurLevel, PageEntry, SurahInfo } from "../data/types";
+import type {
+  AyahKey,
+  HifzBlurLevel,
+  MurajaahCard,
+  PageEntry,
+  SurahInfo,
+  TasmiSessionKind,
+} from "../data/types";
+import {
+  formatDueLabel,
+  getDueMurajaahCards,
+  getNextMurajaahTarget,
+} from "../services/murajaah-srs";
 import {
   buildPageTasmiCandidates,
   type DeclaredPassage,
@@ -15,6 +27,7 @@ export interface TasmiSheetProps {
   currentJuz?: number;
   initialAyah: AyahKey | null;
   historyCount: number;
+  murajaahCards?: MurajaahCard[];
   loadingProgress: LoadProgress | null;
   isStarting: boolean;
   error: string | null;
@@ -23,7 +36,11 @@ export interface TasmiSheetProps {
   onClose: () => void;
   onCancelLoad: () => void;
   onStartFree: () => void;
-  onStartMemorization: (passage: DeclaredPassage, enableBlur: boolean) => void;
+  onStartMemorization: (
+    passage: DeclaredPassage,
+    enableBlur: boolean,
+    kind?: TasmiSessionKind,
+  ) => void;
   onStartRandom?: (pool: RandomPool, enableBlur: boolean) => void;
   onOpenHistory: () => void;
 }
@@ -46,6 +63,7 @@ export function TasmiSheet({
   currentJuz = 1,
   initialAyah,
   historyCount,
+  murajaahCards = [],
   loadingProgress,
   isStarting,
   error,
@@ -69,7 +87,11 @@ export function TasmiSheet({
     return map;
   }, [surahs]);
 
+  const dueMurajaah = useMemo(() => getDueMurajaahCards(murajaahCards), [murajaahCards]);
+  const nextMurajaah = useMemo(() => getNextMurajaahTarget(murajaahCards), [murajaahCards]);
+
   const [mode, setMode] = useState<"memorization" | "random" | "free">("memorization");
+  const [sessionKind, setSessionKind] = useState<TasmiSessionKind>("murajaah");
   const [selectedSurah, setSelectedSurah] = useState<number>(1);
   const [fromAyah, setFromAyah] = useState<number>(1);
   const [toAyah, setToAyah] = useState<number>(7);
@@ -243,6 +265,63 @@ export function TasmiSheet({
         <div className="tasmi-sheet__body">
           {mode === "memorization" ? (
             <>
+              {nextMurajaah && (
+                <button
+                  type="button"
+                  className="tasmi-sheet__murajaah-cta"
+                  disabled={isBusy}
+                  onClick={() =>
+                    onStartMemorization(
+                      {
+                        surah: nextMurajaah.surah,
+                        fromAyah: nextMurajaah.fromAyah,
+                        toAyah: nextMurajaah.toAyah,
+                      },
+                      true,
+                      nextMurajaah.kind,
+                    )
+                  }
+                >
+                  <span>
+                    <span className="tasmi-sheet__murajaah-title">
+                      Muraja&apos;ah Hari Ini
+                      {dueMurajaah.length > 0 ? ` (${dueMurajaah.length})` : ""}
+                    </span>
+                    <span className="tasmi-sheet__murajaah-sub">
+                      {surahByNum.get(nextMurajaah.surah)?.name ?? `Surah ${nextMurajaah.surah}`}{" "}
+                      {nextMurajaah.fromAyah}–{nextMurajaah.toAyah} ·{" "}
+                      {nextMurajaah.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
+                      {formatDueLabel(nextMurajaah.dueAt)}
+                    </span>
+                  </span>
+                  <span className="tasmi-sheet__murajaah-pill">Mulai</span>
+                </button>
+              )}
+
+              <div className="tasmi-sheet__section">
+                <span className="tasmi-sheet__label">Jenis setoran</span>
+                <div className="tasmi-sheet__blur-level" role="group" aria-label="Jenis setoran">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    className={`app-menu__choice ${sessionKind === "murajaah" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={sessionKind === "murajaah"}
+                    onClick={() => setSessionKind("murajaah")}
+                  >
+                    Muraja&apos;ah
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    className={`app-menu__choice ${sessionKind === "ziyadah" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={sessionKind === "ziyadah"}
+                    onClick={() => setSessionKind("ziyadah")}
+                  >
+                    Ziyadah (Baru)
+                  </button>
+                </div>
+              </div>
+
               <div className="tasmi-sheet__section">
                 <span className="tasmi-sheet__label">Pilih cakupan di halaman ini</span>
                 <div className="tasmi-sheet__options">
@@ -416,7 +495,7 @@ export function TasmiSheet({
                 </div>
 
                 {randomScopeKind === "juz" ? (
-                  <div className="tasmi-sheet__range-row">
+                  <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                     <label className="tasmi-sheet__field">
                       <span>Dari Juz</span>
                       <select
@@ -456,7 +535,7 @@ export function TasmiSheet({
                   </div>
                 ) : (
                   <>
-                    <div className="tasmi-sheet__range-row">
+                    <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                       <label className="tasmi-sheet__field">
                         <span>Dari Surah</span>
                         <select
@@ -502,7 +581,7 @@ export function TasmiSheet({
                     </div>
 
                     {randomFromSurah === randomToSurah && (
-                      <div className="tasmi-sheet__range-row">
+                      <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                         <label className="tasmi-sheet__field tasmi-sheet__field--num">
                           <span>Dari ayat</span>
                           <input
@@ -640,6 +719,7 @@ export function TasmiSheet({
                 onStartMemorization(
                   { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },
                   enableBlur,
+                  sessionKind,
                 );
               }
             }}

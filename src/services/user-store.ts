@@ -3,12 +3,14 @@ import type {
   AyahKey,
   HifzBlurLevel,
   HighlightColor,
+  MurajaahCard,
   SpreadMode,
   TasmiSessionRecord,
   ThemeMode,
   UserData,
 } from "../data/types";
 import type { PlatformAdapter } from "../platform/types";
+import { applySessionToMurajaah, backfillMurajaahCards } from "./murajaah-srs";
 
 export const USER_DATA_KEY = "kafi:user";
 
@@ -142,6 +144,21 @@ function normalizeUserData(raw: unknown): UserData {
       ).slice(0, MAX_RECENT_PAGES)
     : [];
 
+  const rawCards = Array.isArray(raw.murajaahCards)
+    ? raw.murajaahCards.filter(
+        (item): item is MurajaahCard =>
+          isPlainObject(item) &&
+          typeof item.id === "string" &&
+          typeof item.surah === "number" &&
+          typeof item.fromAyah === "number" &&
+          typeof item.toAyah === "number" &&
+          typeof item.stabilityDays === "number" &&
+          typeof item.dueAt === "string",
+      )
+    : [];
+  const murajaahCards = backfillMurajaahCards(tasmiHistory, rawCards);
+  const updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : undefined;
+
   return {
     lastPage,
     recentPages,
@@ -150,6 +167,8 @@ function normalizeUserData(raw: unknown): UserData {
     notes,
     settings,
     tasmiHistory,
+    murajaahCards,
+    updatedAt,
   };
 }
 
@@ -161,6 +180,7 @@ export interface UserStore {
   updateSettings(patch: Partial<AppSettings>): Promise<UserData>;
   setLastPage(page: number): Promise<UserData>;
   addTasmiHistory(record: TasmiSessionRecord): Promise<UserData>;
+  replaceAll(next: UserData): Promise<UserData>;
 }
 
 export function createUserStore(platform: PlatformAdapter): UserStore {
@@ -184,7 +204,7 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
   const mutate = (updater: (current: UserData) => UserData): Promise<UserData> => {
     const next = writeQueue.then(async () => {
       const current = state ?? (await loadFromStorage());
-      const updated = updater(current);
+      const updated = { ...updater(current), updatedAt: new Date().toISOString() };
       await platform.kvSet(USER_DATA_KEY, JSON.stringify(updated));
       state = updated;
       return updated;
@@ -252,7 +272,18 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
       return mutate((current) => ({
         ...current,
         tasmiHistory: [record, ...current.tasmiHistory],
+        murajaahCards: applySessionToMurajaah(current.murajaahCards ?? [], record),
       }));
+    },
+    replaceAll(nextData: UserData) {
+      const normalized = normalizeUserData(nextData);
+      const next = writeQueue.then(async () => {
+        await platform.kvSet(USER_DATA_KEY, JSON.stringify(normalized));
+        state = normalized;
+        return normalized;
+      });
+      writeQueue = next.catch(() => {});
+      return next;
     },
   };
 }

@@ -109,6 +109,8 @@ export interface TasmiMistakeRecord {
   confidence?: number;
 }
 
+export type TasmiSessionKind = "ziyadah" | "murajaah";
+
 export interface TasmiSessionRecord {
   id: string;
   startedAt: string;
@@ -121,6 +123,33 @@ export interface TasmiSessionRecord {
   recitedAyahs?: number;
   /** Number of unique words detected as recited in this session. */
   recitedWords?: number;
+  /** Ayahs the user peeked during Hifz blur; counted as needing review/drill. */
+  peekedAyahs?: AyahKey[];
+  /** Ziyadah (new memorization) vs Muraja'ah (review). */
+  kind?: TasmiSessionKind;
+}
+
+export interface MurajaahCard {
+  /** Stable key `${surah}:${fromAyah}-${toAyah}`. */
+  id: string;
+  surah: number;
+  fromAyah: number;
+  toAyah: number;
+  kind: TasmiSessionKind;
+  /** FSRS-inspired stability in days (grows 1 -> 3 -> 7 -> 14 -> 30+ on clean reviews). */
+  stabilityDays: number;
+  /** Difficulty 1 (easy) .. 10 (hard). */
+  difficulty: number;
+  reps: number;
+  lapses: number;
+  lastReviewedAt: string;
+  dueAt: string;
+}
+
+export interface SyncConfig {
+  code: string;
+  workerUrl: string;
+  lastSyncedAt?: string;
 }
 
 export interface UserData {
@@ -131,4 +160,6 @@ export interface UserData {
   notes: Record<AyahKey, string>;
   settings: AppSettings;
   tasmiHistory: TasmiSessionRecord[];
+  murajaahCards?: MurajaahCard[];
+  updatedAt?: string;
 }

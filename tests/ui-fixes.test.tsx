@@ -182,6 +182,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
     expect(onStartMemorization).toHaveBeenCalledWith(
       { surah: 2, fromAyah: 255, toAyah: 286 },
       true,
+      "murajaah",
     );
   });
 
