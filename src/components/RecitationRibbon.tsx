@@ -11,6 +11,7 @@ export interface RecitationRibbonProps {
   getAyahWords: (surah: number, ayah: number) => string[];
   glyphLoader?: GlyphPageLoader;
   ayahToPage?: Record<AyahKey, number>;
+  onNextRandom?: () => void;
   onStop: () => void;
 }
 
@@ -34,6 +35,7 @@ export function RecitationRibbon({
   getAyahWords,
   glyphLoader,
   ayahToPage,
+  onNextRandom,
   onStop,
 }: RecitationRibbonProps) {
   const [manualExpand, setManualExpand] = useState(false);
@@ -135,6 +137,15 @@ export function RecitationRibbon({
                 onClick={() => setManualExpand((prev) => !prev)}
               >
                 {manualExpand ? "Sembunyikan kata" : "Tampilkan kata"}
+              </button>
+            )}
+            {onNextRandom && (
+              <button
+                type="button"
+                className="recitation-ribbon__toggle-btn"
+                onClick={onNextRandom}
+              >
+                Acak lagi
               </button>
             )}
             <button

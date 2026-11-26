@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
+import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData, GlyphPageLoader } from "../services/glyph-pages";
 import { GlyphPageBody } from "./GlyphPageBody";
 
@@ -26,6 +26,7 @@ export interface MushafPageProps {
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
+  blurLevel?: HifzBlurLevel;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   wordTranslation?: boolean;
@@ -44,6 +45,7 @@ export function MushafPage({
   highlights,
   bookmarks,
   blurSet,
+  blurLevel,
   revealedSet,
   mistakeAyahs,
   wordTranslation,
@@ -107,6 +109,7 @@ export function MushafPage({
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}
+          blurLevel={blurLevel}
           revealedSet={revealedSet}
           mistakeAyahs={mistakeAyahs}
           wordTranslation={wordTranslation}

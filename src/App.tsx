@@ -6,6 +6,7 @@ import mushafMapJson from "./data/mushaf-map.json";
 import type {
   AyahKey,
   Catalog,
+  HifzBlurLevel,
   HighlightColor,
   MistakeBadge,
   MushafMap,
@@ -104,6 +105,8 @@ const INITIAL_AUDIO_STATE: AudioState = {
   repeatCount: 1,
   scope: DEFAULT_SCOPE,
   speed: 1,
+  talaqqi: false,
+  isTalaqqiPause: false,
   fromCache: false,
   error: null,
 };
@@ -186,6 +189,7 @@ export function App({
   const [tasmiActive, setTasmiActive] = useState(false);
   const [tasmiState, setTasmiState] = useState<TasmiLiveState | null>(null);
   const [tasmiBlurEnabled, setTasmiBlurEnabled] = useState(true);
+  const [randomPool, setRandomPool] = useState<DeclaredPassage | null>(null);
   const [peekedAyah, setPeekedAyah] = useState<AyahKey | null>(null);
   const [modelLoading, setModelLoading] = useState<LoadProgress | null>(null);
   const [tasmiStarting, setTasmiStarting] = useState(false);
@@ -528,6 +532,18 @@ export function App({
     [audioController],
   );
 
+  const handleToggleTalaqqi = useCallback(
+    (enabled: boolean) => audioController.setTalaqqi(enabled),
+    [audioController],
+  );
+
+  const handleChangeHifzBlurLevel = useCallback(
+    (hifzBlurLevel: HifzBlurLevel) => {
+      persistUser(userStore.updateSettings({ hifzBlurLevel }));
+    },
+    [userStore, persistUser],
+  );
+
   const handleCycleSpeed = useCallback(() => {
     const idx = SPEED_OPTIONS.indexOf(audioState.speed as (typeof SPEED_OPTIONS)[number]);
     const next = SPEED_OPTIONS[(idx + 1) % SPEED_OPTIONS.length];
@@ -673,7 +689,12 @@ export function App({
   }, []);
 
   const startTasmiSession = useCallback(
-    async (mode: "free" | "memorization", passage: DeclaredPassage | null, enableBlur: boolean) => {
+    async (
+      mode: "free" | "memorization",
+      passage: DeclaredPassage | null,
+      enableBlur: boolean,
+      options?: { revealFirstAyah?: boolean; pool?: DeclaredPassage | null },
+    ) => {
       if (tasmiStartingRef.current) return;
       tasmiStartingRef.current = true;
       setTasmiStarting(true);
@@ -699,6 +720,10 @@ export function App({
         setModelLoading(null);
 
         const initial = createTasmiState(mode, passage);
+        if (options?.revealFirstAyah && passage) {
+          initial.revealedAyahs.add(`${passage.surah}:${passage.fromAyah}`);
+        }
+        setRandomPool(options?.pool ?? null);
         tasmiStateRef.current = initial;
         tasmiStartedAtRef.current = Date.now();
         setTasmiState(initial);
@@ -742,6 +767,7 @@ export function App({
 
   const handleStopTasmi = useCallback(async () => {
     setTasmiActive(false);
+    setRandomPool(null);
     setPeekedAyah(null);
     const durationSec = Math.max(1, Math.round((Date.now() - tasmiStartedAtRef.current) / 1000));
     try {
@@ -1008,6 +1034,7 @@ export function App({
             ? tasmiBlurEnabled
             : userData.settings.hifzBlur
         }
+        hifzBlurLevel={userData.settings.hifzBlurLevel}
         focusMode={focusMode}
         wordTranslation={userData.settings.wordTranslation}
         theme={userData.settings.theme}
@@ -1023,6 +1050,7 @@ export function App({
             handleToggleHifzBlur();
           }
         }}
+        onChangeHifzBlurLevel={handleChangeHifzBlurLevel}
         onToggleFocusMode={() => setFocusMode((prev) => !prev)}
         onToggleWordTranslation={() =>
           persistUser(userStore.updateSettings({ wordTranslation: !userData.settings.wordTranslation }))
@@ -1074,6 +1102,7 @@ export function App({
         highlights={userData.highlights}
         bookmarks={bookmarkSet}
         blurSet={blurSet}
+        blurLevel={userData.settings.hifzBlurLevel}
         revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
         mistakeAyahs={effectiveMistakeAyahs}
         wordTranslation={userData.settings.wordTranslation}
@@ -1123,6 +1152,7 @@ export function App({
       <AudioDock
         audioState={audioState}
         activeAyah={activeAyah}
+        surahs={catalog.surahs}
         surahName={activeSurah?.name ?? "Surah"}
         surahNumber={activeSurah?.number ?? 1}
         surahAyahCount={activeSurah?.ayahs ?? 1}
@@ -1141,6 +1171,7 @@ export function App({
         onCycleRepeat={handleCycleRepeat}
         onCycleSpeed={handleCycleSpeed}
         onChangeScope={handleChangeScope}
+        onToggleTalaqqi={handleToggleTalaqqi}
         onDownloadSurah={handleDockDownload}
         onOpenStudy={() => handleOpenStudy(activeAyah)}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
@@ -1175,6 +1206,7 @@ export function App({
         catalog={catalog}
         mushafMap={mushafMap}
         currentPage={currentPage}
+        recentPages={userData.recentPages}
         bookmarks={userData.bookmarks}
         notes={userData.notes}
         onClose={() => setPaletteOpen(false)}
@@ -1192,6 +1224,22 @@ export function App({
           getAyahWords={wordLookup}
           glyphLoader={glyphLoader}
           ayahToPage={mushafMap.ayahToPage}
+          onNextRandom={
+            randomPool
+              ? () => {
+                  const maxStart = Math.max(randomPool.fromAyah, randomPool.toAyah - 1);
+                  const span = maxStart - randomPool.fromAyah + 1;
+                  const start = randomPool.fromAyah + Math.floor(Math.random() * span);
+                  const end = Math.min(randomPool.toAyah, start + 3);
+                  void startTasmiSession(
+                    "memorization",
+                    { surah: randomPool.surah, fromAyah: start, toAyah: end },
+                    tasmiBlurEnabled,
+                    { revealFirstAyah: true, pool: randomPool },
+                  );
+                }
+              : undefined
+          }
           onStop={() => {
             void handleStopTasmi();
           }}
@@ -1208,6 +1256,8 @@ export function App({
         loadingProgress={modelLoading}
         isStarting={tasmiStarting}
         error={tasmiError}
+        hifzBlurLevel={userData.settings.hifzBlurLevel}
+        onChangeHifzBlurLevel={handleChangeHifzBlurLevel}
         onClose={() => setTasmiSheetOpen(false)}
         onCancelLoad={handleCancelModelLoad}
         onStartFree={() => {
@@ -1215,6 +1265,12 @@ export function App({
         }}
         onStartMemorization={(passage, enableBlur) => {
           void startTasmiSession("memorization", passage, enableBlur);
+        }}
+        onStartRandom={(passage, enableBlur, pool) => {
+          void startTasmiSession("memorization", passage, enableBlur, {
+            revealFirstAyah: true,
+            pool,
+          });
         }}
         onOpenHistory={handleOpenTasmiHistory}
       />

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
+import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData } from "../services/glyph-pages";
 import { createWordTranslationLoader, type PageWords } from "../services/word-translations";
 import { SurahBanner } from "./SurahBanner";
@@ -16,6 +16,7 @@ export interface GlyphPageBodyProps {
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
+  blurLevel?: HifzBlurLevel;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   /** Show the per-word translation tooltip (default on). */
@@ -32,6 +33,7 @@ export function GlyphPageBody({
   highlights,
   bookmarks,
   blurSet,
+  blurLevel = "full",
   revealedSet,
   mistakeAyahs,
   wordTranslation = true,
@@ -167,6 +169,7 @@ export function GlyphPageBody({
               const blurred = Boolean(
                 !isLeadingSplit(ayah) && blurSet?.has(ayah) && !revealedSet?.has(ayah),
               );
+              const wordBlurred = blurred && !(blurLevel === "first-word" && isFirst);
               const mistake = mistakeAyahs?.get(ayah);
               const prevAyah = index > 0 ? row.words[index - 1].ayah : null;
               const nextAyah = index + 1 < row.words.length ? row.words[index + 1].ayah : null;
@@ -185,7 +188,7 @@ export function GlyphPageBody({
                   : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
                 mistake ? "glyph-word--mistake" : "",
-                blurred ? "glyph-word--blurred" : "",
+                wordBlurred ? "glyph-word--blurred" : "",
               ]
                 .filter(Boolean)
                 .join(" ");

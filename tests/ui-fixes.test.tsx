@@ -4,6 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import fs from "node:fs";
 import type { Catalog, MushafMap, TasmiSessionRecord } from "../src/data/types";
 import { AudioDock } from "../src/components/AudioDock";
+import { GlyphPageBody } from "../src/components/GlyphPageBody";
+import { NavPalette } from "../src/components/NavPalette";
 import { RecitationRibbon } from "../src/components/RecitationRibbon";
 import { isCrossOriginHttpUrl, MushafPage } from "../src/components/MushafPage";
 import { DEFAULT_SCOPE } from "../src/services/audio-controller";
@@ -257,6 +259,8 @@ describe("AudioDock reciter display and switcher", () => {
           repeatCount: 1,
           scope: DEFAULT_SCOPE,
           speed: 1,
+          talaqqi: false,
+          isTalaqqiPause: false,
           fromCache: false,
           error: null,
         }}
@@ -355,5 +359,72 @@ describe("RecitationRibbon QCF mushaf font", () => {
     expect(wordEls[0].style.fontFamily).toContain("QCFv1-p1");
     expect(wordEls[0].textContent).toBe("\uFB51");
     expect(wordEls[1].classList.contains("recitation-ribbon__word--current")).toBe(true);
+  });
+});
+
+describe("Gradual blur and recent pages in search", () => {
+  it("leaves the first word unblurred when blurLevel is first-word", () => {
+    const el = mount(
+      <GlyphPageBody
+        data={{
+          page: 1,
+          fontFamily: "QCFv1-p1",
+          lines: [],
+          rows: [
+            {
+              kind: "text",
+              line: 1,
+              words: [
+                { code: "\uFB51", ayah: "1:1" },
+                { code: "\uFB52", ayah: "1:1" },
+                { code: "\uFB53", ayah: "1:1" },
+              ],
+            },
+          ],
+        }}
+        pageEntry={mushafMap.pages[0]}
+        selectedAyah={null}
+        playingAyah={null}
+        highlights={{}}
+        bookmarks={new Set()}
+        blurSet={new Set(["1:1"])}
+        blurLevel="first-word"
+        onSelectAyah={() => {}}
+      />,
+    );
+
+    const words = el.querySelectorAll(".glyph-word");
+    expect(words).toHaveLength(3);
+    expect(words[0].classList.contains("glyph-word--blurred")).toBe(false);
+    expect(words[1].classList.contains("glyph-word--blurred")).toBe(true);
+    expect(words[2].classList.contains("glyph-word--blurred")).toBe(true);
+  });
+
+  it("shows recent pages in the search tab when query is empty", () => {
+    const onJumpToPage = vi.fn();
+    const el = mount(
+      <NavPalette
+        open={true}
+        initialTab="search"
+        catalog={catalog}
+        mushafMap={mushafMap}
+        currentPage={1}
+        recentPages={[593, 293]}
+        bookmarks={[]}
+        notes={{}}
+        onClose={() => {}}
+        onJumpToPage={onJumpToPage}
+        onJumpToAyah={() => {}}
+        onToggleBookmark={() => {}}
+      />,
+    );
+
+    expect(el.textContent).toContain("Terakhir dibaca");
+    const chips = el.querySelectorAll<HTMLButtonElement>(".palette__recent .palette__chip");
+    expect(chips).toHaveLength(2);
+    act(() => {
+      chips[0].click();
+    });
+    expect(onJumpToPage).toHaveBeenCalledWith(593);
   });
 });

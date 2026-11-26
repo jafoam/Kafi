@@ -11,6 +11,7 @@ export interface NavPaletteProps {
   catalog: Catalog;
   mushafMap: MushafMap;
   currentPage: number;
+  recentPages?: number[];
   bookmarks: AyahKey[];
   notes: Record<AyahKey, string>;
   onClose: () => void;
@@ -58,6 +59,7 @@ export function NavPalette({
   catalog,
   mushafMap,
   currentPage,
+  recentPages = [],
   bookmarks,
   notes,
   onClose,
@@ -140,6 +142,19 @@ export function NavPalette({
     if (tab !== "search" || !searchEngine || !query.trim()) return [];
     return searchEngine.search(query, 35);
   }, [tab, searchEngine, query]);
+
+  const recentItems = useMemo(() => {
+    const pages = recentPages.length > 0 ? recentPages : [currentPage];
+    return pages.slice(0, 5).map((p) => {
+      const entry = mushafMap.pages[p - 1];
+      const surahId = entry?.surahs?.[0];
+      const surahName = surahId ? surahByNumber.get(surahId)?.name : undefined;
+      return {
+        page: p,
+        label: surahName ? `${surahName} · Hal. ${p}` : `Hal. ${p}`,
+      };
+    });
+  }, [recentPages, currentPage, mushafMap.pages, surahByNumber]);
 
   const savedEntries = useMemo(
     () =>
@@ -307,6 +322,26 @@ export function NavPalette({
 
           {tab === "search" && (
             <div className="palette__list">
+              {!query.trim() && recentItems.length > 0 && (
+                <div className="palette__recent">
+                  <div className="palette__section-label">Terakhir dibaca</div>
+                  <div className="palette__quick-links">
+                    {recentItems.map((item) => (
+                      <button
+                        key={item.page}
+                        type="button"
+                        className="palette__chip"
+                        onClick={() => {
+                          onJumpToPage(item.page);
+                          onClose();
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {searchLoading && (
                 <div className="palette__empty">Memuat indeks pencarian ayat...</div>
               )}
