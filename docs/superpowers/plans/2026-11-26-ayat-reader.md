@@ -825,14 +825,14 @@ git commit -m "feat: add offline PWA Service Worker, manifest, and static build 
   - `mic_start(on_chunk: Channel<MicChunk>) -> Result<u32, String>` where `MicChunk { samples: Vec<f32>, sample_rate: u32 }`
   - `mic_stop() -> Result<(), String>`
 
-- [ ] **Step 1: Scaffold `src-tauri/` project config (`Cargo.toml`, `build.rs`, `tauri.conf.json`, `Info.plist`, `Entitlements.plist`, `capabilities/default.json`)**
+- [x] **Step 1: Scaffold `src-tauri/` project config (`Cargo.toml`, `build.rs`, `tauri.conf.json`, `Info.plist`, `Entitlements.plist`, `capabilities/default.json`)**
 
 - `Cargo.toml`: `tauri = { version = "2", features = ["protocol-asset"] }`, `tauri-build = "2"`, `cpal = "0.15"`, `serde = { version = "1", features = ["derive"] }`, `serde_json = "1"`.
 - `tauri.conf.json`: `productName: "Ayat"`, `identifier: "com.rifizzu.ayat"`, `frontendDist: "../dist"`, `devUrl: "http://localhost:5173"`, `security.assetProtocol: { enable: true, scope: ["$RESOURCE/**", "$APPDATA/**"] }`, bundle targets `["app", "dmg", "nsis", "msi"]`, macOS `entitlements: "Entitlements.plist"`, and resource mapping for `resources/mushaf/pages/`.
 - `Info.plist`: `NSMicrophoneUsageDescription` explaining on-device Quran recitation/tasmi'.
 - `Entitlements.plist`: `com.apple.security.device.audio-input` + `com.apple.security.cs.allow-jit` + `com.apple.security.cs.allow-unsigned-executable-memory` (required for Hardened Runtime WKWebView WASM).
 
-- [ ] **Step 2: Write failing Rust unit tests in `src-tauri/src/cache.rs` and `src-tauri/src/mic.rs`**
+- [x] **Step 2: Write failing Rust unit tests in `src-tauri/src/cache.rs` and `src-tauri/src/mic.rs`**
 
 In `src-tauri/src/cache.rs` (`#[cfg(test)]`):
 - `test_rejects_path_traversal_keys`: asserts `safe_cache_path(base, "audio", "../secret")`, `safe_cache_path(base, "../etc", "a")`, `safe_cache_path(base, "audio", "a/b")`, `safe_cache_path(base, "audio", "a\\b")`, and empty keys all return `Err(...)`.
@@ -841,23 +841,23 @@ In `src-tauri/src/cache.rs` (`#[cfg(test)]`):
 In `src-tauri/src/mic.rs` (`#[cfg(test)]`):
 - `test_downmix_stereo_to_mono`: asserts `downmix_to_mono(&[0.5, -0.5, 1.0, 0.0], 2)` returns `[0.0, 0.5]` and `downmix_to_mono(&[0.25, -0.25], 1)` returns `[0.25, -0.25]`.
 
-- [ ] **Step 3: Run `cargo test` to verify compilation/tests fail before implementation**
+- [x] **Step 3: Run `cargo test` to verify compilation/tests fail before implementation**
 
 Run: `PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml`
 Expected: FAIL (unimplemented functions).
 
-- [ ] **Step 4: Implement `cache.rs`, `mic.rs`, `lib.rs`, and `main.rs`**
+- [x] **Step 4: Implement `cache.rs`, `mic.rs`, `lib.rs`, and `main.rs`**
 
 - `cache.rs`: validates `bucket` and `key` strictly against `[A-Za-z0-9._:-]` (rejecting empty, `.`, `..`, `/`, `\`, NUL), creates bucket directories under `app_data_dir()`, writes atomically via temp file + rename so partial writes never corrupt cached files or `user.json`.
 - `mic.rs`: uses `cpal::default_host().default_input_device()`, spawns a dedicated audio capture thread controlled by an `AtomicBool` stop flag + `JoinHandle` stored in Tauri managed state (`MicState`), downmixes multi-channel input (`f32`/`i16`/`u16`) to mono `f32`, batches ~100 ms chunks, and sends `MicChunk { samples, sample_rate }` via `tauri::ipc::Channel`. `mic_stop()` sets stop flag and drops stream cleanly (idempotent if already stopped).
 - `lib.rs`: registers all 9 IPC commands, resolves `get_mushaf_page_path(page)` validating `1..=604` against `resource_dir()/mushaf/pages/{page:03}.gif` (falling back in dev mode to `../public/mushaf/pages/{page:03}.gif`).
 
-- [ ] **Step 5: Run Rust unit tests to verify PASS**
+- [x] **Step 5: Run Rust unit tests to verify PASS**
 
 Run: `PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml`
 Expected: PASS (all Rust unit tests green).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src-tauri
