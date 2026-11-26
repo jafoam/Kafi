@@ -633,7 +633,7 @@ git commit -m "feat: add Murottal audio player and Tafsir/Terjemahan/Notes drawe
   - `src/services/tasmi-logic.ts`: `buildPageTasmiCandidates(pages: PageEntry[], surahs: SurahInfo[]): TasmiPassageOption[]`, `createTasmiState(mode: "free" | "memorization", passage: DeclaredPassage | null): TasmiLiveState`, `reduceTilawaEvent(state: TasmiLiveState, event: EngineEvent, getAyahWords: (s: number, a: number) => string[]): TasmiLiveState`, `computeBlurMask(pageEntry: PageEntry, mode: "off" | "all" | "tasmi", passage: DeclaredPassage | null, revealedAyahs: Set<AyahKey>, peekedAyah: AyahKey | null): Set<AyahKey>`
   - `src/services/tilawa-controller.ts`: `createTilawaController(platform: PlatformAdapter)` returning `{ ensureReady(onProgress, signal): Promise<void>; startFree(onEvent): Promise<void>; startMemorization(passage, onEvent): Promise<void>; stop(): Promise<CheckerEvent[]>; dispose(): void }`
 
-- [ ] **Step 1: Write the failing test in `tests/tasmi-logic.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/tasmi-logic.test.ts`**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -708,12 +708,12 @@ describe("tasmi-logic", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/tasmi-logic.test.ts`
 Expected: FAIL with missing module.
 
-- [ ] **Step 3: Implement `tasmi-logic.ts`, `tilawa-controller.ts`, and Tasmi' UI components**
+- [x] **Step 3: Implement `tasmi-logic.ts`, `tilawa-controller.ts`, and Tasmi' UI components**
 
 - `tasmi-logic.ts`:
   - `buildPageTasmiCandidates(pages, surahs)`: for each visible page, groups ayahs by surah while excluding `page.leadingSplitAyah` from that page's start bound; when 2 pages are visible and share a surah, also includes a combined `"2 Halaman"` option for that surah.
@@ -727,12 +727,12 @@ Expected: FAIL with missing module.
 - `TasmiSummaryModal.tsx`: post-session review showing surah/range, duration, mistake breakdown by class (`Kata salah`, `Kata terlewat`, `Kata berlebih`, `Ayat terloncat`), Uthmani snippet with flagged word highlighted + 1-click **Dengar Murottal** button, plus tab **Riwayat Tasmi'** persisted in `UserStore`.
 - Wire Hifz blur overlays, tap-to-peek, mistake badges, and `M`/`H` shortcuts into `MushafPage.tsx` and `App.tsx`.
 
-- [ ] **Step 4: Run tests and typecheck to verify PASS**
+- [x] **Step 4: Run tests and typecheck to verify PASS**
 
 Run: `npx vitest run tests/tasmi-logic.test.ts && npx tsc --noEmit`
 Expected: PASS, 0 TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/tasmi-logic.ts src/services/tilawa-controller.ts src/components/TasmiSheet.tsx src/components/RecitationRibbon.tsx src/components/TasmiSummaryModal.tsx src/components/MushafPage.tsx src/App.tsx tests/tasmi-logic.test.ts
