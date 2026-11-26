@@ -122,6 +122,9 @@ export function buildPageTasmiCandidates(
     }
   }
 
+  // Prioritize surahs that start on the visible page(s) over the trailing tail of a previous surah.
+  options.sort((a, b) => Number(b.fromAyah === 1) - Number(a.fromAyah === 1));
+
   return options;
 }
 

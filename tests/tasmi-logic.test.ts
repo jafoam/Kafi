@@ -40,6 +40,13 @@ describe("tasmi-logic", () => {
     expect(options.some((o) => o.surah === 2 && o.scopeLabel.includes("2 Halaman"))).toBe(true);
   });
 
+  it("prioritizes a surah starting on the page over the trailing tail of the previous surah", () => {
+    const p583 = map.pages[582]; // Page 583: An-Naba 31–40 + An-Naziat 1–16
+    const options = buildPageTasmiCandidates([p583], catalog.surahs);
+    expect(options[0]).toMatchObject({ surah: 79, fromAyah: 1 });
+    expect(options[1]).toMatchObject({ surah: 78, fromAyah: 31 });
+  });
+
   it("tracks locked words, reveals recited ayahs, and counts only confirmed mistakes", () => {
     let st = createTasmiState("memorization", { surah: 1, fromAyah: 1, toAyah: 7 });
     const words = () => ["بِسْمِ", "ٱللَّهِ", "ٱلرَّحْمَـٰنِ", "ٱلرَّحِيمِ"];

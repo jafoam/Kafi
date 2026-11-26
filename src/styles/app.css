@@ -1701,13 +1701,14 @@ textarea:focus-visible {
 }
 
 .tasmi-sheet__range-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 72px;
   gap: 8px;
-  align-items: flex-end;
+  align-items: end;
 }
 
 .tasmi-sheet__field {
-  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1716,11 +1717,14 @@ textarea:focus-visible {
 }
 
 .tasmi-sheet__field--num {
-  flex: 0 0 88px;
+  min-width: 0;
 }
 
 .tasmi-sheet__field select,
 .tasmi-sheet__field input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   height: 34px;
   padding: 0 10px;
   border-radius: var(--radius-sm);

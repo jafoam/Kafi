@@ -486,8 +486,8 @@ export function App({
   const isAudioRelevant = Boolean(
     audioState.currentAyah && (audioState.isPlaying || isAudioOnVisiblePage),
   );
-  const tasmiContextAyah: AyahKey =
-    playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? fallbackAyah));
+  const tasmiContextAyah: AyahKey | null =
+    playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? null));
   const activeSurahNum = parseAyahKey(activeAyah).surah;
   const activeSurah = surahByNumber.get(activeSurahNum);
 
@@ -718,16 +718,16 @@ export function App({
   }, [tasmiSheetOpen, tilawaController]);
 
   const handleOpenTasmi = useCallback(
-    (ayah: AyahKey) => {
+    (ayah: AyahKey | null) => {
       if (onStartTasmi) {
-        onStartTasmi(ayah);
+        onStartTasmi(ayah ?? fallbackAyah);
         return;
       }
       setTasmiError(null);
       setTasmiInitialAyah(ayah);
       setTasmiSheetOpen(true);
     },
-    [onStartTasmi],
+    [onStartTasmi, fallbackAyah],
   );
 
   const handleCancelModelLoad = useCallback(() => {
