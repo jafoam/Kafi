@@ -161,8 +161,8 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
     const next = writeQueue.then(async () => {
       const current = state ?? (await loadFromStorage());
       const updated = updater(current);
-      state = updated;
       await platform.kvSet(USER_DATA_KEY, JSON.stringify(updated));
+      state = updated;
       return updated;
     });
     writeQueue = next.catch(() => {});
@@ -170,9 +170,10 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
   };
 
   return {
-    async load() {
-      await writeQueue;
-      return loadFromStorage();
+    load() {
+      const next = writeQueue.then(() => loadFromStorage());
+      writeQueue = next.catch(() => {});
+      return next;
     },
     toggleBookmark(ayah: AyahKey) {
       return mutate((current) => {

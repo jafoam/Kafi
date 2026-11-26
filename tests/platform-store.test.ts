@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import type { PlatformAdapter } from "../src/platform/types";
 import { createWebAdapter, resolvePageUrl } from "../src/platform/web-adapter";
 import { createTauriAdapter } from "../src/platform/tauri-adapter";
@@ -135,26 +136,95 @@ describe("platform & user-store", () => {
     vi.unstubAllGlobals();
   });
 
-  it("tauri adapter maps exact IPC commands, Channel mic streaming, and Tilawa storage", async () => {
-    const calls: Array<{ cmd: string; args: unknown }> = [];
-    const disk = new Map<string, number[]>();
+  it("does not retain unpersisted mutations when kvSet fails", async () => {
+    const kv = new Map<string, string>();
+    let failNextWrite = true;
+    const platform: PlatformAdapter = {
+      ...createMemoryPlatform(),
+      kvGet: async (k) => kv.get(k) ?? null,
+      kvSet: async (k, v) => {
+        if (failNextWrite) {
+          failNextWrite = false;
+          throw new Error("disk full");
+        }
+        kv.set(k, v);
+      },
+    };
+    const store = createUserStore(platform);
+    await store.load();
+
+    await expect(store.toggleBookmark("2:255")).rejects.toThrow("disk full");
+    const afterSecond = await store.setHighlight("1:1", "emerald");
+    expect(afterSecond.bookmarks).toEqual([]);
+    expect(afterSecond.highlights["1:1"]).toBe("emerald");
+
+    const reloaded = await createUserStore(platform).load();
+    expect(reloaded.bookmarks).toEqual([]);
+    expect(reloaded.highlights["1:1"]).toBe("emerald");
+  });
+
+  it("serializes concurrent load() and mutate() so load() never overwrites newer mutations", async () => {
+    let releaseKvGet!: (val: string | null) => void;
+    const kvGetGate = new Promise<string | null>((resolve) => {
+      releaseKvGet = resolve;
+    });
+    const kv = new Map<string, string>();
+    let firstRead = true;
+    const platform: PlatformAdapter = {
+      ...createMemoryPlatform(),
+      kvGet: async (k) => {
+        if (firstRead) {
+          firstRead = false;
+          return kvGetGate;
+        }
+        return kv.get(k) ?? null;
+      },
+      kvSet: async (k, v) => {
+        kv.set(k, v);
+      },
+    };
+
+    const store = createUserStore(platform);
+    const loadPromise = store.load();
+    const mutatePromise = store.toggleBookmark("2:255");
+
+    releaseKvGet(JSON.stringify({ ...DEFAULT_USER_DATA, bookmarks: ["1:1"] }));
+    await Promise.all([loadPromise, mutatePromise]);
+
+    const finalState = await store.load();
+    expect(finalState.bookmarks).toEqual(["1:1", "2:255"]);
+  });
+
+  it("tauri adapter uses raw binary cache IPC, handles CACHE_MISS, and streams mic chunks", async () => {
+    const calls: Array<{ cmd: string; args?: InvokeArgs; options?: InvokeOptions }> = [];
+    const disk = new Map<string, Uint8Array>();
     const kv = new Map<string, string>();
     let activeChannel: { onmessage: (msg: { samples: number[]; sampleRate: number }) => void } | null = null;
 
     const adapter = createTauriAdapter({
-      invoke: async <T>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
-        calls.push({ cmd, args });
+      invoke: async <T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> => {
+        calls.push({ cmd, args, options });
         if (cmd === "cache_put") {
-          const { bucket, key, bytes } = args as { bucket: string; key: string; bytes: number[] };
+          expect(args).toBeInstanceOf(Uint8Array);
+          const headers = options?.headers as Record<string, string>;
+          const bucket = headers["x-cache-bucket"];
+          const key = headers["x-cache-key"];
           if (!/^[A-Za-z0-9._:-]+$/.test(bucket) || !/^[A-Za-z0-9._:-]+$/.test(key)) {
             throw new Error("invalid key");
           }
-          disk.set(`${bucket}/${key}`, bytes);
+          disk.set(`${bucket}/${key}`, new Uint8Array(args as Uint8Array));
           return undefined as T;
         }
         if (cmd === "cache_get") {
           const { bucket, key } = args as { bucket: string; key: string };
-          return (disk.get(`${bucket}/${key}`) ?? null) as T;
+          if (key === "boom") {
+            throw new Error("I/O error");
+          }
+          const found = disk.get(`${bucket}/${key}`);
+          if (!found) {
+            throw new Error("CACHE_MISS");
+          }
+          return found.buffer.slice(found.byteOffset, found.byteOffset + found.byteLength) as T;
         }
         if (cmd === "cache_has") {
           const { bucket, key } = args as { bucket: string; key: string };
@@ -196,9 +266,16 @@ describe("platform & user-store", () => {
     expect(adapter.isDesktop).toBe(true);
     expect(await adapter.getPageImageUrl(1)).toBe("asset://localhost/app/resources/mushaf/pages/001.gif");
 
+    expect(await adapter.cacheGet("audio", "missing")).toBeNull();
+    await expect(adapter.cacheGet("audio", "boom")).rejects.toThrow("I/O error");
+
     const modelBytes = new Uint8Array([10, 20, 30]);
     const tilawaStorage = adapter.createTilawaStorage();
     await tilawaStorage.put("spliced-clean@1-int8/model.onnx", modelBytes);
+    const putCall = calls.find((c) => c.cmd === "cache_put");
+    expect(putCall?.args).toBe(modelBytes);
+    expect((putCall?.options?.headers as Record<string, string>)["x-cache-bucket"]).toBe("tilawa");
+    expect((putCall?.options?.headers as Record<string, string>)["x-cache-key"]).toMatch(/^[A-Za-z0-9._:-]+$/);
     expect(await tilawaStorage.keys()).toEqual(["spliced-clean@1-int8/model.onnx"]);
     expect(await tilawaStorage.get("spliced-clean@1-int8/model.onnx")).toEqual(modelBytes);
     await tilawaStorage.delete("spliced-clean@1-int8/model.onnx");

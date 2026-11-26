@@ -1,4 +1,10 @@
-import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import {
+  Channel,
+  convertFileSrc,
+  invoke,
+  type InvokeArgs,
+  type InvokeOptions,
+} from "@tauri-apps/api/core";
 import type { PlatformAdapter, TilawaModelStorage } from "./types";
 
 interface MicChunkPayload {
@@ -7,7 +13,7 @@ interface MicChunkPayload {
 }
 
 export interface TauriAdapterDeps {
-  invoke: typeof invoke;
+  invoke: <T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions) => Promise<T>;
   convertFileSrc: typeof convertFileSrc;
   createChannel: <T>() => Channel<T>;
 }
@@ -26,12 +32,24 @@ export function createTauriAdapter(deps?: Partial<TauriAdapterDeps>): PlatformAd
   const createChannel = deps?.createChannel ?? (<T>() => new Channel<T>());
 
   const cacheGet = async (bucket: string, key: string): Promise<Uint8Array | null> => {
-    const raw = await tauriInvoke<number[] | null>("cache_get", { bucket, key });
-    return raw ? new Uint8Array(raw) : null;
+    try {
+      const buf = await tauriInvoke<ArrayBuffer>("cache_get", { bucket, key });
+      return new Uint8Array(buf);
+    } catch (err) {
+      if (String(err).includes("CACHE_MISS")) {
+        return null;
+      }
+      throw err;
+    }
   };
 
   const cachePut = async (bucket: string, key: string, bytes: Uint8Array): Promise<void> => {
-    await tauriInvoke("cache_put", { bucket, key, bytes: Array.from(bytes) });
+    await tauriInvoke("cache_put", bytes, {
+      headers: {
+        "x-cache-bucket": bucket,
+        "x-cache-key": key,
+      },
+    });
   };
 
   const cacheHas = async (bucket: string, key: string): Promise<boolean> => {
