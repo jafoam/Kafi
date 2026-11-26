@@ -340,13 +340,22 @@ textarea:focus-visible {
 
 .glyph-line--center {
   justify-content: center;
-  gap: 0.35em;
+  gap: 0;
 }
 
 .glyph-line--header,
 .glyph-line--bismillah {
   justify-content: center;
-  font-family: "Geeza Pro", "Noto Naskh Arabic", "Amiri", serif;
+  font-family: var(--font-arabic);
+}
+
+/* Amiri Regular (Arabic subset, SIL OFL) so all Arabic UI text uses the same classical font on every OS. */
+@font-face {
+  font-family: "Amiri";
+  src: url("../assets/fonts/amiri-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 .surah-banner {
@@ -397,10 +406,35 @@ textarea:focus-visible {
 
 .glyph-word {
   position: relative;
+  flex: 1 0 auto;
+  text-align: center;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 0;
   transition: background-color 120ms ease, filter 180ms ease;
   outline-offset: 2px;
+}
+
+.glyph-line:not(.glyph-line--center) .glyph-word:first-child {
+  text-align: start;
+}
+
+.glyph-line:not(.glyph-line--center) .glyph-word:last-child {
+  text-align: end;
+}
+
+.glyph-line--center .glyph-word {
+  flex: 0 0 auto;
+  padding-inline: 0.16em;
+}
+
+.glyph-word--run-start {
+  border-start-start-radius: 4px;
+  border-end-start-radius: 4px;
+}
+
+.glyph-word--run-end {
+  border-start-end-radius: 4px;
+  border-end-end-radius: 4px;
 }
 
 .glyph-word--hl-amber { background: var(--hl-amber); }

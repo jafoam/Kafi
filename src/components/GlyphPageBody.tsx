@@ -168,8 +168,12 @@ export function GlyphPageBody({
                 !isLeadingSplit(ayah) && blurSet?.has(ayah) && !revealedSet?.has(ayah),
               );
               const mistake = mistakeAyahs?.get(ayah);
+              const prevAyah = index > 0 ? row.words[index - 1].ayah : null;
+              const nextAyah = index + 1 < row.words.length ? row.words[index + 1].ayah : null;
               const classes = [
                 "glyph-word",
+                prevAyah !== ayah ? "glyph-word--run-start" : "",
+                nextAyah !== ayah ? "glyph-word--run-end" : "",
                 hl ? `glyph-word--hl-${hl}` : "",
                 (wordTranslation ? hoveredWord === wordKey : hoveredAyah === ayah)
                   ? "glyph-word--hovered"
