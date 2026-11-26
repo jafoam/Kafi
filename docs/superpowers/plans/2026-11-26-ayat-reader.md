@@ -517,7 +517,7 @@ git commit -m "feat: build Tarteel-inspired Mushaf reader with RTL 1/2-page spre
 - Produces:
   - `src/services/audio-controller.ts`: `nextAyah(surah: number, ayah: number, surahs: SurahInfo[]): { surah: number; ayah: number } | null`, `prevAyah(surah: number, ayah: number, surahs: SurahInfo[]): { surah: number; ayah: number } | null`, `createAudioController(deps)` returning `{ playAyah(surah: number, ayah: number): Promise<void>; togglePlay(): void; pause(): void; next(): Promise<void>; prev(): Promise<void>; setReciter(id: string): void; setRepeat(count: RepeatCount): void; setSpeed(rate: number): void; subscribe(fn: (s: AudioState) => void): () => void; dispose(): void }`
 
-- [ ] **Step 1: Write the failing test in `tests/audio-controller.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/audio-controller.test.ts`**
 
 ```ts
 import { describe, it, expect, vi } from "vitest";
@@ -594,24 +594,24 @@ describe("audio-controller", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/audio-controller.test.ts`
 Expected: FAIL with missing module.
 
-- [ ] **Step 3: Implement `audio-controller.ts`, `AudioDock.tsx`, and `StudyDrawer.tsx`, and wire into `App.tsx`**
+- [x] **Step 3: Implement `audio-controller.ts`, `AudioDock.tsx`, and `StudyDrawer.tsx`, and wire into `App.tsx`**
 
 - `audio-controller.ts`: uses monotonic request token (`requestSeq`) + `AbortController` so rapid ayah switching cancels in-flight fetches and ignores stale resolutions; supports `repeatCount` (`1 | 2 | 3 | 5 | Infinity`), auto-advance, playback speed (`0.75 | 1 | 1.25 | 1.5`), and background prefetch of the next 2 ayahs via `getAudioBlobUrl`.
 - `AudioDock.tsx`: sleek floating bottom dock with Play/Pause, Prev/Next ayah, Reciter dropdown + **Unduh Surah Offline** button with progress indicator, Repeat & Speed toggles, and prominent Tarteel-style emerald Mic/Tasmi' trigger button.
 - `StudyDrawer.tsx`: right drawer on desktop / bottom sheet on narrow screens synced to selected or currently playing ayah; tabs for **Terjemahan** (resource selector, default `33` Indonesian Kemenag), **Tafsir** (resource selector, default `equran-id` Kemenag + Arabic/English Quran.com tafsirs), and **Catatan** (bookmark toggle, 4 highlight colors, personal note textarea); cancels stale fetches when ayah changes rapidly and clearly shows offline/cached status.
 - Wire into `App.tsx`: auto-turns mushaf page whenever active playing ayah moves onto a page outside the visible spread; bind `Space` to play/pause.
 
-- [ ] **Step 4: Run tests and typecheck to verify PASS**
+- [x] **Step 4: Run tests and typecheck to verify PASS**
 
 Run: `npx vitest run tests/audio-controller.test.ts && npx tsc --noEmit`
 Expected: PASS, 0 TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/audio-controller.ts src/components/AudioDock.tsx src/components/StudyDrawer.tsx src/App.tsx tests/audio-controller.test.ts
