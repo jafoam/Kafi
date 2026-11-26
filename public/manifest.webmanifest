@@ -1,0 +1,18 @@
+{
+  "name": "Ayat — Mushaf Madinah & Tasmi'",
+  "short_name": "Ayat",
+  "description": "Mushaf Madinah 15-baris dan Tasmi' hafalan Al-Qur'an offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf8f3",
+  "theme_color": "#136f5a",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

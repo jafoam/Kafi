@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Ayat">
+  <rect width="512" height="512" rx="112" fill="#136f5a" />
+  <rect x="34" y="34" width="444" height="444" rx="84" fill="none" stroke="#faf8f3" stroke-opacity="0.22" stroke-width="6" />
+  <g transform="translate(256 256)" opacity="0.14" fill="none" stroke="#faf8f3" stroke-width="5">
+    <rect x="-152" y="-152" width="304" height="304" rx="20" />
+    <rect x="-152" y="-152" width="304" height="304" rx="20" transform="rotate(45)" />
+  </g>
+  <g fill="#faf8f3">
+    <path d="M248 164c-34-18-80-24-126-16-8 1-14 8-14 16v184c0 10 9 17 18 15 44-8 87-2 122 17V164z" />
+    <path d="M264 164c34-18 80-24 126-16 8 1 14 8 14 16v184c0 10-9 17-18 15-44-8-87-2-122 17V164z" />
+  </g>
+  <g stroke="#136f5a" stroke-linecap="round" stroke-width="10" opacity="0.55">
+    <line x1="144" y1="204" x2="216" y2="210" />
+    <line x1="144" y1="240" x2="216" y2="246" />
+    <line x1="144" y1="276" x2="216" y2="282" />
+    <line x1="144" y1="312" x2="198" y2="316" />
+    <line x1="296" y1="210" x2="368" y2="204" />
+    <line x1="296" y1="246" x2="368" y2="240" />
+    <line x1="296" y1="282" x2="368" y2="276" />
+    <line x1="314" y1="316" x2="368" y2="312" />
+  </g>
+  <path d="M246 150h20v64l-10-10-10 10z" fill="#0d5343" />
+</svg>
