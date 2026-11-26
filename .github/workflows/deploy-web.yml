@@ -1,0 +1,45 @@
+name: Deploy web to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Keeps dist/ under Cloudflare Pages' 25 MiB per-file limit (drops local mushaf pages).
+          CF_PAGES: "1"
+          # Optional: host of the fallback GIF pages, set as a repository variable.
+          VITE_MUSHAF_BASE_URL: ${{ vars.VITE_MUSHAF_BASE_URL }}
+          VITE_ORT_WASM_PATH: ${{ vars.VITE_ORT_WASM_PATH }}
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=kafi --branch=main --commit-dirty=true

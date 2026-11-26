@@ -51,6 +51,13 @@ Konfigurasi di **Cloudflare Pages**:
 
 > Pastikan host aset Mushaf mematuhi ketentuan atribusi **King Fahd Glorious Qur'an Printing Complex (KFGQPC)** dan mengirimkan header CORS agar dapat di-cache oleh Service Worker.
 
+### Deploy otomatis (GitHub Actions)
+
+Setiap push ke `main` menjalankan [`deploy-web.yml`](.github/workflows/deploy-web.yml): typecheck, tes, build, lalu `wrangler pages deploy` ke proyek Pages `kafi`. Tambahkan di **Settings → Secrets and variables → Actions**:
+
+- Secret `CLOUDFLARE_API_TOKEN` (izin *Cloudflare Pages: Edit*) dan `CLOUDFLARE_ACCOUNT_ID`.
+- Variable opsional `VITE_MUSHAF_BASE_URL` dan `VITE_ORT_WASM_PATH`.
+
 ### Pengujian & Type Check
 
 ```bash
