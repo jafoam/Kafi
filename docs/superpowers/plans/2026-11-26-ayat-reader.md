@@ -430,7 +430,7 @@ git commit -m "feat: add public CORS Quran API client, HTML sanitizer, and offli
   - `src/state/reader-logic.ts`: `SpreadMode` (`"auto" | "single" | "double"`), `clampPage(page: number): number`, `resolveEffectiveSpread(mode: SpreadMode, viewportWidth: number): "single" | "double"`, `getVisiblePages(currentPage: number, effectiveSpread: "single" | "double"): { rightPage: number; leftPage: number | null }`, `turnPage(currentPage: number, direction: "next" | "prev", effectiveSpread: "single" | "double"): number`, `mapKeyToDirection(key: string): "next" | "prev" | null`
   - `src/components/MushafPage.tsx`: props include `pageEntry`, `imageUrl`, `selectedAyah`, `playingAyah`, `highlights`, `bookmarks`, `blurSet?: Set<AyahKey>`, `revealedSet?: Set<AyahKey>`, `mistakeAyahs?: Map<AyahKey, MistakeBadge>`, `onSelectAyah`, `onPeekAyah`
 
-- [ ] **Step 1: Write the failing test in `tests/reader-logic.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/reader-logic.test.ts`**
 
 ```ts
 import { describe, it, expect } from "vitest";
@@ -475,12 +475,12 @@ describe("reader-logic (RTL Mushaf spread)", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/reader-logic.test.ts`
 Expected: FAIL with missing module `../src/state/reader-logic`.
 
-- [ ] **Step 3: Implement `reader-logic.ts`, calm Tarteel-inspired CSS themes (`tokens.css`, `app.css`), and core reader components**
+- [x] **Step 3: Implement `reader-logic.ts`, calm Tarteel-inspired CSS themes (`tokens.css`, `app.css`), and core reader components**
 
 - `reader-logic.ts`: exact RTL mushaf math (`rightPage = currentPage % 2 === 1 ? currentPage : currentPage - 1`, `leftPage = rightPage + 1 <= 604 ? rightPage + 1 : null`; `auto` switches to `"double"` at `viewportWidth >= 1024`).
 - `tokens.css` & `app.css`: calm, refined Tarteel-inspired aesthetic — Light Paper (`#faf8f3` warm ivory background, `#ffffff` mushaf surface, `#136f5a` deep emerald accent), Warm Sepia (`#f2eadc` parchment), Dark Night (`#111417` canvas with carefully tuned `filter: invert(0.91) hue-rotate(180deg) contrast(0.95)` on the mushaf image only, keeping highlights & UI overlays crisp and un-inverted).
@@ -491,12 +491,12 @@ Expected: FAIL with missing module `../src/state/reader-logic`.
 - `AyahPopover.tsx`: compact floating action bar anchored smoothly when an ayah is selected (**Putar**, **Tafsir & Terjemahan**, **Bookmark**, **Highlight**, **Tasmi' dari sini**).
 - Wire `App.tsx`, `main.tsx`, `index.html` so `npm run dev` immediately renders a working, fast Mushaf reader!
 
-- [ ] **Step 4: Run tests and typecheck to verify PASS**
+- [x] **Step 4: Run tests and typecheck to verify PASS**
 
 Run: `npx vitest run tests/reader-logic.test.ts && npx tsc --noEmit`
 Expected: PASS, 0 TypeScript errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html src/main.tsx src/App.tsx src/state src/styles src/components tests/reader-logic.test.ts
