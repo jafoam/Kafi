@@ -193,8 +193,12 @@ export function GlyphPageBody({
                   word.wordIndex >= playingWordRange[0] &&
                   word.wordIndex < playingWordRange[1],
               );
+              const prevAyah = index > 0 ? row.words[index - 1].ayah : null;
+              const nextAyah = index + 1 < row.words.length ? row.words[index + 1].ayah : null;
               const classes = [
                 "glyph-word",
+                prevAyah !== ayah ? "glyph-word--run-start" : "",
+                nextAyah !== ayah ? "glyph-word--run-end" : "",
                 hl ? `glyph-word--hl-${hl}` : "",
                 (wordTranslation ? hoveredWord === wordKey : hoveredAyah === ayah)
                   ? "glyph-word--hovered"
