@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import type { LoadProgress } from "@tilawa/core";
 import type { AyahKey, HifzBlurLevel, PageEntry, SurahInfo } from "../data/types";
-import { buildPageTasmiCandidates, type DeclaredPassage } from "../services/tasmi-logic";
+import {
+  buildPageTasmiCandidates,
+  type DeclaredPassage,
+  type RandomPool,
+} from "../services/tasmi-logic";
 
 export interface TasmiSheetProps {
   open: boolean;
   visiblePages: PageEntry[];
   glyphAyahs?: Record<number, AyahKey[]>;
   surahs: SurahInfo[];
+  currentJuz?: number;
   initialAyah: AyahKey | null;
   historyCount: number;
   loadingProgress: LoadProgress | null;
@@ -19,7 +24,7 @@ export interface TasmiSheetProps {
   onCancelLoad: () => void;
   onStartFree: () => void;
   onStartMemorization: (passage: DeclaredPassage, enableBlur: boolean) => void;
-  onStartRandom?: (passage: DeclaredPassage, enableBlur: boolean, pool: DeclaredPassage) => void;
+  onStartRandom?: (pool: RandomPool, enableBlur: boolean) => void;
   onOpenHistory: () => void;
 }
 
@@ -38,6 +43,7 @@ export function TasmiSheet({
   visiblePages,
   glyphAyahs,
   surahs,
+  currentJuz = 1,
   initialAyah,
   historyCount,
   loadingProgress,
@@ -69,10 +75,21 @@ export function TasmiSheet({
   const [toAyah, setToAyah] = useState<number>(7);
   const [enableBlur, setEnableBlur] = useState<boolean>(true);
   const [selectedOptionId, setSelectedOptionId] = useState<string>("");
+  const [randomScopeKind, setRandomScopeKind] = useState<"juz" | "surah">("juz");
+  const [randomFromJuz, setRandomFromJuz] = useState<number>(currentJuz);
+  const [randomToJuz, setRandomToJuz] = useState<number>(currentJuz);
+  const [randomFromSurah, setRandomFromSurah] = useState<number>(1);
+  const [randomToSurah, setRandomToSurah] = useState<number>(1);
+  const [randomFromAyah, setRandomFromAyah] = useState<number>(1);
+  const [randomToAyah, setRandomToAyah] = useState<number>(7);
 
   // Sync defaults whenever the sheet opens
   useEffect(() => {
     if (!open) return;
+
+    const clampedJuz = Math.max(1, Math.min(30, currentJuz));
+    setRandomFromJuz(clampedJuz);
+    setRandomToJuz(clampedJuz);
 
     if (initialAyah) {
       const [sStr, aStr] = initialAyah.split(":");
@@ -85,6 +102,10 @@ export function TasmiSheet({
         setSelectedSurah(match.surah);
         setFromAyah(a);
         setToAyah(match.toAyah);
+        setRandomFromSurah(match.surah);
+        setRandomToSurah(match.surah);
+        setRandomFromAyah(1);
+        setRandomToAyah(info?.ayahs ?? match.toAyah);
         return;
       }
       if (info) {
@@ -93,18 +114,27 @@ export function TasmiSheet({
         setSelectedSurah(info.number);
         setFromAyah(clampedA);
         setToAyah(info.ayahs);
+        setRandomFromSurah(info.number);
+        setRandomToSurah(info.number);
+        setRandomFromAyah(1);
+        setRandomToAyah(info.ayahs);
         return;
       }
     }
 
     if (candidates.length > 0) {
       const first = candidates[0];
+      const info = surahByNum.get(first.surah);
       setSelectedOptionId(first.id);
       setSelectedSurah(first.surah);
       setFromAyah(first.fromAyah);
       setToAyah(first.toAyah);
+      setRandomFromSurah(first.surah);
+      setRandomToSurah(first.surah);
+      setRandomFromAyah(1);
+      setRandomToAyah(info?.ayahs ?? first.toAyah);
     }
-  }, [open, initialAyah, candidates, surahByNum]);
+  }, [open, initialAyah, currentJuz, candidates, surahByNum]);
 
   useEffect(() => {
     if (!open) return;
@@ -211,15 +241,8 @@ export function TasmiSheet({
         </div>
 
         <div className="tasmi-sheet__body">
-          {mode === "memorization" || mode === "random" ? (
+          {mode === "memorization" ? (
             <>
-              {mode === "random" && (
-                <div className="tasmi-sheet__free-box">
-                  <p>
-                    Pilih surah atau rentang ayat. Aplikasi akan membuka 1 ayat acak sebagai pemicu — lanjutkan hafalannya dengan suara.
-                  </p>
-                </div>
-              )}
               <div className="tasmi-sheet__section">
                 <span className="tasmi-sheet__label">Pilih cakupan di halaman ini</span>
                 <div className="tasmi-sheet__options">
@@ -360,6 +383,188 @@ export function TasmiSheet({
                 </div>
               )}
             </>
+          ) : mode === "random" ? (
+            <>
+              <div className="tasmi-sheet__free-box">
+                <p>
+                  Aplikasi memilih 1 ayat acak lalu membacakannya. Ayat setelahnya disamarkan —
+                  lanjutkan bacaannya untuk dicek oleh Tasmi&apos;.
+                </p>
+              </div>
+
+              <div className="tasmi-sheet__section">
+                <span className="tasmi-sheet__label">Rentang uji acak</span>
+                <div className="tasmi-sheet__blur-level" role="group" aria-label="Jenis rentang uji acak">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    className={`app-menu__choice ${randomScopeKind === "juz" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={randomScopeKind === "juz"}
+                    onClick={() => setRandomScopeKind("juz")}
+                  >
+                    Per Juz
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    className={`app-menu__choice ${randomScopeKind === "surah" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={randomScopeKind === "surah"}
+                    onClick={() => setRandomScopeKind("surah")}
+                  >
+                    Per Surah
+                  </button>
+                </div>
+
+                {randomScopeKind === "juz" ? (
+                  <div className="tasmi-sheet__range-row">
+                    <label className="tasmi-sheet__field">
+                      <span>Dari Juz</span>
+                      <select
+                        value={randomFromJuz}
+                        disabled={isBusy}
+                        onChange={(e) => {
+                          const j = Number(e.target.value);
+                          setRandomFromJuz(j);
+                          if (j > randomToJuz) setRandomToJuz(j);
+                        }}
+                      >
+                        {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                          <option key={j} value={j}>
+                            Juz {j}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="tasmi-sheet__field">
+                      <span>Sampai Juz</span>
+                      <select
+                        value={randomToJuz}
+                        disabled={isBusy}
+                        onChange={(e) => {
+                          const j = Number(e.target.value);
+                          setRandomToJuz(j);
+                          if (j < randomFromJuz) setRandomFromJuz(j);
+                        }}
+                      >
+                        {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
+                          <option key={j} value={j}>
+                            Juz {j}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ) : (
+                  <>
+                    <div className="tasmi-sheet__range-row">
+                      <label className="tasmi-sheet__field">
+                        <span>Dari Surah</span>
+                        <select
+                          value={randomFromSurah}
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            const s = Number(e.target.value);
+                            setRandomFromSurah(s);
+                            if (s > randomToSurah) setRandomToSurah(s);
+                            const info = surahByNum.get(s);
+                            setRandomFromAyah(1);
+                            setRandomToAyah(info?.ayahs ?? 1);
+                          }}
+                        >
+                          {surahs.map((s) => (
+                            <option key={s.number} value={s.number}>
+                              {s.number}. {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="tasmi-sheet__field">
+                        <span>Sampai Surah</span>
+                        <select
+                          value={randomToSurah}
+                          disabled={isBusy}
+                          onChange={(e) => {
+                            const s = Number(e.target.value);
+                            setRandomToSurah(s);
+                            if (s < randomFromSurah) setRandomFromSurah(s);
+                            const info = surahByNum.get(s);
+                            setRandomFromAyah(1);
+                            setRandomToAyah(info?.ayahs ?? 1);
+                          }}
+                        >
+                          {surahs.map((s) => (
+                            <option key={s.number} value={s.number}>
+                              {s.number}. {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    {randomFromSurah === randomToSurah && (
+                      <div className="tasmi-sheet__range-row">
+                        <label className="tasmi-sheet__field tasmi-sheet__field--num">
+                          <span>Dari ayat</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={surahByNum.get(randomFromSurah)?.ayahs ?? 286}
+                            value={randomFromAyah}
+                            disabled={isBusy}
+                            onChange={(e) => setRandomFromAyah(Number(e.target.value) || 1)}
+                          />
+                        </label>
+                        <label className="tasmi-sheet__field tasmi-sheet__field--num">
+                          <span>Sampai</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={surahByNum.get(randomFromSurah)?.ayahs ?? 286}
+                            value={randomToAyah}
+                            disabled={isBusy}
+                            onChange={(e) => setRandomToAyah(Number(e.target.value) || 1)}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <label className="tasmi-sheet__toggle">
+                <input
+                  type="checkbox"
+                  checked={enableBlur}
+                  disabled={isBusy}
+                  onChange={(e) => setEnableBlur(e.target.checked)}
+                />
+                <span>
+                  <strong>Sembunyikan ayat lanjutan (Hifz Blur)</strong>
+                  <small>Ayat setelah pemicu disamarkan dan terbuka saat dibaca.</small>
+                </span>
+              </label>
+
+              {enableBlur && onChangeHifzBlurLevel && (
+                <div className="tasmi-sheet__blur-level" role="group" aria-label="Tingkat sembunyi">
+                  <button
+                    type="button"
+                    className={`app-menu__choice ${hifzBlurLevel === "full" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={hifzBlurLevel === "full"}
+                    onClick={() => onChangeHifzBlurLevel("full")}
+                  >
+                    Sembunyi Penuh
+                  </button>
+                  <button
+                    type="button"
+                    className={`app-menu__choice ${hifzBlurLevel === "first-word" ? "app-menu__choice--active" : ""}`}
+                    aria-pressed={hifzBlurLevel === "first-word"}
+                    onClick={() => onChangeHifzBlurLevel("first-word")}
+                  >
+                    Tampilkan Kata Pertama
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="tasmi-sheet__free-box">
               <p>
@@ -418,15 +623,19 @@ export function TasmiSheet({
               if (mode === "free") {
                 onStartFree();
               } else if (mode === "random" && onStartRandom) {
-                const maxStart = Math.max(clampedFrom, clampedTo - 1);
-                const span = maxStart - clampedFrom + 1;
-                const start = clampedFrom + Math.floor(Math.random() * span);
-                const end = Math.min(clampedTo, start + 3);
-                onStartRandom(
-                  { surah: selectedSurah, fromAyah: start, toAyah: end },
-                  enableBlur,
-                  { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },
-                );
+                const pool: RandomPool =
+                  randomScopeKind === "juz"
+                    ? { kind: "juz", fromJuz: randomFromJuz, toJuz: randomToJuz }
+                    : randomFromSurah === randomToSurah
+                      ? {
+                          kind: "surah",
+                          fromSurah: randomFromSurah,
+                          toSurah: randomToSurah,
+                          fromAyah: randomFromAyah,
+                          toAyah: randomToAyah,
+                        }
+                      : { kind: "surah", fromSurah: randomFromSurah, toSurah: randomToSurah };
+                onStartRandom(pool, enableBlur);
               } else {
                 onStartMemorization(
                   { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },

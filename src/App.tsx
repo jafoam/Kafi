@@ -38,8 +38,12 @@ import {
   countRecitedAyahs,
   createTasmiState,
   recordPeekMistake,
+  pickRandomChallenge,
   reduceTilawaEvent,
+  resolvePromptAudio,
   type DeclaredPassage,
+  type RandomChallenge,
+  type RandomPool,
   type TasmiLiveState,
 } from "./services/tasmi-logic";
 import { createTilawaController } from "./services/tilawa-controller";
@@ -68,7 +72,7 @@ import {
 import type { SelectedWord } from "./services/word-translations";
 import { useOfflinePages } from "./state/useOfflinePages";
 import { usePwaInstall } from "./state/usePwaInstall";
-import { RecitationRibbon } from "./components/RecitationRibbon";
+import { RecitationRibbon, type RandomPromptInfo } from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
 import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
@@ -221,7 +225,8 @@ export function App({
   const [tasmiActive, setTasmiActive] = useState(false);
   const [tasmiState, setTasmiState] = useState<TasmiLiveState | null>(null);
   const [tasmiBlurEnabled, setTasmiBlurEnabled] = useState(true);
-  const [randomPool, setRandomPool] = useState<DeclaredPassage | null>(null);
+  const [randomPool, setRandomPool] = useState<RandomPool | null>(null);
+  const [randomPrompt, setRandomPrompt] = useState<RandomPromptInfo | null>(null);
   const [peekedAyah, setPeekedAyah] = useState<AyahKey | null>(null);
   const [modelLoading, setModelLoading] = useState<LoadProgress | null>(null);
   const [tasmiStarting, setTasmiStarting] = useState(false);
@@ -237,6 +242,9 @@ export function App({
   const peekTimerRef = useRef<number | null>(null);
   const requestedPagesRef = useRef<Set<number>>(new Set());
   const tilawaAbortRef = useRef<AbortController | null>(null);
+  const promptAbortRef = useRef<AbortController | null>(null);
+  const promptAudioRef = useRef<HTMLAudioElement | null>(null);
+  const randomRoundSeqRef = useRef<number>(0);
   const lastAutoTurnAyahRef = useRef<AyahKey | null>(null);
   const lastTasmiTurnAyahRef = useRef<AyahKey | null>(null);
   const lastSyncedStudyAyahRef = useRef<AyahKey | null>(null);
@@ -253,6 +261,14 @@ export function App({
       mountedRef.current = false;
       unsubscribe();
       tilawaAbortRef.current?.abort();
+      promptAbortRef.current?.abort();
+      if (promptAudioRef.current) {
+        promptAudioRef.current.onended = null;
+        promptAudioRef.current.onerror = null;
+        promptAudioRef.current.pause();
+        promptAudioRef.current.src = "";
+        promptAudioRef.current = null;
+      }
       if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
       if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
       audioController.dispose();
@@ -506,7 +522,8 @@ export function App({
   );
 
   const effectivePlayingAyah =
-    playingAyah ?? (tasmiActive ? (tasmiState?.activeAyah ?? null) : audioState.currentAyah);
+    playingAyah ??
+    (tasmiActive ? (tasmiState?.activeAyah ?? randomPrompt?.ayah ?? null) : audioState.currentAyah);
   const isAudioOnVisiblePage = isAyahOnVisiblePages(audioState.currentAyah);
 
   const playTargetAyah = useMemo<AyahKey>(() => {
@@ -827,18 +844,71 @@ export function App({
     setTasmiError("Unduhan model dibatalkan.");
   }, []);
 
+  const stopPromptAudio = useCallback(() => {
+    randomRoundSeqRef.current += 1;
+    promptAbortRef.current?.abort();
+    promptAbortRef.current = null;
+    const audio = promptAudioRef.current;
+    if (audio) {
+      audio.onended = null;
+      audio.onerror = null;
+      audio.pause();
+      audio.src = "";
+      promptAudioRef.current = null;
+    }
+  }, []);
+
+  const playSinglePromptAudio = useCallback(
+    (url: string, speed: number, signal: AbortSignal): Promise<void> =>
+      new Promise((resolve, reject) => {
+        if (signal.aborted) {
+          resolve();
+          return;
+        }
+        const audio = new Audio(url);
+        audio.playbackRate = speed;
+        promptAudioRef.current = audio;
+
+        const cleanup = () => {
+          audio.onended = null;
+          audio.onerror = null;
+          signal.removeEventListener("abort", onAbort);
+          if (promptAudioRef.current === audio) promptAudioRef.current = null;
+        };
+        const onAbort = () => {
+          cleanup();
+          audio.pause();
+          audio.src = "";
+          resolve();
+        };
+
+        signal.addEventListener("abort", onAbort, { once: true });
+        audio.onended = () => {
+          cleanup();
+          resolve();
+        };
+        audio.onerror = () => {
+          cleanup();
+          reject(new Error("Gagal memutar audio pemicu"));
+        };
+        void audio.play().catch((err) => {
+          cleanup();
+          reject(err);
+        });
+      }),
+    [],
+  );
+
   const startTasmiSession = useCallback(
-    async (
-      mode: "free" | "memorization",
-      passage: DeclaredPassage | null,
-      enableBlur: boolean,
-      options?: { revealFirstAyah?: boolean; pool?: DeclaredPassage | null },
-    ) => {
+    async (mode: "free" | "memorization", passage: DeclaredPassage | null, enableBlur: boolean) => {
       if (tasmiStartingRef.current) return;
       tasmiStartingRef.current = true;
       setTasmiStarting(true);
 
-      // Pause Murottal automatically before activating Tasmi' mic
+      // Pause Murottal and any Uji Acak prompt audio before activating Tasmi' mic
+      stopPromptAudio();
+      setRandomPool(null);
+      setRandomPrompt(null);
       audioController.pause();
       setTasmiError(null);
 
@@ -848,10 +918,6 @@ export function App({
 
       // Close sheet immediately and show the live ribbon + blur so startup feels responsive.
       const initial = createTasmiState(mode, passage);
-      if (options?.revealFirstAyah && passage) {
-        initial.revealedAyahs.add(`${passage.surah}:${passage.fromAyah}`);
-      }
-      setRandomPool(options?.pool ?? null);
       tasmiStateRef.current = initial;
       tasmiStartedAtRef.current = Date.now();
       setTasmiState(initial);
@@ -907,12 +973,155 @@ export function App({
         if (mountedRef.current) setTasmiStarting(false);
       }
     },
-    [audioController, ensureWordLookup, tilawaController, getPagesForAyah, rightPage, leftPage, navigateToPage],
+    [
+      stopPromptAudio,
+      audioController,
+      ensureWordLookup,
+      tilawaController,
+      getPagesForAyah,
+      rightPage,
+      leftPage,
+      navigateToPage,
+    ],
+  );
+
+  const startRandomChallenge = useCallback(
+    async (challenge: RandomChallenge, pool: RandomPool, enableBlur: boolean) => {
+      if (tasmiStartingRef.current) return;
+      tasmiStartingRef.current = true;
+      setTasmiStarting(true);
+
+      stopPromptAudio();
+      const seq = randomRoundSeqRef.current;
+      audioController.pause();
+      setTasmiError(null);
+
+      tilawaAbortRef.current?.abort();
+      const abort = new AbortController();
+      tilawaAbortRef.current = abort;
+
+      try {
+        // Stop any active mic before reciting the prompt ayah so the mic doesn't hear the speaker.
+        await tilawaController.stop().catch(() => {});
+
+        const [lookup] = await Promise.all([
+          ensureWordLookup(),
+          tilawaController.ensureReady((progress) => {
+            if (!mountedRef.current || abort.signal.aborted) return;
+            setModelLoading(progress);
+          }, abort.signal),
+        ]);
+
+        if (!mountedRef.current || abort.signal.aborted || seq !== randomRoundSeqRef.current) return;
+        setModelLoading(null);
+
+        const initial = createTasmiState("memorization", challenge.passage);
+        tasmiStateRef.current = initial;
+        tasmiStartedAtRef.current = Date.now();
+        setRandomPool(pool);
+        setRandomPrompt({ ayah: challenge.promptAyah, playing: true });
+        setTasmiState(initial);
+        setTasmiBlurEnabled(enableBlur);
+        setPeekedAyah(null);
+        setTasmiActive(true);
+        setTasmiSheetOpen(false);
+
+        const promptPage = mushafMap.ayahToPage[challenge.promptAyah];
+        if (promptPage && promptPage !== rightPage && promptPage !== leftPage) {
+          navigateToPage(promptPage);
+        }
+
+        // Release sheet busy lock now that the session is live on screen.
+        tasmiStartingRef.current = false;
+        setTasmiStarting(false);
+
+        const promptAbort = new AbortController();
+        promptAbortRef.current = promptAbort;
+        const { surah: pSurah, ayah: pAyah } = parseAyahKey(challenge.promptAyah);
+        const match = await resolvePromptAudio(
+          pSurah,
+          pAyah,
+          audioState.reciterId,
+          catalog.reciters,
+          platform,
+          quranApi,
+          { signal: promptAbort.signal },
+        );
+
+        if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
+          return;
+        }
+
+        if (match) {
+          setRandomPrompt({
+            ayah: challenge.promptAyah,
+            playing: true,
+            reciterName: match.reciter.name,
+          });
+          try {
+            await playSinglePromptAudio(match.url, audioState.speed, promptAbort.signal);
+          } catch {
+            if (mountedRef.current && !promptAbort.signal.aborted && seq === randomRoundSeqRef.current) {
+              showToast("Gagal memutar audio pemicu — lanjutkan bacaan");
+            }
+          }
+        } else {
+          showToast("Audio pemicu tidak tersedia offline — lanjutkan bacaan");
+        }
+
+        if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
+          return;
+        }
+
+        setRandomPrompt({
+          ayah: challenge.promptAyah,
+          playing: false,
+          reciterName: match?.reciter.name,
+        });
+
+        const onEvent = (event: EngineEvent) => {
+          if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
+          const base = tasmiStateRef.current ?? initial;
+          const next = reduceTilawaEvent(base, event, lookup);
+          tasmiStateRef.current = next;
+          setTasmiState(next);
+        };
+
+        await tilawaController.startMemorization(challenge.passage, onEvent);
+      } catch (err) {
+        if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
+        setModelLoading(null);
+        if (abort.signal.aborted) return;
+        const message = err instanceof Error ? err.message : "Gagal memulai Uji Acak.";
+        setTasmiError(message);
+        showToast(message);
+      } finally {
+        tasmiStartingRef.current = false;
+        if (mountedRef.current) setTasmiStarting(false);
+      }
+    },
+    [
+      stopPromptAudio,
+      audioController,
+      tilawaController,
+      ensureWordLookup,
+      rightPage,
+      leftPage,
+      navigateToPage,
+      audioState.reciterId,
+      audioState.speed,
+      platform,
+      quranApi,
+      playSinglePromptAudio,
+      showToast,
+    ],
   );
 
   const handleStopTasmi = useCallback(async () => {
+    stopPromptAudio();
     setTasmiActive(false);
     setRandomPool(null);
+    setRandomPrompt(null);
     setPeekedAyah(null);
     const durationSec = Math.max(1, Math.round((Date.now() - tasmiStartedAtRef.current) / 1000));
     try {
@@ -942,7 +1151,7 @@ export function App({
     } else if (finalState) {
       showToast("Sesi Baca Bebas selesai");
     }
-  }, [tilawaController, userStore, persistUser, showToast]);
+  }, [stopPromptAudio, tilawaController, userStore, persistUser, showToast]);
 
   const handleOpenTasmiHistory = useCallback(() => {
     void ensureWordLookup();
@@ -1405,19 +1614,27 @@ export function App({
           getAyahWords={wordLookup}
           glyphLoader={glyphLoader}
           ayahToPage={mushafMap.ayahToPage}
+          randomPrompt={randomPrompt}
+          onReplayPrompt={
+            randomPrompt && randomPool && tasmiState.passage
+              ? () => {
+                  void startRandomChallenge(
+                    { promptAyah: randomPrompt.ayah, passage: tasmiState.passage! },
+                    randomPool,
+                    tasmiBlurEnabled,
+                  );
+                }
+              : undefined
+          }
           onNextRandom={
             randomPool
               ? () => {
-                  const maxStart = Math.max(randomPool.fromAyah, randomPool.toAyah - 1);
-                  const span = maxStart - randomPool.fromAyah + 1;
-                  const start = randomPool.fromAyah + Math.floor(Math.random() * span);
-                  const end = Math.min(randomPool.toAyah, start + 3);
-                  void startTasmiSession(
-                    "memorization",
-                    { surah: randomPool.surah, fromAyah: start, toAyah: end },
-                    tasmiBlurEnabled,
-                    { revealFirstAyah: true, pool: randomPool },
-                  );
+                  const next = pickRandomChallenge(randomPool, catalog, {
+                    excludePrompt: randomPrompt?.ayah ?? null,
+                  });
+                  if (next) {
+                    void startRandomChallenge(next, randomPool, tasmiBlurEnabled);
+                  }
                 }
               : undefined
           }
@@ -1442,6 +1659,7 @@ export function App({
         visiblePages={visiblePages}
         glyphAyahs={glyphAyahs}
         surahs={catalog.surahs}
+        currentJuz={juzNumber}
         initialAyah={tasmiInitialAyah}
         historyCount={userData.tasmiHistory.length}
         loadingProgress={modelLoading}
@@ -1457,11 +1675,11 @@ export function App({
         onStartMemorization={(passage, enableBlur) => {
           void startTasmiSession("memorization", passage, enableBlur);
         }}
-        onStartRandom={(passage, enableBlur, pool) => {
-          void startTasmiSession("memorization", passage, enableBlur, {
-            revealFirstAyah: true,
-            pool,
-          });
+        onStartRandom={(pool, enableBlur) => {
+          const challenge = pickRandomChallenge(pool, catalog);
+          if (challenge) {
+            void startRandomChallenge(challenge, pool, enableBlur);
+          }
         }}
         onOpenHistory={handleOpenTasmiHistory}
       />
