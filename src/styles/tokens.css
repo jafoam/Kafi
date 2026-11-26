@@ -1,8 +1,14 @@
 :root,
 [data-theme="light"] {
-  --bg-canvas: #faf8f3;
+  --bg-canvas: #ffffff;
   --bg-surface: #ffffff;
-  --bg-elevated: rgba(255, 255, 255, 0.94);
+  --bg-elevated: rgba(255, 255, 255, 0.96);
+  --pill-bg: rgba(244, 239, 228, 0.94);
+  --pill-border: rgba(145, 126, 92, 0.24);
+  --banner-bg: #f6f1e5;
+  --banner-border: rgba(19, 111, 90, 0.34);
+  --banner-ornament: #b08d57;
+  --banner-ink: #0f5747;
   --bg-subtle: #f1ede4;
   --bg-hover: rgba(26, 34, 32, 0.05);
   --text-primary: #1a2220;
@@ -45,9 +51,15 @@
 }
 
 [data-theme="sepia"] {
-  --bg-canvas: #f2eadc;
-  --bg-surface: #faf4e8;
-  --bg-elevated: rgba(250, 244, 232, 0.95);
+  --bg-canvas: #f7f0e2;
+  --bg-surface: #f7f0e2;
+  --bg-elevated: rgba(250, 244, 232, 0.96);
+  --pill-bg: rgba(235, 224, 203, 0.95);
+  --pill-border: rgba(112, 92, 62, 0.24);
+  --banner-bg: #ede3ce;
+  --banner-border: rgba(19, 111, 90, 0.36);
+  --banner-ornament: #9c7a44;
+  --banner-ink: #0f5747;
   --bg-subtle: #e7dcc8;
   --bg-hover: rgba(43, 35, 24, 0.06);
   --text-primary: #2b2318;
@@ -76,9 +88,15 @@
 }
 
 [data-theme="dark"] {
-  --bg-canvas: #111417;
-  --bg-surface: #171b1f;
-  --bg-elevated: rgba(23, 27, 31, 0.95);
+  --bg-canvas: #14181b;
+  --bg-surface: #14181b;
+  --bg-elevated: rgba(25, 30, 35, 0.96);
+  --pill-bg: rgba(31, 38, 44, 0.94);
+  --pill-border: rgba(232, 236, 234, 0.14);
+  --banner-bg: #1c2422;
+  --banner-border: rgba(43, 168, 138, 0.36);
+  --banner-ornament: #c8a86b;
+  --banner-ink: #e9dec4;
   --bg-subtle: #20262c;
   --bg-hover: rgba(232, 236, 234, 0.07);
   --text-primary: #e8ecea;
