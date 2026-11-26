@@ -352,16 +352,34 @@ textarea:focus-visible {
 .surah-banner {
   --banner-fill: var(--accent);
   --banner-ink: #ffffff;
-  display: block;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 100%;
-  height: auto;
-  overflow: visible;
+  height: 100%;
+  border-radius: 0.2em;
+  background: var(--banner-fill);
+  color: var(--banner-ink);
+}
+
+.surah-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0.07em;
+  border: 1px solid color-mix(in srgb, var(--banner-ink) 40%, transparent);
+  border-radius: 0.12em;
+  pointer-events: none;
 }
 
 .surah-banner__name {
   font-family: var(--font-arabic);
-  font-size: 21px;
+  /* Same size on every page; a touch under the ayah letters so the vowel marks stay inside the band. */
+  font-size: 0.68em;
   font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 /* The calligraphic bismillah ligature (U+FDFD) from Amiri, subset to that one glyph. It is 11.43em wide, and
@@ -2663,6 +2681,11 @@ textarea:focus-visible {
     flex-direction: column;
     align-items: flex-start;
     line-height: 1.15;
+  }
+
+  /* The page sits above the floating button (bottom 76px + height 56px) so it never covers the text. */
+  .app-shell--fab .reader-stage {
+    padding-bottom: calc(76px + 56px + 8px + env(safe-area-inset-bottom, 0px));
   }
 
   .tasmi-fab__title {

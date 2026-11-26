@@ -219,11 +219,24 @@ export function computeBlurMask(
   passage: DeclaredPassage | null,
   revealedAyahs: Set<AyahKey>,
   peekedAyah: AyahKey | null,
+  /**
+   * Ayahs the printed page actually shows when that differs from the scanned-image map (the glyph
+   * layout moves a few ayahs across a page break); masked by the same rules as the mapped ones.
+   */
+  extraAyahs: readonly AyahKey[] = [],
 ): Set<AyahKey> {
   const masked = new Set<AyahKey>();
   if (mode === "off") return masked;
 
-  for (const seg of pageEntry.ayahs) {
+  const segs = [...pageEntry.ayahs];
+  const mapped = new Set(segs.map((seg) => `${seg.surah}:${seg.ayah}`));
+  for (const key of extraAyahs) {
+    if (mapped.has(key)) continue;
+    const [surah, ayah] = key.split(":").map(Number);
+    segs.push({ surah, ayah, boxes: [] });
+  }
+
+  for (const seg of segs) {
     const key: AyahKey = `${seg.surah}:${seg.ayah}`;
     if (pageEntry.leadingSplitAyah === key) continue;
     if (revealedAyahs.has(key) || peekedAyah === key) continue;

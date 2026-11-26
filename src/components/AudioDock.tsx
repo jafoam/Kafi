@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useBackClose } from "../state/useBackClose";
 import type { AyahKey, ReciterInfo } from "../data/types";
 import type { AudioState, PlaybackScope, RepeatCount } from "../services/audio-controller";
 import { PlaybackMenu, scopeLabel } from "./PlaybackMenu";
@@ -51,6 +52,7 @@ export function AudioDock({
   onOpenTasmi,
 }: AudioDockProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  useBackClose(menuOpen, () => setMenuOpen(false));
   const ayahNum = activeAyah.split(":")[1];
   const isDownloading = downloadProgress !== null;
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useBackClose } from "../state/useBackClose";
 import type { SpreadMode, ThemeMode } from "../data/types";
 import type { OfflinePages } from "../state/useOfflinePages";
 
@@ -55,6 +56,7 @@ export function TopBar({
   onOpenDownloads,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  useBackClose(menuOpen, () => setMenuOpen(false));
   return (
     <div className="topbar-zone">
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
