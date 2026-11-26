@@ -410,6 +410,9 @@ textarea:focus-visible {
 .glyph-word--hovered { background: var(--hover-bg); }
 .glyph-word--selected { background: var(--selected-bg); }
 .glyph-word--playing { background: var(--playing-bg); }
+.glyph-word--playing-word {
+  color: var(--playing-word-color);
+}
 .glyph-word--mistake {
   background: var(--mistake-bg);
   box-shadow: inset 0 -2px 0 var(--mistake-badge);
@@ -2427,21 +2430,29 @@ textarea:focus-visible {
 }
 
 .playback-menu__options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
 }
 
 .playback-menu__option {
-  height: 32px;
-  padding: 0 12px;
+  grid-column: span 2;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 8px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   background: var(--bg-subtle);
   font-size: 12.5px;
   font-weight: 500;
   color: var(--text-secondary);
+  white-space: nowrap;
   cursor: pointer;
+}
+
+.playback-menu__option:nth-child(4),
+.playback-menu__option:nth-child(5) {
+  grid-column: span 3;
 }
 
 .playback-menu__option:hover {
@@ -2951,7 +2962,6 @@ textarea:focus-visible {
 .audio-dock__pill-btn,
 .audio-dock__select,
 .audio-dock__tasmi-btn,
-.playback-menu__option,
 .focus-exit,
 .tasmi-hint__primary,
 .tasmi-hint__later {
@@ -3067,6 +3077,15 @@ textarea:focus-visible {
 
   .app-menu__group--spread {
     display: none;
+  }
+
+  .playback-menu {
+    left: 12px;
+    right: 12px;
+    bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-width: 380px;
+    margin: 0 auto;
   }
 
   .recitation-ribbon-zone {

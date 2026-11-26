@@ -16,6 +16,7 @@
   --accent-ring: rgba(19, 111, 90, 0.34);
   --playing-bg: rgba(19, 111, 90, 0.18);
   --playing-border: rgba(19, 111, 90, 0.55);
+  --playing-word-color: #b45309;
   --selected-bg: rgba(19, 111, 90, 0.14);
   --selected-border: rgba(19, 111, 90, 0.5);
   --hover-bg: rgba(19, 111, 90, 0.08);
@@ -60,6 +61,7 @@
   --accent-ring: rgba(19, 111, 90, 0.36);
   --playing-bg: rgba(19, 111, 90, 0.19);
   --playing-border: rgba(19, 111, 90, 0.55);
+  --playing-word-color: #a16207;
   --selected-bg: rgba(19, 111, 90, 0.15);
   --selected-border: rgba(19, 111, 90, 0.5);
   --hover-bg: rgba(19, 111, 90, 0.09);
@@ -90,6 +92,7 @@
   --accent-ring: rgba(43, 168, 138, 0.44);
   --playing-bg: rgba(43, 168, 138, 0.24);
   --playing-border: rgba(43, 168, 138, 0.65);
+  --playing-word-color: #facc15;
   --selected-bg: rgba(43, 168, 138, 0.2);
   --selected-border: rgba(43, 168, 138, 0.58);
   --hover-bg: rgba(43, 168, 138, 0.12);
