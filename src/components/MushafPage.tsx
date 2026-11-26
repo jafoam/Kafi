@@ -28,6 +28,7 @@ export interface MushafPageProps {
   blurSet?: Set<AyahKey>;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
+  wordTranslation?: boolean;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onRetryPage?: (page: number) => void;
@@ -45,6 +46,7 @@ export function MushafPage({
   blurSet,
   revealedSet,
   mistakeAyahs,
+  wordTranslation,
   onSelectAyah,
   onPeekAyah,
   onRetryPage,
@@ -107,6 +109,7 @@ export function MushafPage({
           blurSet={blurSet}
           revealedSet={revealedSet}
           mistakeAyahs={mistakeAyahs}
+          wordTranslation={wordTranslation}
           onSelectAyah={onSelectAyah}
           onPeekAyah={onPeekAyah}
         />

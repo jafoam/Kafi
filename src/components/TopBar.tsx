@@ -9,6 +9,7 @@ export interface TopBarProps {
   spreadMode: SpreadMode;
   hifzBlur: boolean;
   focusMode: boolean;
+  wordTranslation: boolean;
   theme: ThemeMode;
   /** Offline download control; omitted where it does not apply (desktop app). */
   offline?: OfflinePages;
@@ -16,6 +17,7 @@ export interface TopBarProps {
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
   onToggleFocusMode: () => void;
+  onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
   onOpenDownloads: () => void;
@@ -40,12 +42,14 @@ export function TopBar({
   spreadMode,
   hifzBlur,
   focusMode,
+  wordTranslation,
   theme,
   offline,
   onOpenPalette,
   onChangeSpreadMode,
   onToggleHifzBlur,
   onToggleFocusMode,
+  onToggleWordTranslation,
   onChangeTheme,
   onOpenTasmi,
   onOpenDownloads,
@@ -149,11 +153,13 @@ export function TopBar({
           spreadMode={spreadMode}
           hifzBlur={hifzBlur}
           focusMode={focusMode}
+          wordTranslation={wordTranslation}
           theme={theme}
           offline={offline}
           onChangeSpreadMode={onChangeSpreadMode}
           onToggleHifzBlur={onToggleHifzBlur}
           onToggleFocusMode={onToggleFocusMode}
+          onToggleWordTranslation={onToggleWordTranslation}
           onChangeTheme={onChangeTheme}
           onOpenDownloads={onOpenDownloads}
           onClose={() => setMenuOpen(false)}
@@ -168,11 +174,13 @@ interface AppMenuProps {
   spreadMode: SpreadMode;
   hifzBlur: boolean;
   focusMode: boolean;
+  wordTranslation: boolean;
   theme: ThemeMode;
   offline?: OfflinePages;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
   onToggleFocusMode: () => void;
+  onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenDownloads: () => void;
   onClose: () => void;
@@ -183,11 +191,13 @@ function AppMenu({
   spreadMode,
   hifzBlur,
   focusMode,
+  wordTranslation,
   theme,
   offline,
   onChangeSpreadMode,
   onToggleHifzBlur,
   onToggleFocusMode,
+  onToggleWordTranslation,
   onChangeTheme,
   onOpenDownloads,
   onClose,
@@ -233,6 +243,20 @@ function AppMenu({
             <span className="app-menu__sub">Mode hafalan: ketuk ayat untuk mengintip</span>
           </span>
           <span className={`app-menu__switch ${hifzBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={wordTranslation}
+          className="app-menu__row"
+          onClick={onToggleWordTranslation}
+        >
+          <span className="app-menu__text">
+            <span className="app-menu__title">Terjemah Per Kata</span>
+            <span className="app-menu__sub">Tampilkan arti tiap kata saat disorot atau diketuk</span>
+          </span>
+          <span className={`app-menu__switch ${wordTranslation ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
         </button>
 
         <div className="app-menu__group">

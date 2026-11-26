@@ -18,6 +18,8 @@ export interface GlyphPageBodyProps {
   blurSet?: Set<AyahKey>;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
+  /** Show the per-word translation tooltip (default on). */
+  wordTranslation?: boolean;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
 }
@@ -32,10 +34,14 @@ export function GlyphPageBody({
   blurSet,
   revealedSet,
   mistakeAyahs,
+  wordTranslation = true,
   onSelectAyah,
   onPeekAyah,
 }: GlyphPageBodyProps) {
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
+  /** Word under the pointer / last tapped, as "line-index"; used when translation mode highlights single words. */
+  const [hoveredWord, setHoveredWord] = useState<string | null>(null);
+  const [pickedWord, setPickedWord] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [words, setWords] = useState<PageWords | null>(null);
   const [tip, setTip] = useState<{ code: string; rect: DOMRect } | null>(null);
@@ -43,11 +49,16 @@ export function GlyphPageBody({
   useEffect(() => {
     let live = true;
     setWords(null);
+    if (!wordTranslation) return;
     wordLoader.load(data.page).then((w) => live && setWords(w), () => undefined);
     return () => {
       live = false;
     };
-  }, [data.page]);
+  }, [data.page, wordTranslation]);
+
+  useEffect(() => {
+    if (!wordTranslation) setTip(null);
+  }, [wordTranslation]);
 
   const showTip = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return setTip(null);
@@ -83,6 +94,11 @@ export function GlyphPageBody({
     return (el?.dataset.ayah as AyahKey | undefined) ?? null;
   };
 
+  const resolveWord = (target: EventTarget | null): string | null => {
+    if (!(target instanceof HTMLElement)) return null;
+    return target.closest<HTMLElement>("[data-word]")?.dataset.word ?? null;
+  };
+
   const firstWordOfAyah = new Set<AyahKey>();
 
   return (
@@ -93,14 +109,17 @@ export function GlyphPageBody({
       style={{ fontFamily: `"${data.fontFamily}"` }}
       onPointerOver={(event) => {
         setHoveredAyah(resolveAyah(event.target));
+        setHoveredWord(resolveWord(event.target));
         if (event.pointerType === "mouse") showTip(event.target);
       }}
       onPointerLeave={() => {
         setHoveredAyah(null);
+        setHoveredWord(null);
         setTip(null);
       }}
       onClick={(event) => {
         showTip(event.target);
+        setPickedWord(resolveWord(event.target));
         const ayah = resolveAyah(event.target);
         if (!ayah) return;
         event.stopPropagation();
@@ -141,6 +160,7 @@ export function GlyphPageBody({
           >
             {row.words.map((word, index) => {
               const ayah = word.ayah;
+              const wordKey = `${row.line}-${index}`;
               const isFirst = !firstWordOfAyah.has(ayah);
               if (isFirst) firstWordOfAyah.add(ayah);
               const hl = highlights[ayah];
@@ -151,8 +171,14 @@ export function GlyphPageBody({
               const classes = [
                 "glyph-word",
                 hl ? `glyph-word--hl-${hl}` : "",
-                hoveredAyah === ayah ? "glyph-word--hovered" : "",
-                selectedAyah === ayah ? "glyph-word--selected" : "",
+                (wordTranslation ? hoveredWord === wordKey : hoveredAyah === ayah)
+                  ? "glyph-word--hovered"
+                  : "",
+                (wordTranslation
+                  ? selectedAyah === ayah && pickedWord === wordKey
+                  : selectedAyah === ayah)
+                  ? "glyph-word--selected"
+                  : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
                 mistake ? "glyph-word--mistake" : "",
                 blurred ? "glyph-word--blurred" : "",
@@ -166,6 +192,7 @@ export function GlyphPageBody({
                   className={classes}
                   data-ayah={ayah}
                   data-code={word.code}
+                  data-word={wordKey}
                   role={isFirst ? "button" : undefined}
                   tabIndex={isFirst ? 0 : undefined}
                   aria-label={

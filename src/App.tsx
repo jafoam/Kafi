@@ -911,6 +911,7 @@ export function App({
             : userData.settings.hifzBlur
         }
         focusMode={focusMode}
+        wordTranslation={userData.settings.wordTranslation}
         theme={userData.settings.theme}
         offline={offlinePages}
         onOpenPalette={(tab = "surah") => {
@@ -926,6 +927,9 @@ export function App({
           }
         }}
         onToggleFocusMode={() => setFocusMode((prev) => !prev)}
+        onToggleWordTranslation={() =>
+          persistUser(userStore.updateSettings({ wordTranslation: !userData.settings.wordTranslation }))
+        }
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
         onOpenDownloads={() => setDownloadsOpen(true)}
@@ -965,6 +969,7 @@ export function App({
         blurSet={blurSet}
         revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
         mistakeAyahs={effectiveMistakeAyahs}
+        wordTranslation={userData.settings.wordTranslation}
         canGoPrev={canGoPrev}
         canGoNext={canGoNext}
         isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
