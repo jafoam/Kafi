@@ -118,6 +118,50 @@ describe("audio-controller", () => {
     expect(requested).toEqual(["1:6", "1:7", "2:1"]);
   });
 
+  it("uses preloaded standby deck for gapless transition without loading state", async () => {
+    const decks: any[] = [];
+    const makeDeck = () => {
+      const deck: any = {
+        src: "",
+        preload: "",
+        playbackRate: 1,
+        paused: true,
+        onended: null,
+        load: vi.fn(),
+        play: vi.fn(async function (this: any) {
+          this.paused = false;
+        }),
+        pause: vi.fn(function (this: any) {
+          this.paused = true;
+        }),
+      };
+      decks.push(deck);
+      return deck;
+    };
+
+    const states: boolean[] = [];
+    const ctrl = createAudioController({
+      surahs: MINI_SURAHS,
+      reciterId: "Abu_Bakr_Ash-Shaatree_128kbps",
+      getAudioBlobUrl: async (_r, s, a) => ({ url: `blob:${s}:${a}`, fromCache: true }),
+      createElement: makeDeck,
+    });
+    ctrl.subscribe((s) => {
+      if (s.currentAyah === "1:2") states.push(s.isLoading);
+    });
+
+    await ctrl.playAyah(1, 1);
+    // Allow standby preload microtask to settle
+    await Promise.resolve();
+    expect(decks[1].src).toBe("blob:1:2");
+    expect(decks[1].load).toHaveBeenCalled();
+
+    // Ending deck 0 swaps to preloaded deck 1 without emitting isLoading: true
+    await decks[0].onended();
+    expect(decks[1].play).toHaveBeenCalledTimes(1);
+    expect(states).toEqual([false]);
+  });
+
   it("toggles play/pause and aborts on dispose", async () => {
     let capturedSignal: AbortSignal | undefined;
     const fakeAudio: any = {

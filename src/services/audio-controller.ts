@@ -47,10 +47,12 @@ export interface AudioElementLike {
   src: string;
   playbackRate: number;
   paused: boolean;
+  preload?: string;
   currentTime?: number;
   duration?: number;
   onended: ((...args: never[]) => unknown) | null;
   onerror?: ((...args: never[]) => unknown) | null;
+  load?: () => void;
   play(): Promise<void>;
   pause(): void;
 }
@@ -129,7 +131,11 @@ export function prevAyah(
 }
 
 export function createAudioController(deps: AudioControllerDeps): AudioController {
-  const audio: AudioElementLike = deps.createElement ? deps.createElement() : new Audio();
+  const makeAudio = (): AudioElementLike => (deps.createElement ? deps.createElement() : new Audio());
+  let audio: AudioElementLike = makeAudio();
+  const secondAudio = makeAudio();
+  // Tests that pass a single shared mock instance via `createElement: () => fakeAudio` get single-deck mode.
+  let standby: AudioElementLike | null = secondAudio !== audio ? secondAudio : null;
   const listeners = new Set<(s: AudioState) => void>();
 
   let state: AudioState = {
@@ -150,10 +156,25 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   let requestSeq = 0;
   let remainingRepeats = 0;
   let loadedKey: string | null = null;
+  let standbyReady: {
+    key: string;
+    surah: number;
+    ayah: number;
+    withBismillah: boolean;
+    fromCache: boolean;
+  } | null = null;
   let currentAbort: AbortController | null = null;
   let prefetchAbort: AbortController | null = null;
   let talaqqiTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
+
+  function clearStandby(): void {
+    standbyReady = null;
+    if (standby) {
+      standby.onended = null;
+      standby.pause();
+    }
+  }
 
   function clearTalaqqiTimer(): void {
     if (talaqqiTimer !== null) {
@@ -180,21 +201,48 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     }
   }
 
-  function prefetchNextTwo(surah: number, ayah: number, reciterId: string): void {
+  function prefetchNextTwo(
+    surah: number,
+    ayah: number,
+    reciterId: string,
+    withBismillah = false,
+  ): void {
     const controller = new AbortController();
     prefetchAbort = controller;
+    clearStandby();
 
-    const first = nextAyah(surah, ayah, deps.surahs);
-    if (first) {
+    const firstTarget = withBismillah
+      ? { surah, ayah, bismillah: false }
+      : followingAyah(surah, ayah);
+    if (!firstTarget) return;
+
+    const firstKey = `${reciterId}:${firstTarget.surah}:${firstTarget.ayah}:${firstTarget.bismillah ? 1 : 0}`;
+    const audioSurah = firstTarget.bismillah ? 1 : firstTarget.surah;
+    const audioAyah = firstTarget.bismillah ? 1 : firstTarget.ayah;
+
+    void deps
+      .getAudioBlobUrl(reciterId, audioSurah, audioAyah, controller.signal)
+      .then(({ url, fromCache }) => {
+        if (disposed || controller.signal.aborted || !standby) return;
+        standby.preload = "auto";
+        standby.src = url;
+        standby.playbackRate = state.speed;
+        standby.load?.();
+        standbyReady = {
+          key: firstKey,
+          surah: firstTarget.surah,
+          ayah: firstTarget.ayah,
+          withBismillah: firstTarget.bismillah,
+          fromCache,
+        };
+      })
+      .catch(() => {});
+
+    const second = nextAyah(firstTarget.surah, firstTarget.ayah, deps.surahs);
+    if (second) {
       void deps
-        .getAudioBlobUrl(reciterId, first.surah, first.ayah, controller.signal)
+        .getAudioBlobUrl(reciterId, second.surah, second.ayah, controller.signal)
         .catch(() => {});
-      const second = nextAyah(first.surah, first.ayah, deps.surahs);
-      if (second) {
-        void deps
-          .getAudioBlobUrl(reciterId, second.surah, second.ayah, controller.signal)
-          .catch(() => {});
-      }
     }
   }
 
@@ -293,7 +341,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
     const next = followingAyah(surah, ayah);
     if (next) {
-      await playAyah(next.surah, next.ayah, next.bismillah);
+      await advanceTo(next.surah, next.ayah, next.bismillah);
     } else {
       state = { ...state, isPlaying: false };
       emit();
@@ -302,7 +350,73 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
   async function handleBismillahEnded(seq: number, surah: number, ayah: number): Promise<void> {
     if (disposed || seq !== requestSeq) return;
-    await playAyah(surah, ayah);
+    await advanceTo(surah, ayah, false);
+  }
+
+  /**
+   * Swaps to the preloaded standby deck synchronously when ready for gapless transitions,
+   * falling back to `playAyah` if the standby deck is not yet buffered.
+   */
+  async function advanceTo(surah: number, ayah: number, withBismillah: boolean): Promise<void> {
+    const expectedKey = `${state.reciterId}:${surah}:${ayah}:${withBismillah ? 1 : 0}`;
+    if (standby && standbyReady && standbyReady.key === expectedKey) {
+      const seq = ++requestSeq;
+      const ready = standbyReady;
+      standbyReady = null;
+
+      const prev = audio;
+      prev.onended = null;
+      prev.pause();
+      audio = standby;
+      standby = prev;
+
+      remainingRepeats = withBismillah
+        ? 0
+        : state.repeatCount === Infinity
+          ? Infinity
+          : Math.max(0, state.repeatCount - 1);
+
+      audio.playbackRate = state.speed;
+      audio.onended = () => {
+        if (withBismillah) void handleBismillahEnded(seq, surah, ayah);
+        else void handleEnded(seq, surah, ayah);
+      };
+
+      const playPromise = audio.play();
+      loadedKey = `${state.reciterId}:${surah}:${ayah}`;
+      state = {
+        ...state,
+        currentAyah: `${surah}:${ayah}`,
+        isLoading: false,
+        isPlaying: true,
+        isBismillah: withBismillah,
+        isTalaqqiPause: false,
+        fromCache: ready.fromCache,
+        error: null,
+      };
+      emit();
+
+      try {
+        await playPromise;
+        if (disposed || seq !== requestSeq) {
+          audio.pause();
+          return;
+        }
+        prefetchNextTwo(surah, ayah, state.reciterId, withBismillah);
+      } catch (err) {
+        if (disposed || seq !== requestSeq) return;
+        state = {
+          ...state,
+          isLoading: false,
+          isPlaying: false,
+          error: err instanceof Error ? err.message : "Gagal memutar audio",
+        };
+        emit();
+      }
+      return;
+    }
+
+    await playAyah(surah, ayah, withBismillah);
   }
 
   async function playAyah(surah: number, ayah: number, withBismillah = false): Promise<void> {
@@ -373,7 +487,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       };
       emit();
 
-      prefetchNextTwo(surah, ayah, reciterId);
+      prefetchNextTwo(surah, ayah, reciterId, withBismillah);
     } catch (err) {
       if (disposed || seq !== requestSeq || abort.signal.aborted) {
         return;
@@ -458,6 +572,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     if (disposed || id === state.reciterId) return;
     const wasActive = state.isPlaying || state.isLoading;
     loadedKey = null;
+    clearStandby();
     state = { ...state, reciterId: id, error: null };
     emit();
     if (wasActive && state.currentAyah) {
@@ -474,6 +589,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
   function setScope(scope: PlaybackScope): void {
     if (disposed) return;
+    clearStandby();
     state = { ...state, scope: { ...scope, loop: scope.kind === "continue" ? false : scope.loop } };
     emit();
   }
@@ -481,6 +597,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   function setSpeed(rate: number): void {
     state = { ...state, speed: rate };
     audio.playbackRate = rate;
+    if (standby) standby.playbackRate = rate;
     emit();
   }
 
@@ -506,10 +623,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     requestSeq += 1;
     loadedKey = null;
     clearTalaqqiTimer();
+    clearStandby();
     abortInFlight();
     audio.onended = null;
     audio.pause();
     audio.src = "";
+    if (standby) standby.src = "";
     state = { ...state, isPlaying: false, isLoading: false, isTalaqqiPause: false };
     emit();
     listeners.clear();
