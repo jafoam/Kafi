@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AyahKey, SurahInfo, TasmiSessionRecord } from "../data/types";
+import type { GlyphPageLoader } from "../services/glyph-pages";
 import { ERROR_CLASS_LABELS, formatErrorClass } from "../services/tasmi-logic";
 
 export interface TasmiSummaryModalProps {
@@ -9,9 +10,16 @@ export interface TasmiSummaryModalProps {
   history: TasmiSessionRecord[];
   surahs: SurahInfo[];
   getAyahWords: (surah: number, ayah: number) => string[];
+  glyphLoader?: GlyphPageLoader;
+  ayahToPage?: Record<AyahKey, number>;
   onClose: () => void;
   onPlayAyah: (ayah: AyahKey) => void;
   onJumpToAyah: (ayah: AyahKey) => void;
+}
+
+interface QcfGlyph {
+  code: string;
+  fontFamily: string;
 }
 
 const BREAKDOWN_CLASSES = [
@@ -96,12 +104,15 @@ export function TasmiSummaryModal({
   history,
   surahs,
   getAyahWords,
+  glyphLoader,
+  ayahToPage,
   onClose,
   onPlayAyah,
   onJumpToAyah,
 }: TasmiSummaryModalProps) {
   const [tab, setTab] = useState<"summary" | "history">(initialTab);
   const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
+  const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
 
   const surahByNum = useMemo(() => {
     const map = new Map<number, SurahInfo>();
@@ -130,6 +141,47 @@ export function TasmiSummaryModal({
   }, [open, onClose]);
 
   const activeRecord = selectedRecord ?? record ?? history[0] ?? null;
+
+  useEffect(() => {
+    if (!open || tab !== "summary" || !activeRecord || !glyphLoader || !ayahToPage) return;
+    if (activeRecord.mistakes.length === 0) return;
+
+    const neededPages = new Set<number>();
+    const ayahKeys = new Set<AyahKey>();
+    for (const m of activeRecord.mistakes) {
+      const key: AyahKey = `${m.surah}:${m.ayah}`;
+      ayahKeys.add(key);
+      const p = ayahToPage[key];
+      if (p) {
+        neededPages.add(p);
+        if (p < 604) neededPages.add(p + 1);
+      }
+    }
+    if (neededPages.size === 0) return;
+
+    let live = true;
+    const sortedPages = Array.from(neededPages).sort((a, b) => a - b);
+    void Promise.all(
+      sortedPages.map((p) => glyphLoader.load(p).catch(() => null)),
+    ).then((loaded) => {
+      if (!live) return;
+      const map: Record<string, QcfGlyph[]> = {};
+      for (const data of loaded) {
+        if (!data) continue;
+        for (const line of data.lines) {
+          for (const w of line.words) {
+            if (!ayahKeys.has(w.ayah)) continue;
+            (map[w.ayah] ??= []).push({ code: w.code, fontFamily: data.fontFamily });
+          }
+        }
+      }
+      setQcfByAyah(map);
+    });
+
+    return () => {
+      live = false;
+    };
+  }, [open, tab, activeRecord, glyphLoader, ayahToPage]);
 
   const breakdown = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -248,20 +300,29 @@ export function TasmiSummaryModal({
                             </span>
                           </div>
 
-                          {words.length > 0 ? (
-                            <div className="tasmi-summary__arabic" dir="rtl" lang="ar">
-                              {words.map((w, idx) => (
-                                <span
-                                  key={idx}
-                                  className={
-                                    m.word === idx + 1 ? "tasmi-summary__word--flagged" : undefined
-                                  }
-                                >
-                                  {w}{" "}
-                                </span>
-                              ))}
-                            </div>
-                          ) : m.wordText ? (
+                          {words.length > 0 ? (() => {
+                            const rawQcf = qcfByAyah[ayahKey];
+                            const qcf = rawQcf && rawQcf.length - 1 === words.length ? rawQcf.slice(0, -1) : null;
+                            return (
+                              <div
+                                className={`tasmi-summary__arabic ${qcf ? "tasmi-summary__arabic--qcf" : ""}`}
+                                dir="rtl"
+                                lang="ar"
+                              >
+                                {words.map((w, idx) => (
+                                  <span
+                                    key={idx}
+                                    className={
+                                      m.word === idx + 1 ? "tasmi-summary__word--flagged" : undefined
+                                    }
+                                    style={qcf ? { fontFamily: `"${qcf[idx].fontFamily}"` } : undefined}
+                                  >
+                                    {qcf ? qcf[idx].code : w}{" "}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          })() : m.wordText ? (
                             <div className="tasmi-summary__arabic" dir="rtl" lang="ar">
                               <span className="tasmi-summary__word--flagged">{m.wordText}</span>
                             </div>

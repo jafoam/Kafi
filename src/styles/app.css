@@ -2102,17 +2102,26 @@ textarea:focus-visible {
 }
 
 .tasmi-summary__breakdown {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tasmi-summary__breakdown::-webkit-scrollbar {
+  display: none;
 }
 
 .tasmi-summary__stat {
+  flex: 1 0 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 8px 6px;
+  padding: 6px 4px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -2120,13 +2129,14 @@ textarea:focus-visible {
 }
 
 .tasmi-summary__stat-val {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 650;
   color: var(--text-primary);
 }
 
 .tasmi-summary__stat-lbl {
-  font-size: 11px;
+  font-size: 10px;
+  line-height: 1.2;
   color: var(--text-secondary);
 }
 
@@ -2174,6 +2184,11 @@ textarea:focus-visible {
   font-size: 20px;
   line-height: 1.85;
   color: var(--text-primary);
+}
+
+.tasmi-summary__arabic--qcf {
+  font-size: 25px;
+  line-height: 1.65;
 }
 
 .tasmi-summary__word--flagged {
@@ -3259,12 +3274,14 @@ textarea:focus-visible {
 .dl-tabs__btn {
   flex: 1;
   height: 34px;
+  padding: 0 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: var(--bg-subtle);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 550;
   color: var(--text-secondary);
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
 }
@@ -3384,11 +3401,31 @@ textarea:focus-visible {
   color: var(--text-primary);
 }
 
-.dl-panel__row,
-.dl-panel__quick {
+.dl-panel__row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--control-gap);
+}
+
+.dl-panel__quick {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dl-panel__quick::-webkit-scrollbar {
+  display: none;
+}
+
+.dl-panel__quick .dl-btn {
+  flex: 1 0 auto;
+  height: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  white-space: nowrap;
 }
 
 .dl-panel__warn,
