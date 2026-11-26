@@ -876,27 +876,27 @@ git commit -m "feat: add cross-platform Tauri v2 Rust backend for disk cache and
 - Consumes: All frontend tasks (Tasks 1–7) and Rust commands (Task 8)
 - Produces: Verified runnable `src-tauri/target/release/bundle/macos/Ayat.app` (+ `.dmg`), verified static Web PWA `dist/`, and release/deployment guide in `README.md`
 
-- [ ] **Step 1: Sync desktop resource preparation & verify `TauriAdapter` IPC names match `src-tauri/src/lib.rs`**
+- [x] **Step 1: Sync desktop resource preparation & verify `TauriAdapter` IPC names match `src-tauri/src/lib.rs`**
 
 Add a lightweight script step (`npm run prepare:desktop`) copying gitignored `public/mushaf/pages/` into gitignored `src-tauri/resources/mushaf/pages/` before `tauri build`, and ensure Tauri icon assets exist under `src-tauri/icons/` (generated via `npx tauri icon`). Double-check every `invoke(...)` command name and argument key in `src/platform/tauri-adapter.ts` matches `src-tauri/src/lib.rs` verbatim (`cache_get`, `cache_put`, `cache_has`, `cache_delete`, `kv_get`, `kv_set`, `get_mushaf_page_path`, `mic_start`, `mic_stop`).
 
-- [ ] **Step 2: Run full test suite across TypeScript and Rust**
+- [x] **Step 2: Run full test suite across TypeScript and Rust**
 
 Run: `npx vitest run && npx tsc --noEmit && PATH="$HOME/.cargo/bin:$PATH" cargo test --manifest-path src-tauri/Cargo.toml`
 Expected: PASS across all TS and Rust tests with 0 type errors.
 
-- [ ] **Step 3: Build both targets — Static Web PWA (`dist/`) and macOS arm64 Tauri v2 (`.app` / `.dmg`)**
+- [x] **Step 3: Build both targets — Static Web PWA (`dist/`) and macOS arm64 Tauri v2 (`.app` / `.dmg`)**
 
 Run: `npm run build && npm run prepare:desktop && PATH="$HOME/.cargo/bin:$PATH" npx tauri build --bundles app,dmg`
 Expected: PASS; `dist/index.html`, `dist/ort/*.wasm`, `src-tauri/target/release/bundle/macos/Ayat.app`, and `.dmg` created cleanly; check `file src-tauri/target/release/bundle/macos/Ayat.app/Contents/MacOS/ayat` confirms `Mach-O 64-bit executable arm64` and app binary size is small (no Chromium bundled).
 
-- [ ] **Step 4: Run live verification checks on built artifacts**
+- [x] **Step 4: Run live verification checks on built artifacts**
 
 - Check Web PWA locally (`vite preview`) + verify `curl` returns `200` for `/`, `/manifest.webmanifest`, `/sw.js`, `/mushaf/pages/001.gif`, and `/ort/ort-wasm-simd-threaded.wasm`.
 - Launch `Ayat.app` on macOS, verify fast cold startup (< 1s) and zero runtime crash logs; note manual interactive mic/Tilawa verification steps for the user (macOS TCC mic prompt requires interactive user approval).
 - Verify `git status` confirms `Quranflash.pkg`, `public/mushaf/pages/`, and `src-tauri/resources/mushaf/` remain completely untracked/ignored.
 
-- [ ] **Step 5: Write concise `README.md` and commit**
+- [x] **Step 5: Write concise `README.md` and commit**
 
 Document:
 1. Local setup & extracting Medina Mushaf assets from `Quranflash.pkg` (gitignored).
