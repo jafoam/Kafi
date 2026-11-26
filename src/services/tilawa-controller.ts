@@ -78,6 +78,8 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
         signal,
       });
       tilawa = instance;
+      // Ask the browser not to evict the downloaded model when storage runs low.
+      void navigator.storage?.persist?.().catch(() => undefined);
       return instance;
     })().catch((err) => {
       initPromise = null;

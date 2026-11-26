@@ -21,11 +21,17 @@ const MUSHAF_BASE_PREFIX = normalizeMushafBasePrefix(
   self.location.origin,
 );
 
+const ORT_BASE_PREFIX = normalizeMushafBasePrefix(
+  new URL(self.location.href).searchParams.get("ortBase"),
+  self.location.origin,
+);
+
 function classifyRequest(
   url,
   mode,
   origin = self.location.origin,
   mushafBasePrefix = MUSHAF_BASE_PREFIX,
+  ortBasePrefix = ORT_BASE_PREFIX,
 ) {
   let parsed;
   try {
@@ -40,9 +46,13 @@ function classifyRequest(
 
   const host = parsed.hostname.toLowerCase();
 
-  // Never intercept @tilawa/core model downloads (managed by its own Cache API storage).
+  if (ortBasePrefix && parsed.href.startsWith(ortBasePrefix)) {
+    return "cache-first-static";
+  }
+
   if (host === "tilawa.dev" || host.endsWith(".tilawa.dev")) {
-    return "passthrough";
+    // ORT WASM runtime is cached once; model downloads stay with @tilawa/core's own Cache API storage.
+    return parsed.pathname.includes("/runtime/ort/") ? "cache-first-static" : "passthrough";
   }
 
   if (mushafBasePrefix && parsed.href.startsWith(mushafBasePrefix)) {

@@ -20,6 +20,7 @@ export function classifyRequest(
   url: string,
   selfOrigin?: string,
   mushafBaseUrl?: string,
+  ortBaseUrl?: string,
 ): SwRouteStrategy {
   let parsed: URL;
   try {
@@ -34,9 +35,14 @@ export function classifyRequest(
 
   const host = parsed.hostname.toLowerCase();
 
-  // Never intercept @tilawa/core model downloads (managed by its own Cache API storage).
+  const ortPrefix = normalizeMushafBasePrefix(ortBaseUrl, selfOrigin ?? parsed.origin);
+  if (ortPrefix && parsed.href.startsWith(ortPrefix)) {
+    return "cache-first-static";
+  }
+
   if (host === "tilawa.dev" || host.endsWith(".tilawa.dev")) {
-    return "passthrough";
+    // ORT WASM runtime is cached once; model downloads stay with @tilawa/core's own Cache API storage.
+    return parsed.pathname.includes("/runtime/ort/") ? "cache-first-static" : "passthrough";
   }
 
   let origin = parsed.origin;

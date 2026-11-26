@@ -17,6 +17,14 @@ describe("PWA manifest and SW routing", () => {
     expect(classifyRequest("https://kafi.app/index.html", ORIGIN)).toBe("network-first-shell");
   });
 
+  it("caches the ORT wasm runtime on tilawa.dev or a custom base, but never model downloads", () => {
+    expect(classifyRequest("https://tilawa.dev/v1/runtime/ort/1.30.0/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("cache-first-static");
+    expect(classifyRequest("https://tilawa.dev/v1/models/x/1/model.onnx", ORIGIN)).toBe("passthrough");
+    expect(
+      classifyRequest("https://r2.example.com/ort/a.wasm", ORIGIN, undefined, "https://r2.example.com/ort"),
+    ).toBe("cache-first-static");
+  });
+
   it("enforces same-origin on pathname rules so third-party origins pass through", () => {
     expect(classifyRequest("https://evil.com/mushaf/pages/001.gif", ORIGIN)).toBe("passthrough");
     expect(classifyRequest("https://evil.com/ort/ort-wasm-simd-threaded.jsep.wasm", ORIGIN)).toBe("passthrough");
