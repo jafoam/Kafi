@@ -298,4 +298,13 @@ describe("platform & user-store", () => {
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
     expect(getPlatform().isDesktop).toBe(true);
   });
+
+  it("omits startNativeMic on mobile Tauri builds so WebView getUserMedia is used", () => {
+    const mobileAdapter = createTauriAdapter({ isMobile: true });
+    expect(mobileAdapter.isDesktop).toBe(true);
+    expect(mobileAdapter.startNativeMic).toBeUndefined();
+
+    const desktopAdapter = createTauriAdapter({ isMobile: false });
+    expect(desktopAdapter.startNativeMic).toBeTypeOf("function");
+  });
 });

@@ -15,6 +15,7 @@ export interface MushafSpreadProps {
   blurSet?: Set<AyahKey>;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
+  wordTranslation?: boolean;
   canGoPrev: boolean;
   canGoNext: boolean;
   isModalOpen: boolean;
@@ -46,6 +47,7 @@ export function MushafSpread({
   blurSet,
   revealedSet,
   mistakeAyahs,
+  wordTranslation,
   canGoPrev,
   canGoNext,
   isModalOpen,
@@ -190,6 +192,7 @@ export function MushafSpread({
             blurSet={blurSet}
             revealedSet={revealedSet}
             mistakeAyahs={mistakeAyahs}
+          wordTranslation={wordTranslation}
             onSelectAyah={onSelectAyah}
             onPeekAyah={onPeekAyah}
             onRetryPage={onRetryPage}
@@ -209,6 +212,7 @@ export function MushafSpread({
           blurSet={blurSet}
           revealedSet={revealedSet}
           mistakeAyahs={mistakeAyahs}
+          wordTranslation={wordTranslation}
           onSelectAyah={onSelectAyah}
           onPeekAyah={onPeekAyah}
           onRetryPage={onRetryPage}

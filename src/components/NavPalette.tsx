@@ -24,7 +24,7 @@ const TABS: { id: PaletteTab; label: string }[] = [
   { id: "juz", label: "Juz" },
   { id: "page", label: "Halaman" },
   { id: "search", label: "Cari Ayat" },
-  { id: "bookmarks", label: "Bookmark & Catatan" },
+  { id: "bookmarks", label: "Bookmark" },
 ];
 
 const QUICK_PAGES = [
@@ -141,26 +141,22 @@ export function NavPalette({
     return searchEngine.search(query, 35);
   }, [tab, searchEngine, query]);
 
-  const savedEntries = useMemo(() => {
-    const keys = new Set<AyahKey>([
-      ...bookmarks,
-      ...(Object.keys(notes) as AyahKey[]),
-    ]);
-    return Array.from(keys).map((key) => {
-      const [sStr, aStr] = key.split(":");
-      const surahNum = Number(sStr);
-      const ayahNum = Number(aStr);
-      const surah = surahByNumber.get(surahNum);
-      return {
-        key,
-        surahName: surah?.name ?? `Surah ${surahNum}`,
-        ayahNum,
-        page: mushafMap.ayahToPage[key] ?? surah?.page ?? 1,
-        isBookmarked: bookmarks.includes(key),
-        note: notes[key] ?? "",
-      };
-    });
-  }, [bookmarks, notes, surahByNumber, mushafMap.ayahToPage]);
+  const savedEntries = useMemo(
+    () =>
+      bookmarks.map((key) => {
+        const [sStr, aStr] = key.split(":");
+        const surahNum = Number(sStr);
+        const surah = surahByNumber.get(surahNum);
+        return {
+          key,
+          surahName: surah?.name ?? `Surah ${surahNum}`,
+          ayahNum: Number(aStr),
+          page: mushafMap.ayahToPage[key] ?? surah?.page ?? 1,
+          note: notes[key] ?? "",
+        };
+      }),
+    [bookmarks, notes, surahByNumber, mushafMap.ayahToPage],
+  );
 
   if (!open) return null;
 
@@ -372,7 +368,7 @@ export function NavPalette({
             <div className="palette__list">
               {savedEntries.length === 0 && (
                 <div className="palette__empty">
-                  Belum ada bookmark atau catatan. Klik ayat pada Mushaf untuk menandai.
+                  Belum ada bookmark. Ketuk ayat pada mushaf untuk menandainya.
                 </div>
               )}
               {savedEntries.map((entry) => (
@@ -400,15 +396,13 @@ export function NavPalette({
                       {entry.note ? ` · ${entry.note}` : ""}
                     </div>
                   </button>
-                  {entry.isBookmarked && (
-                    <button
-                      type="button"
-                      className="palette__chip"
-                      onClick={() => onToggleBookmark(entry.key)}
-                    >
-                      Hapus
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="palette__chip"
+                    onClick={() => onToggleBookmark(entry.key)}
+                  >
+                    Hapus
+                  </button>
                 </div>
               ))}
             </div>

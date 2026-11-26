@@ -85,6 +85,8 @@ export interface AppSettings {
   translationId: number;
   tafsirId: string;
   hifzBlur: boolean;
+  /** Show the word-by-word translation tooltip on mushaf words. */
+  wordTranslation: boolean;
   mistakeSound: boolean;
 }
 

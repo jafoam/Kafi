@@ -176,44 +176,9 @@ textarea:focus-visible {
   border: 1px solid var(--border-subtle);
 }
 
-.topbar__segmented {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-}
 
-.topbar__seg-btn {
-  height: 26px;
-  padding: 0 9px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease;
-}
 
-.topbar__seg-btn--active {
-  background: var(--bg-surface);
-  color: var(--text-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 
-.theme-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  border-radius: var(--radius-pill);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-}
 
 .theme-dot {
   width: 20px;
@@ -356,7 +321,8 @@ textarea:focus-visible {
   color: var(--text-primary);
   font-size: calc(5.35cqw * var(--glyph-fit));
   line-height: 1;
-  filter: var(--mushaf-filter);
+  /* No --mushaf-filter here: it exists for the scanned images, and on text that already follows the theme
+     colors it turned the dark theme's light letters dark. */
 }
 
 .glyph-page[data-lines="8"] {
@@ -383,19 +349,32 @@ textarea:focus-visible {
   font-family: "Geeza Pro", "Noto Naskh Arabic", "Amiri", serif;
 }
 
-.glyph-header {
+.surah-banner {
+  --banner-fill: var(--accent);
+  --banner-ink: #ffffff;
+  display: block;
   width: 100%;
-  padding: 0.12em 0;
-  text-align: center;
-  font-size: 0.62em;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: var(--accent-soft);
-  color: var(--accent);
+  height: auto;
+  overflow: visible;
+}
+
+.surah-banner__name {
+  font-family: var(--font-arabic);
+  font-size: 21px;
+  font-weight: 700;
+}
+
+/* The calligraphic bismillah ligature (U+FDFD) from Amiri, subset to that one glyph. It is 11.43em wide, and
+   0.65em of the page's letter size keeps it smaller than the ayah text on every page. */
+@font-face {
+  font-family: "AmiriBismillah";
+  src: url("../assets/fonts/amiri-bismillah.woff2") format("woff2");
+  font-display: swap;
 }
 
 .glyph-bismillah {
-  font-size: 0.5em;
+  font-family: "AmiriBismillah", var(--font-arabic);
+  font-size: 0.65em;
 }
 
 .glyph-word {
@@ -782,9 +761,17 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* Never let the tall list below squeeze the tab row: it is a scroller, so flex would otherwise shrink it */
+  flex: 0 0 auto;
   padding: 10px 12px 8px;
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.palette__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .palette__tab {
@@ -811,6 +798,7 @@ textarea:focus-visible {
 }
 
 .palette__search-bar {
+  flex: 0 0 auto;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -828,6 +816,7 @@ textarea:focus-visible {
 
 .palette__body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 8px;
 }
@@ -2172,7 +2161,6 @@ textarea:focus-visible {
 
   .topbar__brand,
   .topbar__kbd,
-  .topbar__segmented,
   .topbar__label {
     display: none;
   }
@@ -2214,11 +2202,6 @@ textarea:focus-visible {
     padding: 0;
   }
 
-  .theme-dots {
-    gap: 3px;
-    padding: 3px 5px;
-    margin-left: 2px;
-  }
 
   .theme-dot {
     width: 18px;
@@ -2327,5 +2310,946 @@ textarea:focus-visible {
 
   .topbar__location-pill {
     padding: 0 10px;
+  }
+}
+
+
+/* Playback scope menu (opens above the audio dock) */
+.playback-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+  border: none;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.playback-menu {
+  position: fixed;
+  z-index: 32;
+  bottom: 86px;
+  right: max(16px, calc(50vw - 490px));
+  width: min(340px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  pointer-events: auto;
+}
+
+.playback-menu__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.playback-menu__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.playback-menu__option {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.playback-menu__option:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.playback-menu__option--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.playback-menu__range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.playback-menu__range label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.playback-menu__range input {
+  width: 92px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.playback-menu__range-note {
+  flex-basis: 100%;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.playback-menu__loop {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.playback-menu__loop input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.playback-menu__loop--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.playback-menu__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+
+/* The bar keeps only what is used all the time; the rest lives in the ☰ menu */
+.topbar__tasmi {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  cursor: pointer;
+  box-shadow: 0 3px 10px var(--accent-ring);
+}
+
+.topbar__tasmi:hover {
+  background: var(--accent-hover);
+}
+
+@media (max-width: 900px) {
+  .topbar__desk {
+    display: none !important;
+  }
+}
+
+/* Phone menu */
+.app-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 44;
+  border: none;
+  background: var(--backdrop);
+  cursor: default;
+  /* The top bar's zone ignores the pointer so the page stays clickable; its popups must opt back in */
+  pointer-events: auto;
+}
+
+.app-menu {
+  position: fixed;
+  z-index: 45;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  right: max(8px, calc(50vw - 552px));
+  width: min(340px, calc(100vw - 16px));
+  max-height: calc(100dvh - 76px - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  pointer-events: auto;
+}
+
+.app-menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-menu__row:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.app-menu__row:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.app-menu__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-menu__title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.app-menu__sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.app-menu__switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background-color 140ms ease;
+}
+
+.app-menu__switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 140ms ease;
+}
+
+.app-menu__switch--on {
+  background: var(--accent);
+}
+
+.app-menu__switch--on::after {
+  transform: translateX(16px);
+}
+
+.app-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 6px;
+}
+
+.app-menu__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.app-menu__choices {
+  display: flex;
+  gap: 6px;
+}
+
+.app-menu__choice {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.app-menu__choice--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Focus mode: a visible way back, since the bars it hides cannot be hovered on a phone */
+.focus-exit {
+  position: fixed;
+  z-index: 40;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg-elevated);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Tasmi' button: large on phones, where the dock has no room for it */
+.tasmi-fab {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .tasmi-fab {
+    position: fixed;
+    z-index: 29;
+    right: 12px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 56px;
+    padding: 0 20px 0 16px;
+    border: none;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 8px 22px var(--accent-ring), 0 2px 6px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+  }
+
+  .tasmi-fab__text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+  }
+
+  .tasmi-fab__title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .tasmi-fab__sub {
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
+  .audio-dock__tasmi-btn {
+    display: none;
+  }
+}
+
+.tasmi-hint {
+  position: fixed;
+  z-index: 33;
+  right: max(12px, calc(50vw - 490px));
+  bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+  width: min(300px, calc(100vw - 24px));
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  box-shadow: var(--popover-shadow);
+}
+
+@media (min-width: 901px) {
+  .tasmi-hint {
+    bottom: 90px;
+  }
+}
+
+.tasmi-hint__title {
+  display: block;
+  font-size: 14.5px;
+  color: var(--text-primary);
+}
+
+.tasmi-hint__text {
+  margin: 6px 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tasmi-hint__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tasmi-hint__primary,
+.tasmi-hint__later {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tasmi-hint__primary {
+  border: none;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.tasmi-hint__later {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+
+/*
+ * Control sizing. Every button, pill and field in the top bar and the player shares one height, one
+ * text size and one gap, so the rows line up. Phones get taller controls plus an invisible margin, so
+ * each target is at least 44px.
+ */
+:root {
+  --control-h: 36px;
+  --control-h-lg: 44px;
+  --control-font: 13px;
+  --control-gap: 8px;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --control-h: 40px;
+    --control-h-lg: 48px;
+  }
+}
+
+.topbar__location-pill,
+.topbar__btn,
+.topbar__tasmi,
+.audio-dock__ayah-btn,
+.audio-dock__pill-btn,
+.audio-dock__select,
+.audio-dock__tasmi-btn,
+.playback-menu__option,
+.focus-exit,
+.tasmi-hint__primary,
+.tasmi-hint__later {
+  box-sizing: border-box;
+  height: var(--control-h);
+  min-height: var(--control-h);
+  font-size: var(--control-font);
+}
+
+.topbar__tasmi,
+.audio-dock__tasmi-btn,
+.tasmi-hint__primary,
+.focus-exit {
+  font-weight: 600;
+}
+
+.audio-dock__icon-btn {
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
+.audio-dock__play-btn {
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
+}
+
+.topbar__left,
+.topbar__right,
+.audio-dock__controls,
+.audio-dock__transport {
+  gap: var(--control-gap);
+}
+
+.topbar__btn--icon {
+  width: var(--control-h);
+  padding: 0;
+  justify-content: center;
+}
+
+.topbar__btn--icon .topbar__icon {
+  display: block;
+}
+
+.topbar__btn--active {
+  /* keeps the active state from changing the button's size */
+  border-width: 1px;
+}
+
+.topbar__tasmi,
+.audio-dock__tasmi-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* A button never gets narrower than it is tall, so icon-only pills stay round */
+.audio-dock__pill-btn {
+  min-width: var(--control-h);
+  justify-content: center;
+}
+
+/* Below 1180px the bar has no room for text labels: the buttons become icons, the Tasmi' button keeps its words */
+@media (max-width: 1179px) {
+  .topbar__label,
+  .topbar__kbd {
+    display: none;
+  }
+
+  .topbar__icon {
+    display: block;
+  }
+
+  .topbar__btn {
+    width: var(--control-h);
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 900px) {
+  .reader-stage {
+    padding-top: calc(66px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Taller than the visible control, so a thumb never misses */
+  .topbar button,
+  .audio-dock button {
+    position: relative;
+  }
+
+  .topbar button::after,
+  .audio-dock button::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+  }
+
+  .audio-dock__pill-text {
+    display: none;
+  }
+
+  /* Tighter gaps give the surah name room beside the larger buttons */
+  .audio-dock {
+    gap: 4px;
+    padding: 4px 8px;
+  }
+
+  .audio-dock__controls,
+  .audio-dock__transport {
+    gap: 4px;
+  }
+
+  .audio-dock__ayah-btn {
+    min-width: 56px;
+    padding: 0 6px;
+  }
+
+  /* The large Tasmi' button floats above the player on phones, so the dock does not repeat it */
+  .audio-dock__tasmi-btn {
+    display: none;
+  }
+}
+
+/* The player shows "Al-Ikhlas : 1" where there is room and just "Ayat 1" on narrow phones, where the top bar already names the surah */
+.audio-dock__title-short {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .audio-dock__title-full {
+    display: none;
+  }
+
+  .audio-dock__title-short {
+    display: inline;
+  }
+}
+
+/* Word-by-word tooltip */
+.word-tip {
+  position: fixed;
+  z-index: 45;
+  width: 160px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  font-family: system-ui, sans-serif;
+  text-align: center;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.word-tip__tr { font-size: 0.75rem; font-style: italic; opacity: 0.7; }
+.word-tip__id { font-size: 0.9rem; font-weight: 600; }
+
+/* Download screen (Unduh Suara) */
+.dl-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 56px 16px 16px;
+  background: var(--backdrop);
+  backdrop-filter: blur(4px);
+}
+
+.dl-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  height: min(calc(100dvh - 72px), 720px);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.dl-panel__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dl-panel__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.dl-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.dl-panel__close:hover {
+  background: var(--bg-hover);
+}
+
+.dl-panel__scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 20px;
+}
+
+.dl-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dl-panel__section:last-child {
+  border-bottom: none;
+}
+
+.dl-panel__heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+.dl-panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dl-panel__field select {
+  height: var(--control-h);
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  font-size: var(--control-font);
+  color: var(--text-primary);
+}
+
+.dl-panel__summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.dl-panel__storage {
+  color: var(--text-muted);
+}
+
+.dl-panel__check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: var(--control-h);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.dl-panel__check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.dl-panel__status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+
+.dl-panel__status--error {
+  background: var(--mistake-bg);
+  border-color: var(--mistake-badge);
+}
+
+.dl-panel__status-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.dl-panel__row,
+.dl-panel__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--control-gap);
+}
+
+.dl-panel__warn,
+.dl-panel__notice {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  font-size: var(--control-font);
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.dl-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.dl-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dl-btn--ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.dl-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.dl-btn--danger {
+  background: var(--mistake-badge);
+  border-color: var(--mistake-badge);
+  color: #ffffff;
+}
+
+.dl-btn--small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
+.dl-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.dl-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.dl-bar--thin {
+  height: 4px;
+  margin-top: 6px;
+}
+
+.dl-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 160ms ease;
+}
+
+.dl-bar__fill--done {
+  background: var(--accent-hover);
+}
+
+.dl-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dl-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dl-item:last-child {
+  border-bottom: none;
+}
+
+.dl-item__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.dl-item__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dl-item__name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text-primary);
+}
+
+.dl-item__ar {
+  font-family: var(--font-arabic);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.dl-item__sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.dl-item__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .dl-backdrop {
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .dl-panel {
+    height: calc(100dvh - 20px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-width: none;
   }
 }

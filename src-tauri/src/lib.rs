@@ -1,10 +1,16 @@
 pub mod cache;
+#[cfg(not(mobile))]
 pub mod mic;
 
+#[cfg(not(mobile))]
 use mic::{MicChunk, MicState};
 use std::path::{Path, PathBuf};
-use tauri::ipc::{Channel, InvokeBody, Request, Response};
-use tauri::{AppHandle, Manager, State};
+#[cfg(not(mobile))]
+use tauri::ipc::Channel;
+use tauri::ipc::{InvokeBody, Request, Response};
+#[cfg(not(mobile))]
+use tauri::State;
+use tauri::{AppHandle, Manager};
 
 fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
@@ -55,6 +61,12 @@ fn cache_delete(app: AppHandle, bucket: String, key: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+fn cache_list(app: AppHandle, bucket: String) -> Result<Vec<(String, u64)>, String> {
+    let base = app_data_dir(&app)?;
+    cache::list_cache_entries(&base, &bucket)
+}
+
+#[tauri::command]
 fn kv_get(app: AppHandle, key: String) -> Result<Option<String>, String> {
     let base = app_data_dir(&app)?;
     cache::read_kv(&base, &key)
@@ -102,6 +114,7 @@ fn get_mushaf_page_path(app: AppHandle, page: u16) -> Result<String, String> {
     Err(format!("Mushaf page {filename} not found"))
 }
 
+#[cfg(not(mobile))]
 #[tauri::command]
 async fn mic_start(state: State<'_, MicState>, on_chunk: Channel<MicChunk>) -> Result<u32, String> {
     let mic = state.inner().clone();
@@ -110,6 +123,7 @@ async fn mic_start(state: State<'_, MicState>, on_chunk: Channel<MicChunk>) -> R
         .map_err(|e| format!("Mic start task failed: {e}"))?
 }
 
+#[cfg(not(mobile))]
 #[tauri::command]
 async fn mic_stop(state: State<'_, MicState>) -> Result<(), String> {
     let mic = state.inner().clone();
@@ -118,22 +132,41 @@ async fn mic_stop(state: State<'_, MicState>) -> Result<(), String> {
         .map_err(|e| format!("Mic stop task failed: {e}"))?
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(not(mobile))]
+    let builder = builder
         .manage(MicState::default())
         .invoke_handler(tauri::generate_handler![
             cache_put,
             cache_get,
             cache_has,
             cache_delete,
+            cache_list,
             kv_get,
             kv_set,
             get_mushaf_page_path,
             mic_start,
             mic_stop,
-        ])
+        ]);
+
+    #[cfg(mobile)]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        cache_put,
+        cache_get,
+        cache_has,
+        cache_delete,
+        cache_list,
+        kv_get,
+        kv_set,
+        get_mushaf_page_path,
+    ]);
+
+    builder
         .run(tauri::generate_context!())
-        .expect("error while running Ayat desktop application");
+        .expect("error while running Kafi application");
 }
 
 #[cfg(test)]

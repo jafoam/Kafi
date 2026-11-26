@@ -63,10 +63,24 @@ function copyOrtAssetsPlugin() {
   };
 }
 
+const host = process.env.TAURI_DEV_HOST;
+
 export default defineConfig({
   plugins: [react(), copyOrtAssetsPlugin()],
   resolve: {
     conditions: ["onnxruntime-web-use-extern-wasm", ...defaultClientConditions],
+  },
+  server: {
+    port: 5173,
+    strictPort: true,
+    host: host || false,
+    hmr: host
+      ? {
+          protocol: "ws",
+          host,
+          port: 5174,
+        }
+      : undefined,
   },
   test: {
     environment: "jsdom",

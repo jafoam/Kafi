@@ -23,6 +23,7 @@ export const DEFAULT_USER_DATA: UserData = {
     translationId: 33,
     tafsirId: "equran-id",
     hifzBlur: false,
+    wordTranslation: true,
     mistakeSound: false,
   },
   tasmiHistory: [],
@@ -78,6 +79,8 @@ function normalizeUserData(raw: unknown): UserData {
         ? rawSettings.tafsirId
         : defaults.tafsirId,
     hifzBlur: typeof rawSettings.hifzBlur === "boolean" ? rawSettings.hifzBlur : defaults.hifzBlur,
+    wordTranslation:
+      typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
     mistakeSound:
       typeof rawSettings.mistakeSound === "boolean" ? rawSettings.mistakeSound : defaults.mistakeSound,
   };

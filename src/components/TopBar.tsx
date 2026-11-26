@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import type { SpreadMode, ThemeMode } from "../data/types";
+import type { OfflinePages } from "../state/useOfflinePages";
 
 export interface TopBarProps {
   surahLabel: string;
@@ -7,12 +9,18 @@ export interface TopBarProps {
   spreadMode: SpreadMode;
   hifzBlur: boolean;
   focusMode: boolean;
+  wordTranslation: boolean;
   theme: ThemeMode;
+  /** Offline download control; omitted where it does not apply (desktop app). */
+  offline?: OfflinePages;
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
   onToggleFocusMode: () => void;
+  onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
+  onOpenTasmi: () => void;
+  onOpenDownloads: () => void;
 }
 
 const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
@@ -34,13 +42,19 @@ export function TopBar({
   spreadMode,
   hifzBlur,
   focusMode,
+  wordTranslation,
   theme,
+  offline,
   onOpenPalette,
   onChangeSpreadMode,
   onToggleHifzBlur,
   onToggleFocusMode,
+  onToggleWordTranslation,
   onChangeTheme,
+  onOpenTasmi,
+  onOpenDownloads,
 }: TopBarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="topbar-zone">
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
@@ -66,6 +80,7 @@ export function TopBar({
             className="topbar__btn"
             onClick={() => onOpenPalette("search")}
             title="Cari Ayat atau Surah (Cmd/Ctrl+K)"
+            aria-label="Cari Ayat"
           >
             <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
@@ -75,25 +90,9 @@ export function TopBar({
             <span className="topbar__kbd">⌘K</span>
           </button>
 
-          <div className="topbar__segmented" role="group" aria-label="Mode Halaman">
-            {SPREAD_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`topbar__seg-btn ${
-                  spreadMode === option.value ? "topbar__seg-btn--active" : ""
-                }`}
-                aria-pressed={spreadMode === option.value}
-                onClick={() => onChangeSpreadMode(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-
           <button
             type="button"
-            className={`topbar__btn ${hifzBlur ? "topbar__btn--active" : ""}`}
+            className={`topbar__btn topbar__desk ${hifzBlur ? "topbar__btn--active" : ""}`}
             aria-pressed={hifzBlur}
             onClick={onToggleHifzBlur}
             title="Mode Hafalan: sembunyikan ayat dan ketuk untuk mengintip"
@@ -109,7 +108,7 @@ export function TopBar({
 
           <button
             type="button"
-            className={`topbar__btn ${focusMode ? "topbar__btn--active" : ""}`}
+            className={`topbar__btn topbar__desk ${focusMode ? "topbar__btn--active" : ""}`}
             aria-pressed={focusMode}
             onClick={onToggleFocusMode}
             title="Mode Fokus (F)"
@@ -121,23 +120,224 @@ export function TopBar({
             <span className="topbar__label">Mode Fokus</span>
           </button>
 
-          <div className="theme-dots" role="group" aria-label="Tema Warna">
-            {THEME_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`theme-dot theme-dot--${opt.value} ${
-                  theme === opt.value ? "theme-dot--active" : ""
-                }`}
-                aria-label={opt.label}
-                aria-pressed={theme === opt.value}
-                title={opt.label}
-                onClick={() => onChangeTheme(opt.value)}
-              />
-            ))}
-          </div>
+          <button
+            type="button"
+            className={`topbar__btn topbar__btn--icon ${menuOpen ? "topbar__btn--active" : ""}`}
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label="Menu: mode halaman, tema, dan unduh offline"
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
+            title="Menu: mode halaman, tema, dan unduh offline"
+          >
+            <svg className="topbar__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            className="topbar__tasmi topbar__desk"
+            onClick={onOpenTasmi}
+            title="Tasmi': bacakan hafalanmu, aplikasi menyimak dan menandai kesalahan"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+            </svg>
+            <span>Mulai Tasmi&apos;</span>
+          </button>
         </div>
       </header>
+
+      {menuOpen && (
+        <AppMenu
+          spreadMode={spreadMode}
+          hifzBlur={hifzBlur}
+          focusMode={focusMode}
+          wordTranslation={wordTranslation}
+          theme={theme}
+          offline={offline}
+          onChangeSpreadMode={onChangeSpreadMode}
+          onToggleHifzBlur={onToggleHifzBlur}
+          onToggleFocusMode={onToggleFocusMode}
+          onToggleWordTranslation={onToggleWordTranslation}
+          onChangeTheme={onChangeTheme}
+          onOpenDownloads={onOpenDownloads}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
     </div>
   );
 }
+
+
+interface AppMenuProps {
+  spreadMode: SpreadMode;
+  hifzBlur: boolean;
+  focusMode: boolean;
+  wordTranslation: boolean;
+  theme: ThemeMode;
+  offline?: OfflinePages;
+  onChangeSpreadMode: (mode: SpreadMode) => void;
+  onToggleHifzBlur: () => void;
+  onToggleFocusMode: () => void;
+  onToggleWordTranslation: () => void;
+  onChangeTheme: (theme: ThemeMode) => void;
+  onOpenDownloads: () => void;
+  onClose: () => void;
+}
+
+/** The menu behind the ☰ button: everything the bar has no room for, in big touch-sized rows. */
+function AppMenu({
+  spreadMode,
+  hifzBlur,
+  focusMode,
+  wordTranslation,
+  theme,
+  offline,
+  onChangeSpreadMode,
+  onToggleHifzBlur,
+  onToggleFocusMode,
+  onToggleWordTranslation,
+  onChangeTheme,
+  onOpenDownloads,
+  onClose,
+}: AppMenuProps) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <>
+      <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
+      <div className="app-menu" role="dialog" aria-label="Menu">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={focusMode}
+          className="app-menu__row"
+          onClick={() => {
+            onToggleFocusMode();
+            onClose();
+          }}
+        >
+          <span className="app-menu__text">
+            <span className="app-menu__title">Mode Fokus</span>
+            <span className="app-menu__sub">Sembunyikan bilah agar halaman memenuhi layar</span>
+          </span>
+          <span className={`app-menu__switch ${focusMode ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={hifzBlur}
+          className="app-menu__row"
+          onClick={onToggleHifzBlur}
+        >
+          <span className="app-menu__text">
+            <span className="app-menu__title">Sembunyikan Ayat</span>
+            <span className="app-menu__sub">Mode hafalan: ketuk ayat untuk mengintip</span>
+          </span>
+          <span className={`app-menu__switch ${hifzBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          role="switch"
+          aria-checked={wordTranslation}
+          className="app-menu__row"
+          onClick={onToggleWordTranslation}
+        >
+          <span className="app-menu__text">
+            <span className="app-menu__title">Terjemah Per Kata</span>
+            <span className="app-menu__sub">Tampilkan arti tiap kata saat disorot atau diketuk</span>
+          </span>
+          <span className={`app-menu__switch ${wordTranslation ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+        </button>
+
+        <div className="app-menu__group">
+          <span className="app-menu__label">Mode Halaman</span>
+          <div className="app-menu__choices" role="group" aria-label="Mode Halaman">
+            {SPREAD_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`app-menu__choice ${spreadMode === option.value ? "app-menu__choice--active" : ""}`}
+                aria-pressed={spreadMode === option.value}
+                onClick={() => onChangeSpreadMode(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="app-menu__group">
+          <span className="app-menu__label">Tema</span>
+          <div className="app-menu__choices" role="group" aria-label="Tema Warna">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`app-menu__choice ${theme === option.value ? "app-menu__choice--active" : ""}`}
+                aria-pressed={theme === option.value}
+                onClick={() => onChangeTheme(option.value)}
+              >
+                <span className={`theme-dot theme-dot--${option.value}`} aria-hidden="true" />
+                {THEME_SHORT[option.value]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="app-menu__row"
+          onClick={() => {
+            onOpenDownloads();
+            onClose();
+          }}
+        >
+          <span className="app-menu__text">
+            <span className="app-menu__title">Unduh Suara</span>
+            <span className="app-menu__sub">Simpan murottal per surah, juz, atau seluruh Al-Quran untuk didengar tanpa internet</span>
+          </span>
+        </button>
+
+        {offline?.supported && (
+          <button
+            type="button"
+            className="app-menu__row"
+            onClick={offline.toggle}
+            disabled={offline.status === "done"}
+          >
+            <span className="app-menu__text">
+              <span className="app-menu__title">
+                {offline.status === "done" ? "Offline siap" : "Unduh Offline"}
+              </span>
+              <span className="app-menu__sub">
+                {offline.status === "running"
+                  ? `Mengunduh ${offline.done}/${offline.total}. Ketuk untuk membatalkan.`
+                  : offline.status === "done"
+                    ? "Semua 604 halaman tersimpan untuk dibaca tanpa internet."
+                    : offline.status === "error"
+                      ? "Sebagian gagal. Ketuk untuk mengulang."
+                      : "Simpan semua 604 halaman (±47 MB) agar bisa dibaca tanpa internet."}
+              </span>
+            </span>
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+const THEME_SHORT: Record<ThemeMode, string> = {
+  light: "Terang",
+  sepia: "Sepia",
+  dark: "Gelap",
+};

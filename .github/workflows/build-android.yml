@@ -1,0 +1,87 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "debug (langsung bisa di-install) atau release (unsigned)"
+        type: choice
+        default: debug
+        options:
+          - debug
+          - release
+      target:
+        description: "ABI target Android"
+        type: choice
+        default: aarch64
+        options:
+          - aarch64
+          - all
+
+concurrency:
+  group: build-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # The env context is not available in job-level env, so export the runner's NDK path here.
+      - name: Point NDK_HOME at the runner NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: >-
+            ${{ inputs.target == 'all'
+              && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android'
+              || 'aarch64-linux-android' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+      - name: Download mushaf page fonts
+        run: npm run fetch:fonts
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Initialize Tauri Android project
+        run: |
+          npx tauri android init --ci
+          node scripts/patch-android-manifest.mjs
+
+      - name: Build APK
+        run: |
+          ARGS="--apk"
+          if [ "${{ inputs.build_type || 'debug' }}" = "debug" ]; then
+            ARGS="$ARGS --debug"
+          fi
+          if [ "${{ inputs.target || 'aarch64' }}" != "all" ]; then
+            ARGS="$ARGS --target ${{ inputs.target || 'aarch64' }}"
+          fi
+          npx tauri android build $ARGS
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafi-android-${{ inputs.build_type || 'debug' }}-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

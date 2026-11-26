@@ -1,17 +1,13 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AyahKey, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
-import catalog from "../data/catalog.json";
-import { buildPageRows } from "../services/glyph-layout";
 import type { GlyphPageData } from "../services/glyph-pages";
+import { createWordTranslationLoader, type PageWords } from "../services/word-translations";
+import { SurahBanner } from "./SurahBanner";
 
-const BISMILLAH = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
-const SURAH_NAMES = new Map<number, string>(
-  (catalog as { surahs: { number: number; arabicName: string }[] }).surahs.map((s) => [
-    s.number,
-    s.arabicName,
-  ]),
-);
+const wordLoader = createWordTranslationLoader();
 
+/** U+FDFD ARABIC LIGATURE BISMILLAH, drawn as one calligraphic glyph by the AmiriBismillah font. */
+const BISMILLAH = "\uFDFD";
 export interface GlyphPageBodyProps {
   data: GlyphPageData;
   pageEntry: PageEntry;
@@ -22,6 +18,8 @@ export interface GlyphPageBodyProps {
   blurSet?: Set<AyahKey>;
   revealedSet?: Set<AyahKey>;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
+  /** Show the per-word translation tooltip (default on). */
+  wordTranslation?: boolean;
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
 }
@@ -36,13 +34,41 @@ export function GlyphPageBody({
   blurSet,
   revealedSet,
   mistakeAyahs,
+  wordTranslation = true,
   onSelectAyah,
   onPeekAyah,
 }: GlyphPageBodyProps) {
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
+  /** Word under the pointer / last tapped, as "line-index"; used when translation mode highlights single words. */
+  const [hoveredWord, setHoveredWord] = useState<string | null>(null);
+  const [pickedWord, setPickedWord] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [words, setWords] = useState<PageWords | null>(null);
+  const [tip, setTip] = useState<{ code: string; rect: DOMRect } | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setWords(null);
+    if (!wordTranslation) return;
+    wordLoader.load(data.page).then((w) => live && setWords(w), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [data.page, wordTranslation]);
+
+  useEffect(() => {
+    if (!wordTranslation) setTip(null);
+  }, [wordTranslation]);
+
+  const showTip = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return setTip(null);
+    const el = target.closest<HTMLElement>("[data-code]");
+    if (!el || !words?.has(el.dataset.code!)) return setTip(null);
+    setTip({ code: el.dataset.code!, rect: el.getBoundingClientRect() });
+  };
+  const tipInfo = tip ? words?.get(tip.code) : undefined;
   const totalLines = data.page <= 2 ? 8 : 15;
-  const rows = useMemo(() => buildPageRows(data, totalLines), [data, totalLines]);
+  const rows = data.rows;
 
   // Shrink the glyph size just enough that the widest line fits; container-relative units keep it valid on resize.
   useLayoutEffect(() => {
@@ -68,6 +94,11 @@ export function GlyphPageBody({
     return (el?.dataset.ayah as AyahKey | undefined) ?? null;
   };
 
+  const resolveWord = (target: EventTarget | null): string | null => {
+    if (!(target instanceof HTMLElement)) return null;
+    return target.closest<HTMLElement>("[data-word]")?.dataset.word ?? null;
+  };
+
   const firstWordOfAyah = new Set<AyahKey>();
 
   return (
@@ -76,9 +107,19 @@ export function GlyphPageBody({
       className="glyph-page"
       data-lines={totalLines}
       style={{ fontFamily: `"${data.fontFamily}"` }}
-      onPointerOver={(event) => setHoveredAyah(resolveAyah(event.target))}
-      onPointerLeave={() => setHoveredAyah(null)}
+      onPointerOver={(event) => {
+        setHoveredAyah(resolveAyah(event.target));
+        setHoveredWord(resolveWord(event.target));
+        if (event.pointerType === "mouse") showTip(event.target);
+      }}
+      onPointerLeave={() => {
+        setHoveredAyah(null);
+        setHoveredWord(null);
+        setTip(null);
+      }}
       onClick={(event) => {
+        showTip(event.target);
+        setPickedWord(resolveWord(event.target));
         const ayah = resolveAyah(event.target);
         if (!ayah) return;
         event.stopPropagation();
@@ -94,11 +135,10 @@ export function GlyphPageBody({
       }}
     >
       {rows.map((row) => {
-        if (row.kind === "blank") return <div key={row.line} className="glyph-line glyph-line--blank" />;
         if (row.kind === "header") {
           return (
             <div key={row.line} className="glyph-line glyph-line--header" aria-hidden="true">
-              <span className="glyph-header">{`سورة ${SURAH_NAMES.get(row.surah) ?? ""}`}</span>
+              <SurahBanner surah={row.surah} />
             </div>
           );
         }
@@ -109,7 +149,9 @@ export function GlyphPageBody({
             </div>
           );
         }
-        const centered = data.page <= 2 && row.words.length < 6;
+        // The two opening pages, and the short surah-ending lines flagged in the data, print centered at
+        // the normal letter size instead of being stretched to the page.
+        const centered = data.page <= 2 || row.centered === true;
         return (
           <div
             key={row.line}
@@ -118,6 +160,7 @@ export function GlyphPageBody({
           >
             {row.words.map((word, index) => {
               const ayah = word.ayah;
+              const wordKey = `${row.line}-${index}`;
               const isFirst = !firstWordOfAyah.has(ayah);
               if (isFirst) firstWordOfAyah.add(ayah);
               const hl = highlights[ayah];
@@ -128,8 +171,14 @@ export function GlyphPageBody({
               const classes = [
                 "glyph-word",
                 hl ? `glyph-word--hl-${hl}` : "",
-                hoveredAyah === ayah ? "glyph-word--hovered" : "",
-                selectedAyah === ayah ? "glyph-word--selected" : "",
+                (wordTranslation ? hoveredWord === wordKey : hoveredAyah === ayah)
+                  ? "glyph-word--hovered"
+                  : "",
+                (wordTranslation
+                  ? selectedAyah === ayah && pickedWord === wordKey
+                  : selectedAyah === ayah)
+                  ? "glyph-word--selected"
+                  : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
                 mistake ? "glyph-word--mistake" : "",
                 blurred ? "glyph-word--blurred" : "",
@@ -142,6 +191,8 @@ export function GlyphPageBody({
                   key={`${row.line}-${index}`}
                   className={classes}
                   data-ayah={ayah}
+                  data-code={word.code}
+                  data-word={wordKey}
                   role={isFirst ? "button" : undefined}
                   tabIndex={isFirst ? 0 : undefined}
                   aria-label={
@@ -172,6 +223,20 @@ export function GlyphPageBody({
           </div>
         );
       })}
+      {tip && tipInfo && (
+        <div
+          className="word-tip"
+          role="tooltip"
+          style={{
+            left: Math.max(8, Math.min(window.innerWidth - 168, tip.rect.left + tip.rect.width / 2 - 80)),
+            top: tip.rect.top > 90 ? tip.rect.top - 8 : tip.rect.bottom + 8,
+            transform: tip.rect.top > 90 ? "translateY(-100%)" : undefined,
+          }}
+        >
+          <span className="word-tip__tr">{tipInfo.transliteration}</span>
+          <span className="word-tip__id">{tipInfo.translation}</span>
+        </div>
+      )}
     </div>
   );
 }

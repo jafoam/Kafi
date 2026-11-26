@@ -5,12 +5,37 @@ export type RepeatCount = 1 | 2 | 3 | 5 | number;
 export const REPEAT_OPTIONS: readonly RepeatCount[] = [1, 2, 3, 5, Infinity];
 export const SPEED_OPTIONS = [0.75, 1, 1.25, 1.5] as const;
 
+/**
+ * How far playback runs before it stops or loops. "continue" plays on to the end of the Quran;
+ * the others stay inside the surah, page or juz of the ayah being played, or inside a custom range.
+ */
+export type PlaybackScopeKind = "continue" | "surah" | "page" | "juz" | "custom";
+
+export interface PlaybackScope {
+  kind: PlaybackScopeKind;
+  /** At the end of the range, start again from its first ayah instead of stopping. */
+  loop: boolean;
+  /** Bounds of a "custom" scope. */
+  from?: AyahKey;
+  to?: AyahKey;
+}
+
+export interface AyahRange {
+  from: AyahKey;
+  to: AyahKey;
+}
+
+export const DEFAULT_SCOPE: PlaybackScope = { kind: "continue", loop: false };
+
 export interface AudioState {
   currentAyah: AyahKey | null;
   isPlaying: boolean;
   isLoading: boolean;
+  /** The bismillah that opens a surah is playing, before the surah's first ayah. */
+  isBismillah: boolean;
   reciterId: string;
   repeatCount: RepeatCount;
+  scope: PlaybackScope;
   speed: number;
   fromCache: boolean;
   error: string | null;
@@ -36,17 +61,21 @@ export interface AudioControllerDeps {
     ayah: number,
     signal?: AbortSignal,
   ) => Promise<{ url: string; fromCache: boolean }>;
+  /** Bounds of the page or juz that contains an ayah (the surah is worked out from `surahs`). */
+  resolveRange?: (kind: "page" | "juz", ayah: AyahKey) => AyahRange | null;
   createElement?: () => AudioElementLike;
 }
 
 export interface AudioController {
-  playAyah(surah: number, ayah: number): Promise<void>;
+  /** `withBismillah` recites the bismillah first, as when playback moves on into a new surah. */
+  playAyah(surah: number, ayah: number, withBismillah?: boolean): Promise<void>;
   togglePlay(): void;
   pause(): void;
   next(): Promise<void>;
   prev(): Promise<void>;
   setReciter(id: string): void;
   setRepeat(count: RepeatCount): void;
+  setScope(scope: PlaybackScope): void;
   setSpeed(rate: number): void;
   subscribe(fn: (s: AudioState) => void): () => void;
   dispose(): void;
@@ -55,6 +84,13 @@ export interface AudioController {
 export function parseAyahKey(key: AyahKey): { surah: number; ayah: number } {
   const [s, a] = key.split(":").map(Number);
   return { surah: s, ayah: a };
+}
+
+/** Orders ayah keys in reading order: negative when `a` comes before `b`. */
+export function compareAyahKeys(a: AyahKey, b: AyahKey): number {
+  const left = parseAyahKey(a);
+  const right = parseAyahKey(b);
+  return left.surah - right.surah || left.ayah - right.ayah;
 }
 
 export function nextAyah(
@@ -96,8 +132,10 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     currentAyah: null,
     isPlaying: false,
     isLoading: false,
+    isBismillah: false,
     reciterId: deps.reciterId,
     repeatCount: 1,
+    scope: DEFAULT_SCOPE,
     speed: 1,
     fromCache: false,
     error: null,
@@ -146,6 +184,54 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     }
   }
 
+  /** The range the current scope confines `ayah` to, or null when playback is not confined. */
+  function rangeFor(ayah: AyahKey): AyahRange | null {
+    const { scope } = state;
+    switch (scope.kind) {
+      case "continue":
+        return null;
+      case "surah": {
+        const { surah } = parseAyahKey(ayah);
+        const info = deps.surahs.find((s) => s.number === surah);
+        return info ? { from: `${surah}:1`, to: `${surah}:${info.ayahs}` } : null;
+      }
+      case "custom":
+        return scope.from && scope.to ? { from: scope.from, to: scope.to } : null;
+      default:
+        return deps.resolveRange?.(scope.kind, ayah) ?? null;
+    }
+  }
+
+  /**
+   * The ayah that follows `ayah` under the current scope, or null when playback should stop.
+   * `bismillah` is set when it starts a new surah (other than Al-Fatihah, which includes it, and
+   * At-Tawbah, which has none), so the bismillah is recited between surahs.
+   */
+  function followingAyah(
+    surah: number,
+    ayah: number,
+  ): { surah: number; ayah: number; bismillah: boolean } | null {
+    const range = rangeFor(`${surah}:${ayah}`);
+    const next = nextAyah(surah, ayah, deps.surahs);
+    let target: { surah: number; ayah: number } | null;
+    let wrapped = false;
+    if (!range) {
+      target = next;
+    } else if (next && compareAyahKeys(`${next.surah}:${next.ayah}`, range.to) <= 0) {
+      target = next;
+    } else if (state.scope.loop) {
+      target = parseAyahKey(range.from);
+      wrapped = true;
+    } else {
+      target = null;
+    }
+    if (!target) return null;
+    const opensSurah = target.ayah === 1 && target.surah !== 1 && target.surah !== 9;
+    // Looping a hand-picked range does not recite a bismillah at each wrap.
+    const bismillah = opensSurah && !(wrapped && state.scope.kind === "custom");
+    return { ...target, bismillah };
+  }
+
   async function handleEnded(seq: number, surah: number, ayah: number): Promise<void> {
     if (disposed || seq !== requestSeq) return;
 
@@ -171,16 +257,21 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       return;
     }
 
-    const next = nextAyah(surah, ayah, deps.surahs);
+    const next = followingAyah(surah, ayah);
     if (next) {
-      await playAyah(next.surah, next.ayah);
+      await playAyah(next.surah, next.ayah, next.bismillah);
     } else {
       state = { ...state, isPlaying: false };
       emit();
     }
   }
 
-  async function playAyah(surah: number, ayah: number): Promise<void> {
+  async function handleBismillahEnded(seq: number, surah: number, ayah: number): Promise<void> {
+    if (disposed || seq !== requestSeq) return;
+    await playAyah(surah, ayah);
+  }
+
+  async function playAyah(surah: number, ayah: number, withBismillah = false): Promise<void> {
     if (disposed) return;
 
     const seq = ++requestSeq;
@@ -191,8 +282,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
     audio.pause();
     loadedKey = null;
-    remainingRepeats =
-      state.repeatCount === Infinity ? Infinity : Math.max(0, state.repeatCount - 1);
+    // The bismillah plays once; the ayah's repeats start when the ayah itself does.
+    remainingRepeats = withBismillah
+      ? 0
+      : state.repeatCount === Infinity
+        ? Infinity
+        : Math.max(0, state.repeatCount - 1);
 
     const reciterId = state.reciterId;
     state = {
@@ -200,15 +295,17 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       currentAyah: `${surah}:${ayah}`,
       isLoading: true,
       isPlaying: false,
+      isBismillah: withBismillah,
       error: null,
     };
     emit();
 
     try {
+      // Al-Fatihah's first ayah is the bismillah, so every reciter has it as 1:1.
       const { url, fromCache } = await deps.getAudioBlobUrl(
         reciterId,
-        surah,
-        ayah,
+        withBismillah ? 1 : surah,
+        withBismillah ? 1 : ayah,
         abort.signal,
       );
 
@@ -219,7 +316,8 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       audio.src = url;
       audio.playbackRate = state.speed;
       audio.onended = () => {
-        void handleEnded(seq, surah, ayah);
+        if (withBismillah) void handleBismillahEnded(seq, surah, ayah);
+        else void handleEnded(seq, surah, ayah);
       };
 
       await audio.play();
@@ -292,23 +390,28 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       });
     } else {
       const { surah, ayah } = parseAyahKey(state.currentAyah);
-      void playAyah(surah, ayah);
+      void playAyah(surah, ayah, state.isBismillah);
     }
   }
 
   async function next(): Promise<void> {
     if (!state.currentAyah) return;
     const { surah, ayah } = parseAyahKey(state.currentAyah);
-    const target = nextAyah(surah, ayah, deps.surahs);
+    const target = followingAyah(surah, ayah);
     if (target) {
-      await playAyah(target.surah, target.ayah);
+      await playAyah(target.surah, target.ayah, target.bismillah);
     }
   }
 
   async function prev(): Promise<void> {
     if (!state.currentAyah) return;
     const { surah, ayah } = parseAyahKey(state.currentAyah);
-    const target = prevAyah(surah, ayah, deps.surahs);
+    const range = rangeFor(state.currentAyah);
+    // Going back from the first ayah of a looping range wraps to its last ayah.
+    const target =
+      range && state.scope.loop && compareAyahKeys(state.currentAyah, range.from) <= 0
+        ? parseAyahKey(range.to)
+        : prevAyah(surah, ayah, deps.surahs);
     if (target) {
       await playAyah(target.surah, target.ayah);
     }
@@ -322,13 +425,19 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     emit();
     if (wasActive && state.currentAyah) {
       const { surah, ayah } = parseAyahKey(state.currentAyah);
-      void playAyah(surah, ayah);
+      void playAyah(surah, ayah, state.isBismillah);
     }
   }
 
   function setRepeat(count: RepeatCount): void {
     state = { ...state, repeatCount: count };
     remainingRepeats = count === Infinity ? Infinity : Math.max(0, count - 1);
+    emit();
+  }
+
+  function setScope(scope: PlaybackScope): void {
+    if (disposed) return;
+    state = { ...state, scope: { ...scope, loop: scope.kind === "continue" ? false : scope.loop } };
     emit();
   }
 
@@ -369,6 +478,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     prev,
     setReciter,
     setRepeat,
+    setScope,
     setSpeed,
     subscribe,
     dispose,
