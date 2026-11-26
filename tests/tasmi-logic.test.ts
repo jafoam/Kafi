@@ -4,6 +4,7 @@ import {
   buildPageTasmiCandidates,
   countRecitedAyahs,
   createTasmiState,
+  recordPeekMistake,
   reduceTilawaEvent,
   computeBlurMask,
 } from "../src/services/tasmi-logic";
@@ -47,10 +48,11 @@ describe("tasmi-logic", () => {
     expect(options[1]).toMatchObject({ surah: 78, fromAyah: 31 });
   });
 
-  it("tracks locked words, reveals recited ayahs, and counts only confirmed mistakes", () => {
+  it("reveals an ayah only after full clean recitation, keeps mid-ayah mistakes, and counts peeks as mistakes", () => {
     let st = createTasmiState("memorization", { surah: 1, fromAyah: 1, toAyah: 7 });
     const words = () => ["بِسْمِ", "ٱللَّهِ", "ٱلرَّحْمَـٰنِ", "ٱلرَّحِيمِ"];
 
+    // Word 2 of 4 -> still mid-ayah, so NOT revealed yet
     st = reduceTilawaEvent(
       st,
       {
@@ -76,9 +78,36 @@ describe("tasmi-logic", () => {
       words,
     );
     expect(st.activeAyah).toBe("1:1");
-    expect(st.revealedAyahs.has("1:1")).toBe(true);
+    expect(st.revealedAyahs.has("1:1")).toBe(false);
     expect(st.recitedWords.size).toBe(2);
     expect(countRecitedAyahs(st)).toBe(1);
+
+    // Word 4 of 4 with zero mistakes -> ayah 1:1 is now revealed!
+    st = reduceTilawaEvent(
+      st,
+      {
+        v: 1,
+        type: "position",
+        timeMs: 800,
+        referenceVersion: "ref-v2",
+        state: "locked",
+        observed: [
+          {
+            word: { surah: 1, ayah: 1, word: 4 },
+            span: {
+              start: { surah: 1, ayah: 1, word: 3 },
+              end: { surah: 1, ayah: 1, word: 4 },
+            },
+            confidence: 0.9,
+            cost: 0.1,
+            per: 0.05,
+          },
+        ],
+        expected: { surah: 1, ayah: 2, word: 1 },
+      } as any,
+      words,
+    );
+    expect(st.revealedAyahs.has("1:1")).toBe(true);
 
     // suspected -> should NOT appear in confirmedMistakes
     st = reduceTilawaEvent(
@@ -97,7 +126,7 @@ describe("tasmi-logic", () => {
     );
     expect(st.confirmedMistakes).toHaveLength(0);
 
-    // confirmed -> counted once with Uthmani word text
+    // confirmed -> counted once with Uthmani word text and un-reveals the flagged ayah
     st = reduceTilawaEvent(
       st,
       {
@@ -114,8 +143,9 @@ describe("tasmi-logic", () => {
     );
     expect(st.confirmedMistakes).toHaveLength(1);
     expect(st.confirmedMistakes[0].wordText).toBe("ٱلرَّحْمَـٰنِ");
+    expect(st.revealedAyahs.has("1:1")).toBe(false);
 
-    // resolved later -> removed from confirmedMistakes (self-corrected)
+    // resolved later -> mid-ayah mistake STILL counts as a mistake
     st = reduceTilawaEvent(
       st,
       {
@@ -130,7 +160,16 @@ describe("tasmi-logic", () => {
       } as any,
       words,
     );
-    expect(st.confirmedMistakes).toHaveLength(0);
+    expect(st.confirmedMistakes).toHaveLength(1);
+
+    // peeking a blurred ayah without reciting counts as a mistake
+    st = recordPeekMistake(st, "1:2");
+    expect(st.confirmedMistakes).toHaveLength(2);
+    expect(st.confirmedMistakes[1]).toMatchObject({
+      errorClass: "peeked",
+      surah: 1,
+      ayah: 2,
+    });
   });
 
   it("handles blur mask modes off, all, and tasmi with revealed and peeked ayahs", () => {

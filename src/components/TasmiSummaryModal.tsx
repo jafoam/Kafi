@@ -19,6 +19,7 @@ const BREAKDOWN_CLASSES = [
   "omitted_word",
   "added_word",
   "skipped_passage",
+  "peeked",
 ] as const;
 
 function formatDuration(sec: number): string {

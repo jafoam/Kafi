@@ -53,54 +53,77 @@ export function resolveOrtWasmPaths(
 export function createTilawaController(platform: PlatformAdapter): TilawaController {
   let tilawa: Tilawa | null = null;
   let initPromise: Promise<Tilawa> | null = null;
+  let lastProgress: LoadProgress | null = null;
+  const progressListeners = new Set<(p: LoadProgress) => void>();
   let activeSession: TilawaSession | null = null;
   let activeUnsub: (() => void) | null = null;
   let activeWebMic: Microphone | null = null;
   let activeNativeMicStop: (() => Promise<void>) | null = null;
   let stopPromise: Promise<CheckerEvent[]> | null = null;
 
+  function emitProgress(p: LoadProgress): void {
+    lastProgress = p;
+    for (const fn of progressListeners) fn(p);
+  }
+
   async function ensureTilawa(
     onProgress?: (p: LoadProgress) => void,
     signal?: AbortSignal,
   ): Promise<Tilawa> {
     if (tilawa) return tilawa;
-    if (initPromise) return initPromise;
+    if (onProgress) {
+      progressListeners.add(onProgress);
+      if (lastProgress) onProgress(lastProgress);
+    }
 
-    initPromise = (async () => {
-      const [{ createTilawa }, refMod] = await Promise.all([
-        import("@tilawa/core/web"),
-        import("@tilawa/core/assets/ref-v2.json"),
-      ]);
-      const reference = (refMod.default ?? refMod) as unknown as ReferenceAsset;
-      let wasmPaths = resolveOrtWasmPaths(platform.isDesktop);
-      if (!platform.isDesktop && !wasmPaths) {
-        // Web: use the gzipped same-origin WASM; falls back to the tilawa.dev CDN if unavailable.
-        const wasm = await loadGzippedOrtWasm(undefined, { signal });
-        if (wasm) {
-          const ort = await import("onnxruntime-web/all");
-          ort.env.wasm.wasmBinary = wasm;
-          wasmPaths = "/ort/";
+    const cleanupListener = () => {
+      if (onProgress) progressListeners.delete(onProgress);
+    };
+
+    if (!initPromise) {
+      lastProgress = null;
+      initPromise = (async () => {
+        const [{ createTilawa }, refMod] = await Promise.all([
+          import("@tilawa/core/web"),
+          import("@tilawa/core/assets/ref-v2.json"),
+        ]);
+        const reference = (refMod.default ?? refMod) as unknown as ReferenceAsset;
+        let wasmPaths = resolveOrtWasmPaths(platform.isDesktop);
+        if (!platform.isDesktop && !wasmPaths) {
+          // Web: use the gzipped same-origin WASM; falls back to the tilawa.dev CDN if unavailable.
+          const wasm = await loadGzippedOrtWasm(undefined, { signal });
+          if (wasm) {
+            const ort = await import("onnxruntime-web/all");
+            ort.env.wasm.wasmBinary = wasm;
+            wasmPaths = "/ort/";
+          }
         }
-      }
-      const instance = await createTilawa({
-        ...(wasmPaths ? { wasmPaths } : {}),
-        // Skip WebGPU: onnxruntime-web 1.30.0 fails on /Expand_6 (Failed to run JSEP kernel).
-        providers: ["wasm"],
-        storage: platform.createTilawaStorage(),
-        reference,
-        onProgress,
-        signal,
+        const instance = await createTilawa({
+          ...(wasmPaths ? { wasmPaths } : {}),
+          // Skip WebGPU: onnxruntime-web 1.30.0 fails on /Expand_6 (Failed to run JSEP kernel).
+          providers: ["wasm"],
+          storage: platform.createTilawaStorage(),
+          reference,
+          onProgress: emitProgress,
+          signal,
+        });
+        tilawa = instance;
+        lastProgress = null;
+        // Ask the browser not to evict the downloaded model when storage runs low.
+        void navigator.storage?.persist?.().catch(() => undefined);
+        return instance;
+      })().catch((err) => {
+        initPromise = null;
+        lastProgress = null;
+        throw err;
       });
-      tilawa = instance;
-      // Ask the browser not to evict the downloaded model when storage runs low.
-      void navigator.storage?.persist?.().catch(() => undefined);
-      return instance;
-    })().catch((err) => {
-      initPromise = null;
-      throw err;
-    });
+    }
 
-    return initPromise;
+    try {
+      return await initPromise;
+    } finally {
+      cleanupListener();
+    }
   }
 
   async function stopActive(): Promise<CheckerEvent[]> {
@@ -217,7 +240,10 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
     },
 
     async startMemorization(passage, onEvent) {
-      await startSession((engine) => engine.startMemorization(passage), onEvent);
+      await startSession(
+        (engine) => engine.startMemorization(passage, { countSelfCorrections: true }),
+        onEvent,
+      );
     },
 
     stop() {

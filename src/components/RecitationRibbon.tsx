@@ -7,6 +7,8 @@ export interface RecitationRibbonProps {
   surahs: SurahInfo[];
   blurActive: boolean;
   isPeeking: boolean;
+  /** Non-null while the Tasmi' engine or microphone is still initializing. */
+  startingStatus?: string | null;
   getAyahWords: (surah: number, ayah: number) => string[];
   onStop: () => void;
 }
@@ -23,6 +25,7 @@ export function RecitationRibbon({
   surahs,
   blurActive,
   isPeeking,
+  startingStatus = null,
   getAyahWords,
   onStop,
 }: RecitationRibbonProps) {
@@ -56,12 +59,13 @@ export function RecitationRibbon({
         <div className="recitation-ribbon__bar">
           <div className="recitation-ribbon__status">
             <span
-              className={`recitation-ribbon__dot recitation-ribbon__dot--${state.trackerState}`}
+              className={`recitation-ribbon__dot recitation-ribbon__dot--${startingStatus ? "acquiring" : state.trackerState}`}
               aria-hidden="true"
             />
             <span className="recitation-ribbon__state-text">
-              {state.mode === "memorization" ? "Tasmi'" : "Baca Bebas"} ·{" "}
-              {TRACKER_LABELS[state.trackerState]}
+              {startingStatus
+                ? startingStatus
+                : `${state.mode === "memorization" ? "Tasmi'" : "Baca Bebas"} · ${TRACKER_LABELS[state.trackerState]}`}
             </span>
             {activeWord && (
               <span className="recitation-ribbon__loc">
@@ -90,7 +94,7 @@ export function RecitationRibbon({
               className="recitation-ribbon__stop-btn"
               onClick={onStop}
             >
-              Selesai
+              {startingStatus ? "Batalkan" : "Selesai"}
             </button>
           </div>
         </div>

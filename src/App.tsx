@@ -34,6 +34,7 @@ import {
   computeBlurMask,
   countRecitedAyahs,
   createTasmiState,
+  recordPeekMistake,
   reduceTilawaEvent,
   type DeclaredPassage,
   type TasmiLiveState,
@@ -751,6 +752,21 @@ export function App({
       const abort = new AbortController();
       tilawaAbortRef.current = abort;
 
+      // Close sheet immediately and show the live ribbon + blur so startup feels responsive.
+      const initial = createTasmiState(mode, passage);
+      tasmiStateRef.current = initial;
+      tasmiStartedAtRef.current = Date.now();
+      setTasmiState(initial);
+      setTasmiBlurEnabled(mode === "memorization" ? enableBlur : false);
+      setPeekedAyah(null);
+      setTasmiSheetOpen(false);
+      if (mode === "memorization" && passage) {
+        const startPage = getPagesForAyah(`${passage.surah}:${passage.fromAyah}`)[0];
+        if (startPage && startPage !== rightPage && startPage !== leftPage) {
+          navigateToPage(startPage);
+        }
+      }
+
       try {
         const [lookup] = await Promise.all([
           ensureWordLookup(),
@@ -762,13 +778,6 @@ export function App({
 
         if (!mountedRef.current || abort.signal.aborted) return;
         setModelLoading(null);
-
-        const initial = createTasmiState(mode, passage);
-        tasmiStateRef.current = initial;
-        tasmiStartedAtRef.current = Date.now();
-        setTasmiState(initial);
-        setTasmiBlurEnabled(mode === "memorization" ? enableBlur : false);
-        setPeekedAyah(null);
 
         const onEvent = (event: EngineEvent) => {
           if (!mountedRef.current) return;
@@ -782,27 +791,25 @@ export function App({
           await tilawaController.startFree(onEvent);
         } else if (passage) {
           await tilawaController.startMemorization(passage, onEvent);
-          const startPage = mushafMap.ayahToPage[`${passage.surah}:${passage.fromAyah}`];
-          if (startPage && startPage !== rightPage && startPage !== leftPage) {
-            navigateToPage(startPage);
-          }
         }
 
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || abort.signal.aborted) return;
         setTasmiActive(true);
-        setTasmiSheetOpen(false);
       } catch (err) {
         if (!mountedRef.current) return;
         setModelLoading(null);
+        tasmiStateRef.current = null;
+        setTasmiState(null);
         if (abort.signal.aborted) return;
         const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
         setTasmiError(message);
+        setTasmiSheetOpen(true);
       } finally {
         tasmiStartingRef.current = false;
         if (mountedRef.current) setTasmiStarting(false);
       }
     },
-    [audioController, ensureWordLookup, tilawaController, rightPage, leftPage, navigateToPage],
+    [audioController, ensureWordLookup, tilawaController, getPagesForAyah, rightPage, leftPage, navigateToPage],
   );
 
   const handleStopTasmi = useCallback(async () => {
@@ -850,7 +857,13 @@ export function App({
 
   const handlePeekAyah = useCallback(
     (ayah: AyahKey) => {
-      if (tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled) {
+      if ((tasmiActive || tasmiStarting) && tasmiState?.mode === "memorization" && tasmiBlurEnabled) {
+        // Peeking a blurred ayah without reciting it counts as a mistake.
+        if (tasmiActive && tasmiStateRef.current) {
+          const next = recordPeekMistake(tasmiStateRef.current, ayah);
+          tasmiStateRef.current = next;
+          setTasmiState(next);
+        }
         setPeekedAyah(ayah);
         if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
         peekTimerRef.current = window.setTimeout(() => {
@@ -864,7 +877,7 @@ export function App({
         return next;
       });
     },
-    [tasmiActive, tasmiState?.mode, tasmiBlurEnabled],
+    [tasmiActive, tasmiStarting, tasmiState?.mode, tasmiBlurEnabled],
   );
 
   // Bind Space (play/pause), M (Tasmi'), and H (Hifz blur) when not typing in an editable control
@@ -947,7 +960,7 @@ export function App({
   );
 
   const isTasmiBlurActive = Boolean(
-    tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
+    (tasmiActive || tasmiStarting) && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
   );
 
   useBackClose(paletteOpen, () => setPaletteOpen(false));
@@ -1065,9 +1078,24 @@ export function App({
     [platform],
   );
 
+  const tasmiStartingStatus = useMemo(() => {
+    if (!tasmiStarting) return null;
+    if (modelLoading) {
+      const pct = Math.round(modelLoading.fraction * 100);
+      if (modelLoading.stage === "model") {
+        return modelLoading.fromCache
+          ? `Memuat model dari cache (${pct}%)…`
+          : `Mengunduh model suara (${pct}%)…`;
+      }
+      if (modelLoading.stage === "warmup") return "Menyiapkan mesin Tasmi'…";
+      return "Menyiapkan teks Al-Qur'an…";
+    }
+    return "Membuka mikrofon…";
+  }, [tasmiStarting, modelLoading]);
+
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -1247,15 +1275,26 @@ export function App({
         onToggleBookmark={handleToggleBookmark}
       />
 
-      {tasmiActive && tasmiState && (
+      {(tasmiActive || tasmiStarting) && tasmiState && (
         <RecitationRibbon
           state={tasmiState}
           surahs={catalog.surahs}
           blurActive={isTasmiBlurActive}
           isPeeking={peekedAyah !== null}
+          startingStatus={tasmiStartingStatus}
           getAyahWords={wordLookup}
           onStop={() => {
-            void handleStopTasmi();
+            if (tasmiStarting) {
+              tilawaAbortRef.current?.abort();
+              tilawaAbortRef.current = null;
+              setModelLoading(null);
+              tasmiStateRef.current = null;
+              setTasmiState(null);
+              setTasmiStarting(false);
+              tasmiStartingRef.current = false;
+            } else {
+              void handleStopTasmi();
+            }
           }}
         />
       )}
