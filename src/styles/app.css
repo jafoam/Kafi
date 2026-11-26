@@ -349,6 +349,15 @@ textarea:focus-visible {
   font-family: "Geeza Pro", "Noto Naskh Arabic", "Amiri", serif;
 }
 
+/* Amiri Bold subset to the letters of the 114 surah names, so the banner looks the same on every device
+   (Android has no Amiri and fell back to a different Arabic font). */
+@font-face {
+  font-family: "AmiriSurahNames";
+  src: url("../assets/fonts/amiri-surah-names.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 .surah-banner {
   --banner-fill: var(--accent);
   --banner-ink: #ffffff;
@@ -374,7 +383,7 @@ textarea:focus-visible {
 }
 
 .surah-banner__name {
-  font-family: var(--font-arabic);
+  font-family: "AmiriSurahNames", var(--font-arabic);
   /* Same size on every page; a touch under the ayah letters so the vowel marks stay inside the band. */
   font-size: 0.68em;
   font-weight: 700;
