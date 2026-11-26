@@ -29,10 +29,12 @@ jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
     steps:
       - uses: actions/checkout@v4
+
+      # The env context is not available in job-level env, so export the runner's NDK path here.
+      - name: Point NDK_HOME at the runner NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
