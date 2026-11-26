@@ -9,6 +9,7 @@ import type {
 } from "@tilawa/core";
 import type { PlatformAdapter } from "../platform/types";
 import type { DeclaredPassage } from "./tasmi-logic";
+import { loadGzippedOrtWasm } from "./ort-wasm";
 
 export interface TilawaController {
   ensureReady(onProgress?: (p: LoadProgress) => void, signal?: AbortSignal): Promise<void>;
@@ -69,7 +70,16 @@ export function createTilawaController(platform: PlatformAdapter): TilawaControl
         import("@tilawa/core/assets/ref-v2.json"),
       ]);
       const reference = (refMod.default ?? refMod) as unknown as ReferenceAsset;
-      const wasmPaths = resolveOrtWasmPaths(platform.isDesktop);
+      let wasmPaths = resolveOrtWasmPaths(platform.isDesktop);
+      if (!platform.isDesktop && !wasmPaths) {
+        // Web: use the gzipped same-origin WASM; falls back to the tilawa.dev CDN if unavailable.
+        const wasm = await loadGzippedOrtWasm(undefined, { signal });
+        if (wasm) {
+          const ort = await import("onnxruntime-web/all");
+          ort.env.wasm.wasmBinary = wasm;
+          wasmPaths = "/ort/";
+        }
+      }
       const instance = await createTilawa({
         ...(wasmPaths ? { wasmPaths } : {}),
         storage: platform.createTilawaStorage(),

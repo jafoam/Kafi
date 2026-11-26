@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import zlib from "node:zlib";
 import { defaultClientConditions } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
@@ -37,9 +38,22 @@ function copyOrtAssetsPlugin() {
       }
     },
     closeBundle() {
-      // Keep Cloudflare / web builds under 25 MB: ORT WASM is loaded from tilawa.dev CDN on web.
+      // Web builds ship the ORT WASM gzipped (the raw 27 MB file exceeds the 25 MiB Pages limit).
       if (!bundleOrt) {
-        fs.rmSync(path.resolve(process.cwd(), "dist/ort"), { recursive: true, force: true });
+        const outDir = path.resolve(process.cwd(), "dist/ort");
+        fs.rmSync(outDir, { recursive: true, force: true });
+        // Ship the WASM gzipped (~6.6 MB) so each file stays under Cloudflare Pages' 25 MiB limit.
+        const srcDir = path.resolve(process.cwd(), "node_modules/onnxruntime-web/dist");
+        const wasm = path.join(srcDir, "ort-wasm-simd-threaded.jsep.wasm");
+        const mjs = path.join(srcDir, "ort-wasm-simd-threaded.jsep.mjs");
+        if (!process.env.VITEST && fs.existsSync(wasm) && fs.existsSync(mjs)) {
+          fs.mkdirSync(outDir, { recursive: true });
+          fs.copyFileSync(mjs, path.join(outDir, "ort-wasm-simd-threaded.jsep.mjs"));
+          fs.writeFileSync(
+            path.join(outDir, "ort-wasm-simd-threaded.jsep.wasm.gz"),
+            zlib.gzipSync(fs.readFileSync(wasm), { level: 9 }),
+          );
+        }
       }
       // Omit local mushaf pages when desktop bundles them via resources or web serves them from CDN/CF Pages.
       if (process.env.TAURI_ENV_PLATFORM || process.env.VITE_MUSHAF_BASE_URL || process.env.CF_PAGES) {

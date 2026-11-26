@@ -36,7 +36,7 @@ Perintah tersebut mengekstrak 604 halaman Mushaf Madinah ke `public/mushaf/pages
 
 Build produksi web dirancang agar **seluruh output `dist/` (~6.6 MB) dan setiap file individual berada jauh di bawah batas 25 MiB Cloudflare Pages**:
 
-- **ONNX Runtime WASM** (~27 MB) tidak dibundel ke `dist/ort/` pada build web; `@tilawa/core` memuatnya langsung dari CDN `tilawa.dev` (dapat ditimpa lewat `VITE_ORT_WASM_PATH` bila ingin self-host di R2/CDN). Service worker menyimpan file WASM ini (cache-first) sehingga hanya diunduh sekali, dan model Tasmi' diminta `navigator.storage.persist()` agar tidak dihapus browser.
+- **ONNX Runtime WASM** (27 MB mentah) dikirim sebagai `dist/ort/*.wasm.gz` (~6,6 MB, di bawah batas 25 MiB). Aplikasi mengunduh dan membukanya di browser (`src/services/ort-wasm.ts`) lalu memberikannya ke ONNX Runtime; bila gagal, `@tilawa/core` memuat dari CDN `tilawa.dev`. `VITE_ORT_WASM_PATH` tetap bisa dipakai untuk self-host di R2/CDN. Service worker menyimpan file ini (cache-first) sehingga hanya diunduh sekali, dan model Tasmi' diminta `navigator.storage.persist()` agar tidak dihapus browser.
 - **Halaman Mushaf** (`001.gif`–`604.gif`) tidak masuk repositori dan disajikan melalui `VITE_MUSHAF_BASE_URL` (misalnya Cloudflare R2 atau CDN statis dengan header CORS).
 
 ```bash
