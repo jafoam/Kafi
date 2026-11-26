@@ -30,6 +30,7 @@ export interface StudyDrawerProps {
   onSetHighlight: (ayah: AyahKey, color: HighlightColor | null) => void;
   onSaveNote: (ayah: AyahKey, text: string) => void;
   onPlayAyah: (ayah: AyahKey) => void;
+  onOpenDownloads?: (tab: "translation" | "tafsir") => void;
 }
 
 const HIGHLIGHT_OPTIONS: Array<{ color: HighlightColor; label: string }> = [
@@ -73,6 +74,7 @@ export function StudyDrawer({
   onSetHighlight,
   onSaveNote,
   onPlayAyah,
+  onOpenDownloads,
 }: StudyDrawerProps) {
   const [tab, setTab] = useState<StudyTab>("terjemahan");
   const [translationState, setTranslationState] = useState<FetchState>(INITIAL_FETCH);
@@ -280,6 +282,16 @@ export function StudyDrawer({
                   {translationState.fromCache ? "Tersimpan offline" : "Online"}
                 </span>
               )}
+              {onOpenDownloads && (
+                <button
+                  type="button"
+                  className="study-drawer__dl-btn"
+                  onClick={() => onOpenDownloads("translation")}
+                  title="Unduh seluruh terjemahan untuk offline"
+                >
+                  Unduh
+                </button>
+              )}
             </div>
 
             {translationState.status === "loading" && (
@@ -336,6 +348,16 @@ export function StudyDrawer({
                 >
                   {tafsirState.fromCache ? "Tersimpan offline" : "Online"}
                 </span>
+              )}
+              {onOpenDownloads && (
+                <button
+                  type="button"
+                  className="study-drawer__dl-btn"
+                  onClick={() => onOpenDownloads("tafsir")}
+                  title="Unduh seluruh tafsir untuk offline"
+                >
+                  Unduh
+                </button>
               )}
             </div>
 

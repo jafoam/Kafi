@@ -28,6 +28,7 @@ import {
 import { isSurahComplete } from "./services/audio-downloads";
 import { juzRange, pageRange } from "./services/playback-ranges";
 import { useAudioDownloads } from "./state/useAudioDownloads";
+import { useTextDownloads } from "./state/useTextDownloads";
 import { createQuranApi } from "./services/quran-api";
 import {
   buildMistakeBadges,
@@ -50,7 +51,7 @@ import {
   turnPage,
 } from "./state/reader-logic";
 import { AudioDock } from "./components/AudioDock";
-import { AudioDownloadsPanel } from "./components/AudioDownloadsPanel";
+import { AudioDownloadsPanel, type DownloadsTab } from "./components/AudioDownloadsPanel";
 import { FocusExit } from "./components/FocusExit";
 import { TasmiLauncher } from "./components/TasmiLauncher";
 import { AyahPopover } from "./components/AyahPopover";
@@ -145,6 +146,7 @@ export function App({
   const userStore = useMemo(() => createUserStore(platform), [platform]);
   const quranApi = useMemo(() => createQuranApi(platform), [platform]);
   const tilawaController = useMemo(() => createTilawaController(platform), [platform]);
+  const tilawaStorage = useMemo(() => platform.createTilawaStorage(), [platform]);
   const glyphLoader = useMemo(() => createGlyphPageLoader(), []);
   const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
   const [ayahPages, setAyahPages] = useState<Map<AyahKey, number[]> | null>(null);
@@ -205,6 +207,7 @@ export function App({
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyAyah, setStudyAyah] = useState<AyahKey | null>(null);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [downloadsTab, setDownloadsTab] = useState<DownloadsTab>("audio");
   const [toast, setToast] = useState<string | null>(null);
 
   const [tasmiSheetOpen, setTasmiSheetOpen] = useState(false);
@@ -616,6 +619,18 @@ export function App({
     folder: reciterById.get(audioState.reciterId)?.subfolder ?? audioState.reciterId,
   });
 
+  const textDownloads = useTextDownloads({
+    platform,
+    api: quranApi,
+    translations: catalog.translations,
+    tafsirs: catalog.tafsirs,
+  });
+
+  const openDownloads = useCallback((tab: DownloadsTab = "audio") => {
+    setDownloadsTab(tab);
+    setDownloadsOpen(true);
+  }, []);
+
   // One tap on the player's button saves the surah being read; when it is saved or already
   // downloading, the same button opens the download screen to manage it.
   const handleDockDownload = useCallback(() => {
@@ -623,11 +638,21 @@ export function App({
     const saved = isSurahComplete(downloads.status?.bySurah.get(activeSurah.number));
     const downloading = downloads.state.phase !== "idle";
     if (saved || downloading) {
-      setDownloadsOpen(true);
+      openDownloads("audio");
       return;
     }
     downloads.start([activeSurah.number]);
-  }, [activeSurah, downloads]);
+  }, [activeSurah, downloads, openDownloads]);
+
+  // Tell the reader when a text download finishes.
+  const prevTextPhaseRef = useRef(textDownloads.state.phase);
+  useEffect(() => {
+    const was = prevTextPhaseRef.current;
+    prevTextPhaseRef.current = textDownloads.state.phase;
+    if (was !== "running" || textDownloads.state.phase !== "idle") return;
+    const label = textDownloads.state.kind === "tafsir" ? "Tafsir" : "Terjemahan";
+    showToast(`${label} tersimpan offline`);
+  }, [textDownloads.state.phase, textDownloads.state.kind, showToast]);
 
   // Tell the reader when a download finishes.
   const previousPhaseRef = useRef(downloads.state.phase);
@@ -1110,7 +1135,6 @@ export function App({
         focusMode={focusMode}
         wordTranslation={userData.settings.wordTranslation}
         theme={userData.settings.theme}
-        offline={offlinePages}
         pwaInstall={pwaInstall}
         onOpenPalette={(tab = "surah") => {
           setPaletteTab(tab);
@@ -1130,11 +1154,12 @@ export function App({
         }
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
-        onOpenDownloads={() => setDownloadsOpen(true)}
+        onOpenDownloads={() => openDownloads("audio")}
       />
 
       {downloadsOpen && (
         <AudioDownloadsPanel
+          initialTab={downloadsTab}
           surahs={catalog.surahs}
           reciters={catalog.reciters}
           reciterId={audioState.reciterId}
@@ -1143,6 +1168,15 @@ export function App({
           juzNumber={juzNumber}
           juzSurahs={activeJuzSurahs}
           downloads={downloads}
+          translations={catalog.translations}
+          tafsirs={catalog.tafsirs}
+          activeTranslationId={userData.settings.translationId}
+          activeTafsirId={userData.settings.tafsirId}
+          textDownloads={textDownloads}
+          offlinePages={offlinePages}
+          isDesktop={platform.isDesktop}
+          tilawaStorage={tilawaStorage}
+          onDownloadTilawa={(onProgress, signal) => tilawaController.ensureReady(onProgress, signal)}
           onClose={() => setDownloadsOpen(false)}
         />
       )}
@@ -1259,6 +1293,7 @@ export function App({
         onSetHighlight={handleSetHighlight}
         onSaveNote={handleSaveNote}
         onPlayAyah={handlePlayAyah}
+        onOpenDownloads={(tab) => openDownloads(tab)}
       />
 
       <NavPalette
@@ -1283,6 +1318,8 @@ export function App({
           isPeeking={peekedAyah !== null}
           startingStatus={tasmiStartingStatus}
           getAyahWords={wordLookup}
+          glyphLoader={glyphLoader}
+          ayahToPage={mushafMap.ayahToPage}
           onStop={() => {
             if (tasmiStarting) {
               tilawaAbortRef.current?.abort();

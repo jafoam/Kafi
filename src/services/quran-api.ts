@@ -37,6 +37,16 @@ export interface QuranApi {
     onProgress: (done: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<void>;
+  downloadSurahTranslation(
+    translationId: number,
+    surah: number,
+    signal?: AbortSignal,
+  ): Promise<void>;
+  downloadSurahTafsir(
+    tafsirId: string,
+    surah: number,
+    signal?: AbortSignal,
+  ): Promise<void>;
   dispose(): void;
 }
 
@@ -89,6 +99,18 @@ export function audioCacheKey(reciterFolder: string, surah: number, ayah: number
   return safeCacheKey(`${reciterFolder}_${pad3(surah)}${pad3(ayah)}`);
 }
 
+/** Cache key of one surah's bulk-downloaded translation. */
+export function translationSurahCacheKey(translationId: number, surah: number): string {
+  return safeCacheKey(`${translationId}_s${surah}`);
+}
+
+/** Cache key of one surah's tafsir (reuses equran-id's existing per-surah key). */
+export function tafsirSurahCacheKey(tafsirId: string, surah: number): string {
+  return tafsirId === "equran-id"
+    ? safeCacheKey(`equran-id_${surah}`)
+    : safeCacheKey(`${tafsirId}_s${surah}`);
+}
+
 export function buildEveryAyahUrl(
   reciterFolder: string,
   surah: number,
@@ -132,6 +154,17 @@ export function createQuranApi(
     ayah: number,
     signal?: AbortSignal,
   ): Promise<ContentResult> {
+    const surahCached = await platform.cacheGet(
+      "translation",
+      translationSurahCacheKey(translationId, surah),
+    );
+    if (surahCached) {
+      const parsed = decodeJson<CachedSurahTafsirEntry>(surahCached);
+      if (parsed && parsed.ayahs) {
+        return { html: parsed.ayahs[String(ayah)] ?? "", fromCache: true };
+      }
+    }
+
     const key = safeCacheKey(`${translationId}_${surah}_${ayah}`);
     const cached = await platform.cacheGet("translation", key);
     if (cached) {
@@ -154,20 +187,11 @@ export function createQuranApi(
     return { html, fromCache: false };
   }
 
-  async function getEquranTafsir(
+  async function fetchAndCacheEquranTafsir(
     surah: number,
-    ayah: number,
     signal?: AbortSignal,
-  ): Promise<ContentResult> {
-    const key = safeCacheKey(`equran-id_${surah}`);
-    const cached = await platform.cacheGet("tafsir", key);
-    if (cached) {
-      const parsed = decodeJson<CachedSurahTafsirEntry>(cached);
-      if (parsed && parsed.ayahs) {
-        return { html: parsed.ayahs[String(ayah)] ?? "", fromCache: true };
-      }
-    }
-
+  ): Promise<Record<string, string>> {
+    const key = tafsirSurahCacheKey("equran-id", surah);
     const url = `https://equran.id/api/v2/tafsir/${surah}`;
     const data = await fetchJson<{
       code?: number;
@@ -189,6 +213,24 @@ export function createQuranApi(
     if (Object.keys(ayahs).length > 0) {
       await platform.cachePut("tafsir", key, encodeJson({ ayahs }));
     }
+    return ayahs;
+  }
+
+  async function getEquranTafsir(
+    surah: number,
+    ayah: number,
+    signal?: AbortSignal,
+  ): Promise<ContentResult> {
+    const key = tafsirSurahCacheKey("equran-id", surah);
+    const cached = await platform.cacheGet("tafsir", key);
+    if (cached) {
+      const parsed = decodeJson<CachedSurahTafsirEntry>(cached);
+      if (parsed && parsed.ayahs) {
+        return { html: parsed.ayahs[String(ayah)] ?? "", fromCache: true };
+      }
+    }
+
+    const ayahs = await fetchAndCacheEquranTafsir(surah, signal);
     return { html: ayahs[String(ayah)] ?? "", fromCache: false };
   }
 
@@ -200,6 +242,14 @@ export function createQuranApi(
   ): Promise<ContentResult> {
     if (tafsirId === "equran-id") {
       return getEquranTafsir(surah, ayah, signal);
+    }
+
+    const surahCached = await platform.cacheGet("tafsir", tafsirSurahCacheKey(tafsirId, surah));
+    if (surahCached) {
+      const parsed = decodeJson<CachedSurahTafsirEntry>(surahCached);
+      if (parsed && parsed.ayahs) {
+        return { html: parsed.ayahs[String(ayah)] ?? "", fromCache: true };
+      }
     }
 
     const key = safeCacheKey(`${tafsirId}_${surah}_${ayah}`);
@@ -218,6 +268,76 @@ export function createQuranApi(
       await platform.cachePut("tafsir", key, encodeJson({ html }));
     }
     return { html, fromCache: false };
+  }
+
+  async function downloadSurahTranslation(
+    translationId: number,
+    surah: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const key = translationSurahCacheKey(translationId, surah);
+    if (await platform.cacheHas("translation", key)) return;
+
+    const url = `https://api.quran.com/api/v4/quran/translations/${translationId}?chapter_number=${surah}`;
+    const data = await fetchJson<{
+      translations?: Array<{ text?: string }>;
+    }>(url, signal);
+
+    const ayahs: Record<string, string> = {};
+    const list = data.translations ?? [];
+    for (let i = 0; i < list.length; i++) {
+      ayahs[String(i + 1)] = sanitizeHtml(list[i]?.text ?? "");
+    }
+    if (Object.keys(ayahs).length === 0) {
+      throw new Error(`Empty translation ${translationId} for surah ${surah}`);
+    }
+    await platform.cachePut("translation", key, encodeJson({ ayahs }));
+  }
+
+  async function downloadSurahTafsir(
+    tafsirId: string,
+    surah: number,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const key = tafsirSurahCacheKey(tafsirId, surah);
+    if (await platform.cacheHas("tafsir", key)) return;
+
+    if (tafsirId === "equran-id") {
+      const ayahs = await fetchAndCacheEquranTafsir(surah, signal);
+      if (Object.keys(ayahs).length === 0) {
+        throw new Error(`Empty equran.id tafsir for surah ${surah}`);
+      }
+      return;
+    }
+
+    const ayahs: Record<string, string> = {};
+    let page = 1;
+    while (true) {
+      const url = `https://api.quran.com/api/v4/tafsirs/${encodeURIComponent(tafsirId)}/by_chapter/${surah}?per_page=300&page=${page}`;
+      const data = await fetchJson<{
+        tafsirs?: Array<{ verse_key?: string; text?: string }>;
+        pagination?: { next_page?: number | null };
+      }>(url, signal);
+
+      for (const item of data.tafsirs ?? []) {
+        const ayahNum = Number(item.verse_key?.split(":")[1]);
+        if (Number.isFinite(ayahNum) && ayahNum > 0) {
+          ayahs[String(ayahNum)] = sanitizeHtml(item.text ?? "");
+        }
+      }
+
+      const nextPage = data.pagination?.next_page;
+      if (typeof nextPage === "number" && nextPage > page) {
+        page = nextPage;
+      } else {
+        break;
+      }
+    }
+
+    if (Object.keys(ayahs).length === 0) {
+      throw new Error(`Empty tafsir ${tafsirId} for surah ${surah}`);
+    }
+    await platform.cachePut("tafsir", key, encodeJson({ ayahs }));
   }
 
   async function fetchAudioBytes(
@@ -312,6 +432,8 @@ export function createQuranApi(
     getTafsir,
     getAudioBlobUrl,
     downloadSurahAudio,
+    downloadSurahTranslation,
+    downloadSurahTafsir,
     dispose,
   };
 }
