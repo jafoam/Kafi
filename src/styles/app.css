@@ -1074,6 +1074,9 @@ textarea:focus-visible {
 }
 
 .audio-dock__pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   height: 30px;
   padding: 0 10px;
   border-radius: var(--radius-pill);
@@ -2060,21 +2063,95 @@ textarea:focus-visible {
   margin-top: 2px;
 }
 
+/* Icons used only in compact (mobile) layouts */
+.topbar__icon,
+.audio-dock__pill-icon {
+  display: none;
+  flex-shrink: 0;
+}
+
+.topbar__location-name,
+.topbar__location-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
+  .topbar-zone {
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 0;
+  }
+
   .topbar {
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 4px;
+    gap: 4px;
   }
 
   .topbar__brand,
   .topbar__kbd,
-  .topbar__segmented {
+  .topbar__segmented,
+  .topbar__label {
     display: none;
   }
 
+  .topbar__left {
+    flex: 1 1 auto;
+  }
+
+  .topbar__right {
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+
+  .topbar__location-pill {
+    max-width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 12px;
+    gap: 6px;
+  }
+
+  .topbar__location-name {
+    flex: 0 1 auto;
+    min-width: 3em;
+  }
+
+  .topbar__location-meta {
+    flex: 0 0 auto;
+    font-size: 12px;
+  }
+
+  .topbar__icon {
+    display: block;
+  }
+
+  .topbar__btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .theme-dots {
+    gap: 3px;
+    padding: 3px 5px;
+    margin-left: 2px;
+  }
+
+  .theme-dot {
+    width: 18px;
+    height: 18px;
+  }
+
   .reader-stage {
-    padding: 58px 8px 74px;
+    padding: calc(58px + env(safe-area-inset-top, 0px)) 8px
+      calc(66px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .app-shell--focus .reader-stage {
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 8px
+      calc(8px + env(safe-area-inset-bottom, 0px));
   }
 
   .app-shell--drawer-open .reader-stage {
@@ -2082,35 +2159,67 @@ textarea:focus-visible {
   }
 
   .audio-dock-zone {
-    padding: 0 8px 8px;
+    padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px));
   }
 
   .audio-dock {
-    padding: 6px 8px;
-    gap: 6px;
-    border-radius: var(--radius-lg);
+    padding: 4px 6px;
+    gap: 4px;
+    border-radius: var(--radius-pill);
   }
 
   .audio-dock__select,
-  .audio-dock__download-btn {
+  .audio-dock__download-btn,
+  .audio-dock__pill-label,
+  .audio-dock__tasmi-label {
     display: none;
   }
 
   .audio-dock__info {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+  }
+
+  .audio-dock__ayah-btn {
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .audio-dock__transport {
+    gap: 2px;
+  }
+
+  .audio-dock__controls {
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .audio-dock__pill-icon {
+    display: block;
+  }
+
+  .audio-dock__pill-btn {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .audio-dock__tasmi-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
   }
 
   .study-drawer {
     top: auto;
     left: 8px;
     right: 8px;
-    bottom: 66px;
+    bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     width: auto;
     height: min(56dvh, 460px);
   }
 
   .turn-btn {
-    width: 30px;
+    width: 28px;
     height: 48px;
   }
 
@@ -2120,5 +2229,22 @@ textarea:focus-visible {
 
   .turn-btn--right {
     right: 4px;
+  }
+}
+
+/* Phones: pages turn by swiping, so the edge buttons would only cover the mushaf */
+@media (max-width: 640px) {
+  .turn-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar__location-juz {
+    display: none;
+  }
+
+  .topbar__location-pill {
+    padding: 0 10px;
   }
 }

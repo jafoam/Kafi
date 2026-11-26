@@ -125,7 +125,14 @@ export function AudioDock({
             aria-label={`Ulang ayat: ${formatRepeat(audioState.repeatCount)}`}
             title="Ulang ayat"
           >
-            Ulang {formatRepeat(audioState.repeatCount)}
+            <svg className="audio-dock__pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 2l4 4-4 4" />
+              <path d="M3 11V9a3 3 0 0 1 3-3h15" />
+              <path d="M7 22l-4-4 4-4" />
+              <path d="M21 13v2a3 3 0 0 1-3 3H3" />
+            </svg>
+            <span className="audio-dock__pill-label">Ulang </span>
+            {formatRepeat(audioState.repeatCount)}
           </button>
 
           <button
@@ -175,7 +182,7 @@ export function AudioDock({
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
             </svg>
-            <span>Tasmi&apos;</span>
+            <span className="audio-dock__tasmi-label">Tasmi&apos;</span>
           </button>
         </div>
       </section>

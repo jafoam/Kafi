@@ -52,9 +52,10 @@ export function TopBar({
             onClick={() => onOpenPalette("surah")}
             title="Buka navigasi Surah, Juz, dan Halaman"
           >
-            <span>{surahLabel}</span>
+            <span className="topbar__location-name">{surahLabel}</span>
             <span className="topbar__location-meta">
-              Juz {juzNumber} · Hal. {pageLabel}
+              <span className="topbar__location-juz">Juz {juzNumber} · </span>
+              Hal. {pageLabel}
             </span>
           </button>
         </div>
@@ -66,7 +67,11 @@ export function TopBar({
             onClick={() => onOpenPalette("search")}
             title="Cari Ayat atau Surah (Cmd/Ctrl+K)"
           >
-            <span>Cari Ayat</span>
+            <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <span className="topbar__label">Cari Ayat</span>
             <span className="topbar__kbd">⌘K</span>
           </button>
 
@@ -92,8 +97,14 @@ export function TopBar({
             aria-pressed={hifzBlur}
             onClick={onToggleHifzBlur}
             title="Mode Hafalan: sembunyikan ayat dan ketuk untuk mengintip"
+            aria-label="Sembunyikan Ayat"
           >
-            Sembunyikan Ayat
+            <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 3l18 18" />
+              <path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+              <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+            </svg>
+            <span className="topbar__label">Sembunyikan Ayat</span>
           </button>
 
           <button
@@ -102,8 +113,12 @@ export function TopBar({
             aria-pressed={focusMode}
             onClick={onToggleFocusMode}
             title="Mode Fokus (F)"
+            aria-label="Mode Fokus"
           >
-            Mode Fokus
+            <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+            </svg>
+            <span className="topbar__label">Mode Fokus</span>
           </button>
 
           <div className="theme-dots" role="group" aria-label="Tema Warna">
