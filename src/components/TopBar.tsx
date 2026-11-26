@@ -352,7 +352,7 @@ function AppMenu({
           <span className={`app-menu__switch ${wordTranslation ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
         </button>
 
-        <div className="app-menu__group">
+        <div className="app-menu__group app-menu__group--spread">
           <span className="app-menu__label">Mode Halaman</span>
           <div className="app-menu__choices" role="group" aria-label="Mode Halaman">
             {SPREAD_OPTIONS.map((option) => (

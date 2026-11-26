@@ -1084,7 +1084,7 @@ textarea:focus-visible {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 1px;
+  gap: 0;
   min-width: 0;
   flex: 0 1 230px;
 }
@@ -1094,7 +1094,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  height: 22px;
+  height: 20px;
   padding: 0 8px;
   border: none;
   border-radius: var(--radius-pill);
@@ -1113,7 +1113,7 @@ textarea:focus-visible {
   align-items: center;
   gap: 4px;
   max-width: 100%;
-  height: 20px;
+  height: 18px;
   padding: 0 8px;
   border: none;
   border-radius: var(--radius-pill);
@@ -1903,7 +1903,7 @@ textarea:focus-visible {
 /* Live Recitation Ribbon */
 .recitation-ribbon-zone {
   position: fixed;
-  bottom: 74px;
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   z-index: 32;
@@ -2950,7 +2950,6 @@ textarea:focus-visible {
 .topbar__location-pill,
 .topbar__btn,
 .topbar__tasmi,
-.audio-dock__ayah-btn,
 .audio-dock__pill-btn,
 .audio-dock__select,
 .audio-dock__tasmi-btn,
@@ -3137,6 +3136,15 @@ textarea:focus-visible {
   .audio-dock__controls,
   .audio-dock__transport {
     gap: 4px;
+  }
+
+  .app-menu__group--spread {
+    display: none;
+  }
+
+  .recitation-ribbon-zone {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding: 0 8px;
   }
 
   .audio-dock__ayah-btn,

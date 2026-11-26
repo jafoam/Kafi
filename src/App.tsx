@@ -198,6 +198,8 @@ export function App({
     rect: DOMRect;
     word?: SelectedWord;
   } | null>(null);
+  const [lastSelectedAyah, setLastSelectedAyah] = useState<AyahKey | null>(null);
+  const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -477,13 +479,22 @@ export function App({
   }, [studyOpen, audioState.currentAyah]);
 
   const fallbackAyah = useMemo<AyahKey>(() => {
+    const printedFirst = glyphAyahs[rightPage]?.[0];
+    if (printedFirst) return printedFirst;
     const first = rightPageEntry.ayahs[0];
     return first ? (`${first.surah}:${first.ayah}` as AyahKey) : "1:1";
-  }, [rightPageEntry]);
+  }, [glyphAyahs, rightPage, rightPageEntry]);
 
   const effectivePlayingAyah =
     playingAyah ?? (tasmiActive ? (tasmiState?.activeAyah ?? null) : audioState.currentAyah);
-  const activeAyah: AyahKey = effectivePlayingAyah ?? selected?.ayah ?? fallbackAyah;
+  const activeAyah: AyahKey =
+    playingAyah ??
+    (tasmiActive ? (tasmiState?.activeAyah ?? null) : null) ??
+    (audioState.isPlaying || audioState.isLoading ? audioState.currentAyah : null) ??
+    selected?.ayah ??
+    lastSelectedAyah ??
+    audioState.currentAyah ??
+    fallbackAyah;
   const audioPages = audioState.currentAyah ? getPagesForAyah(audioState.currentAyah) : [];
   const isAudioOnVisiblePage =
     audioPages.includes(rightPage) || (leftPage !== null && audioPages.includes(leftPage));
@@ -509,6 +520,7 @@ export function App({
 
   const handlePlayAyah = useCallback(
     (ayah: AyahKey) => {
+      setLastSelectedAyah(ayah);
       if (onPlayAyah) {
         onPlayAyah(ayah);
         return;
@@ -522,20 +534,25 @@ export function App({
   const handleTogglePlay = useCallback(() => {
     if (audioState.isPlaying || audioState.isLoading) {
       audioController.togglePlay();
-    } else if (audioState.currentAyah && isAudioOnVisiblePage) {
+      return;
+    }
+    const target = selected?.ayah ?? lastSelectedAyah;
+    if (target && target !== audioState.currentAyah) {
+      handlePlayAyah(target);
+    } else if (audioState.currentAyah) {
       audioController.togglePlay();
     } else {
-      handlePlayAyah(selected?.ayah ?? fallbackAyah);
+      handlePlayAyah(activeAyah);
     }
   }, [
     audioState.isPlaying,
     audioState.isLoading,
     audioState.currentAyah,
-    isAudioOnVisiblePage,
+    selected,
+    lastSelectedAyah,
     audioController,
     handlePlayAyah,
-    selected?.ayah,
-    fallbackAyah,
+    activeAyah,
   ]);
 
   const handleTurnPage = useCallback(
@@ -959,6 +976,7 @@ export function App({
 
   const handleSelectAyah = useCallback(
     (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => {
+      setLastSelectedAyah(ayah);
       if (studyOpen) {
         setStudyAyah(ayah);
       }
@@ -999,7 +1017,6 @@ export function App({
   const tasmiLauncherVisible = !focusMode && !tasmiActive && !studyOpen && !paletteOpen;
 
   // Which ayahs each glyph page really prints; the scanned-image map can disagree at page breaks.
-  const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
   useEffect(() => {
     let live = true;
     for (const entry of visiblePages) {
@@ -1057,16 +1074,21 @@ export function App({
   }, [mistakeAyahs, tasmiState]);
 
   const surahLabel = useMemo(() => {
-    const ids = new Set<number>(rightPageEntry.surahs);
-    if (leftPageEntry) {
-      for (const s of leftPageEntry.surahs) ids.add(s);
+    const ids = new Set<number>();
+    for (const entry of visiblePages) {
+      const printed = glyphAyahs[entry.page];
+      if (printed && printed.length > 0) {
+        for (const key of printed) ids.add(Number(key.split(":")[0]));
+      } else {
+        for (const s of entry.surahs) ids.add(s);
+      }
     }
     const names = Array.from(ids)
       .map((id) => surahByNumber.get(id)?.name)
       .filter((name): name is string => Boolean(name));
     if (names.length === 0) return "Al-Qur'an";
     return names.length <= 2 ? names.join(" · ") : `${names[0]} – ${names[names.length - 1]}`;
-  }, [rightPageEntry, leftPageEntry, surahByNumber]);
+  }, [visiblePages, glyphAyahs, surahByNumber]);
 
   const juzNumber = getJuzForPage(rightPage);
   const pageLabel = leftPage ? `${rightPage}–${leftPage}` : `${rightPage}`;
@@ -1339,6 +1361,7 @@ export function App({
       <TasmiSheet
         open={tasmiSheetOpen}
         visiblePages={visiblePages}
+        glyphAyahs={glyphAyahs}
         surahs={catalog.surahs}
         initialAyah={tasmiInitialAyah}
         historyCount={userData.tasmiHistory.length}
