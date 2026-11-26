@@ -315,7 +315,7 @@ git commit -m "feat: add PlatformAdapter and resilient local UserStore"
   - `src/services/quran-api.ts`: `buildEveryAyahUrl(reciterFolder: string, surah: number, ayah: number): string`, `createQuranApi(platform: PlatformAdapter, fetcher?: typeof fetch)` returning `{ getTranslation(translationId: number, surah: number, ayah: number, signal?: AbortSignal): Promise<ContentResult>; getTafsir(tafsirId: string, surah: number, ayah: number, signal?: AbortSignal): Promise<ContentResult>; getAudioBlobUrl(reciterFolder: string, surah: number, ayah: number, signal?: AbortSignal): Promise<{ url: string; fromCache: boolean }>; downloadSurahAudio(reciterFolder: string, surah: number, ayahCount: number, onProgress: (done: number, total: number) => void, signal?: AbortSignal): Promise<void> }`
   - `src/services/arabic-search.ts`: `normalizeArabic(text: string): string`, `createQuranSearch(refData: RefV2Data, surahs: SurahInfo[])` returning `{ search(query: string, limit?: number): SearchHit[]; getAyahWords(surah: number, ayah: number): string[] }`
 
-- [ ] **Step 1: Write the failing test in `tests/quran-services.test.ts`**
+- [x] **Step 1: Write the failing test in `tests/quran-services.test.ts`**
 
 ```ts
 import { describe, it, expect, vi } from "vitest";
@@ -389,12 +389,12 @@ describe("arabic-search", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/quran-services.test.ts`
 Expected: FAIL with missing modules.
 
-- [ ] **Step 3: Implement `sanitize.ts`, `quran-api.ts`, and `arabic-search.ts`**
+- [x] **Step 3: Implement `sanitize.ts`, `quran-api.ts`, and `arabic-search.ts`**
 
 - `sanitize.ts`: parse via `DOMParser` (`text/html`) allowing only safe tags (`p`, `br`, `b`, `strong`, `i`, `em`, `span`, `sup`, `sub`, `h1`..`h4`, `ul`, `ol`, `li`, `blockquote`) and stripping all attributes except safe `class`/`dir`/`lang`; drop `<script>`, `<style>`, `<iframe>`, `<object>`, `<img>` completely.
 - `quran-api.ts`: cache-first strategy backed by `PlatformAdapter.cacheGet/Put`:
@@ -404,12 +404,12 @@ Expected: FAIL with missing modules.
   - `downloadSurahAudio(...)`: skips already-cached ayahs, downloads sequentially with small concurrency (3), respects `AbortSignal`, reports progress.
 - `arabic-search.ts`: inspect actual `@tilawa/core/assets/ref-v2.json` structure (support both its exact JSON shape and normalized adapter), normalize Arabic diacritics (`[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]`), map alef forms (`[أإآٱ] -> ا`), `ى -> ي`, `ة -> ه`, and provide fast substring search across all 6,236 ayahs + Latin/Arabic surah names.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/quran-services.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/sanitize.ts src/services/quran-api.ts src/services/arabic-search.ts tests/quran-services.test.ts
