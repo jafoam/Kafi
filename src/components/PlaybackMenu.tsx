@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import type { AyahKey, SurahInfo } from "../data/types";
-import type { PlaybackScope, PlaybackScopeKind } from "../services/audio-controller";
+import type { PlaybackScope, PlaybackScopeKind, RepeatCount } from "../services/audio-controller";
 import { customRange } from "../services/playback-ranges";
 
 export interface PlaybackMenuProps {
   scope: PlaybackScope;
+  repeatCount: RepeatCount;
+  speed: number;
   talaqqi: boolean;
   surahs?: SurahInfo[];
   surahNumber: number;
@@ -13,6 +15,8 @@ export interface PlaybackMenuProps {
   /** Ayah currently active, used as the default start of a custom range. */
   activeAyah: AyahKey;
   onChange: (scope: PlaybackScope) => void;
+  onCycleRepeat: () => void;
+  onCycleSpeed: () => void;
   onToggleTalaqqi: (enabled: boolean) => void;
   onClose: () => void;
 }
@@ -57,6 +61,8 @@ function describe(scope: PlaybackScope, surahName: string): string {
 
 export function PlaybackMenu({
   scope,
+  repeatCount,
+  speed,
   talaqqi,
   surahs,
   surahNumber,
@@ -64,6 +70,8 @@ export function PlaybackMenu({
   ayahCount,
   activeAyah,
   onChange,
+  onCycleRepeat,
+  onCycleSpeed,
   onToggleTalaqqi,
   onClose,
 }: PlaybackMenuProps) {
@@ -182,6 +190,23 @@ export function PlaybackMenu({
           />
           <span>Ulang terus-menerus</span>
         </label>
+
+        <div className="playback-menu__toggles">
+          <button
+            type="button"
+            className={`playback-menu__option ${repeatCount !== 1 ? "playback-menu__option--active" : ""}`}
+            onClick={onCycleRepeat}
+          >
+            Ulang ayat: {repeatCount === Infinity ? "∞" : `${repeatCount}×`}
+          </button>
+          <button
+            type="button"
+            className={`playback-menu__option ${speed !== 1 ? "playback-menu__option--active" : ""}`}
+            onClick={onCycleSpeed}
+          >
+            Kecepatan: {speed}×
+          </button>
+        </div>
 
         <label className="playback-menu__loop">
           <input

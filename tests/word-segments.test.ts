@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseSurahSegments, findActiveWordRange } from "../src/services/word-segments";
-import { parsePage } from "../src/services/glyph-pages";
+import { buildAyahPagesIndex, parsePage } from "../src/services/glyph-pages";
 
 describe("word-segments", () => {
   it("parses valid 4-tuple segments and locates the active word range by millisecond", () => {
@@ -27,12 +27,16 @@ describe("word-segments", () => {
   });
 });
 
-describe("QCF wordIndex offsets", () => {
-  it("offsets wordIndex for an ayah continued from the previous page", () => {
+describe("QCF ayah page index and wordIndex offsets", () => {
+  it("tracks split ayahs across pages and offsets wordIndex on continuation pages", () => {
     const pages = {
       "14": [{ l: 15, t: "a", w: [["2:94", ["a", "b"]]] }],
       "15": [{ l: 1, t: "a", w: [["2:94", ["c", "d"]], ["2:95", ["e"]]] }],
     };
+
+    const idx = buildAyahPagesIndex(pages);
+    expect(idx.get("2:94")).toEqual([14, 15]);
+    expect(idx.get("2:95")).toEqual([15]);
 
     const p15 = parsePage(15, pages["15"], new Map([["2:94", 2]]));
     expect(p15?.lines[0].words.map((w) => [w.ayah, w.wordIndex])).toEqual([

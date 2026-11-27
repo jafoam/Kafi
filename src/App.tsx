@@ -20,13 +20,7 @@ import type {
 import { getPlatform } from "./platform";
 import { createQuranSearch, type RefV2Data } from "./services/arabic-search";
 import { createSilenceAnalyzer } from "./services/audio-trim";
-import type { SelectedWord } from "./services/word-translations";
 import { backupFileName, buildBackup, mergeBackup, saveBackupFile } from "./services/backup";
-import {
-  createWordSegmentLoader,
-  findActiveWordRange,
-  type WordSegment,
-} from "./services/word-segments";
 import {
   compareAyahKeys,
   createAudioController,
@@ -45,7 +39,9 @@ import { createQuranApi } from "./services/quran-api";
 import {
   buildMistakeBadges,
   computeBlurMask,
+  countRecitedAyahs,
   createTasmiState,
+  recordPeekMistake,
   pickRandomChallenge,
   reduceTilawaEvent,
   resolvePromptAudio,
@@ -78,7 +74,14 @@ import { MushafSpread } from "./components/MushafSpread";
 import { MushafScroll } from "./components/MushafScroll";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
+import {
+  createWordSegmentLoader,
+  findActiveWordRange,
+  type WordSegment,
+} from "./services/word-segments";
+import type { SelectedWord } from "./services/word-translations";
 import { useOfflinePages } from "./state/useOfflinePages";
+import { usePwaInstall } from "./state/usePwaInstall";
 import {
   RecitationRibbon,
   type ErrorDrillInfo,
@@ -168,6 +171,24 @@ export function App({
   const quranApi = useMemo(() => createQuranApi(platform), [platform]);
   const tilawaController = useMemo(() => createTilawaController(platform), [platform]);
   const tilawaStorage = useMemo(() => platform.createTilawaStorage(), [platform]);
+  const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
+  const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
+  const [ayahPages, setAyahPages] = useState<Map<AyahKey, number[]> | null>(null);
+  const [surahSegments, setSurahSegments] = useState<Map<AyahKey, WordSegment[]> | null>(null);
+  const [playingWordRange, setPlayingWordRange] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    glyphLoader.loadAyahPages().then(
+      (idx) => {
+        if (live) setAyahPages(idx);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [glyphLoader]);
 
   const reciterById = useMemo(() => {
     const map = new Map<string, Catalog["reciters"][number]>();
@@ -209,9 +230,6 @@ export function App({
   const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
   const [topMenuOpen, setTopMenuOpen] = useState(false);
   const [dockPopupOpen, setDockPopupOpen] = useState(false);
-  const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
-  const [surahSegments, setSurahSegments] = useState<Map<AyahKey, WordSegment[]> | null>(null);
-  const [playingWordRange, setPlayingWordRange] = useState<[number, number] | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("surah");
   const [revealedSet, setRevealedSet] = useState<Set<AyahKey>>(() => new Set());
@@ -482,20 +500,40 @@ export function App({
     [userStore, persistUser],
   );
 
+  const getPagesForAyah = useCallback(
+    (ayah: AyahKey): number[] => {
+      const qcfPages = ayahPages?.get(ayah);
+      if (qcfPages && qcfPages.length > 0) return qcfPages;
+      const fallback = mushafMap.ayahToPage[ayah];
+      return fallback ? [fallback] : [];
+    },
+    [ayahPages],
+  );
+
   // Auto-turn mushaf page when active playing ayah moves outside the visible spread
   useEffect(() => {
     if (!audioState.currentAyah) {
       lastAutoTurnAyahRef.current = null;
       return;
     }
+    if (!audioState.isPlaying && !audioState.isLoading) return;
     if (audioState.currentAyah === lastAutoTurnAyahRef.current) return;
     lastAutoTurnAyahRef.current = audioState.currentAyah;
 
-    const targetPage = mushafMap.ayahToPage[audioState.currentAyah];
-    if (targetPage && targetPage !== rightPage && targetPage !== leftPage) {
-      navigateToPage(targetPage);
+    const pages = getPagesForAyah(audioState.currentAyah);
+    const isVisible = pages.includes(rightPage) || (leftPage !== null && pages.includes(leftPage));
+    if (!isVisible && pages[0]) {
+      navigateToPage(pages[0]);
     }
-  }, [audioState.currentAyah, rightPage, leftPage, navigateToPage]);
+  }, [
+    audioState.currentAyah,
+    audioState.isPlaying,
+    audioState.isLoading,
+    rightPage,
+    leftPage,
+    getPagesForAyah,
+    navigateToPage,
+  ]);
 
   // Auto-turn mushaf page when active Tasmi' / Baca Bebas ayah moves outside visible spread
   useEffect(() => {
@@ -507,18 +545,22 @@ export function App({
     if (tasmiAyah === lastTasmiTurnAyahRef.current) return;
     lastTasmiTurnAyahRef.current = tasmiAyah;
 
-    const targetPage = mushafMap.ayahToPage[tasmiAyah];
-    if (targetPage && targetPage !== rightPage && targetPage !== leftPage) {
-      navigateToPage(targetPage);
+    const pages = getPagesForAyah(tasmiAyah);
+    const isVisible = pages.includes(rightPage) || (leftPage !== null && pages.includes(leftPage));
+    if (!isVisible && pages[0]) {
+      navigateToPage(pages[0]);
     }
-  }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, navigateToPage]);
+  }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, getPagesForAyah, navigateToPage]);
 
-  // Word timings for the playing surah, so the spoken word lights up on the page.
+  // Load word-level audio timing segments for the currently playing surah & reciter
   const playingSurahNum = audioState.currentAyah ? parseAyahKey(audioState.currentAyah).surah : null;
   useEffect(() => {
-    setSurahSegments(null);
-    if (!playingSurahNum) return;
+    if (!playingSurahNum) {
+      setSurahSegments(null);
+      return;
+    }
     let live = true;
+    setSurahSegments(null);
     segmentLoader.load(audioState.reciterId, playingSurahNum).then(
       (map) => {
         if (live) setSurahSegments(map);
@@ -530,6 +572,7 @@ export function App({
     };
   }, [segmentLoader, audioState.reciterId, playingSurahNum]);
 
+  // Sync per-glyph highlight with audio.currentTime while playing
   useEffect(() => {
     const ayah = audioState.currentAyah;
     const segments =
@@ -538,6 +581,7 @@ export function App({
       setPlayingWordRange(null);
       return;
     }
+
     let rafId = 0;
     const tick = () => {
       const next = findActiveWordRange(segments, audioController.getCurrentTimeMs());
@@ -549,6 +593,7 @@ export function App({
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
   }, [audioState.isPlaying, audioState.isBismillah, audioState.currentAyah, surahSegments, audioController]);
+
 
   // Sync open StudyDrawer only when active playing ayah actually changes
   useEffect(() => {
@@ -622,9 +667,8 @@ export function App({
   const isAudioRelevant = Boolean(
     audioState.currentAyah && (audioState.isPlaying || isAudioOnVisiblePage),
   );
-  const tasmiContextAyah: AyahKey =
-    playingAyah ??
-    (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? lastSelectedAyah ?? fallbackAyah));
+  const tasmiContextAyah: AyahKey | null =
+    playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? null));
   const activeSurahNum = parseAyahKey(activeAyah).surah;
   const activeSurah = surahByNumber.get(activeSurahNum);
 
@@ -685,12 +729,12 @@ export function App({
 
   const handleJumpToAyah = useCallback(
     (ayah: AyahKey) => {
-      const targetPage = mushafMap.ayahToPage[ayah];
+      const targetPage = getPagesForAyah(ayah)[0];
       if (targetPage) {
         navigateToPage(targetPage);
       }
     },
-    [navigateToPage],
+    [getPagesForAyah, navigateToPage],
   );
 
   const handleChangeSpreadMode = useCallback(
@@ -876,17 +920,31 @@ export function App({
     void platform.kvSet(TASMI_HINT_KEY, "1").catch(() => undefined);
   }, [platform]);
 
+  // Pre-warm the Tasmi' WASM engine in the background if the model is already cached on device
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void tilawaController.warmupIfCached();
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [tilawaController]);
+
+  useEffect(() => {
+    if (tasmiSheetOpen) {
+      void tilawaController.warmupIfCached();
+    }
+  }, [tasmiSheetOpen, tilawaController]);
+
   const handleOpenTasmi = useCallback(
-    (ayah: AyahKey) => {
+    (ayah: AyahKey | null) => {
       if (onStartTasmi) {
-        onStartTasmi(ayah);
+        onStartTasmi(ayah ?? fallbackAyah);
         return;
       }
       setTasmiError(null);
       setTasmiInitialAyah(ayah);
       setTasmiSheetOpen(true);
     },
-    [onStartTasmi],
+    [onStartTasmi, fallbackAyah],
   );
 
   const handleCancelModelLoad = useCallback(() => {
@@ -976,6 +1034,21 @@ export function App({
       const abort = new AbortController();
       tilawaAbortRef.current = abort;
 
+      // Close sheet immediately and show the live ribbon + blur so startup feels responsive.
+      const initial = createTasmiState(mode, passage);
+      tasmiStateRef.current = initial;
+      tasmiStartedAtRef.current = Date.now();
+      setTasmiState(initial);
+      setTasmiBlurEnabled(mode === "memorization" ? enableBlur : false);
+      setPeekedAyah(null);
+      setTasmiSheetOpen(false);
+      if (mode === "memorization" && passage) {
+        const startPage = getPagesForAyah(`${passage.surah}:${passage.fromAyah}`)[0];
+        if (startPage && startPage !== rightPage && startPage !== leftPage) {
+          navigateToPage(startPage);
+        }
+      }
+
       try {
         const [lookup] = await Promise.all([
           ensureWordLookup(),
@@ -987,13 +1060,6 @@ export function App({
 
         if (!mountedRef.current || abort.signal.aborted) return;
         setModelLoading(null);
-
-        const initial = createTasmiState(mode, passage);
-        tasmiStateRef.current = initial;
-        tasmiStartedAtRef.current = Date.now();
-        setTasmiState(initial);
-        setTasmiBlurEnabled(mode === "memorization" ? enableBlur : false);
-        setPeekedAyah(null);
 
         const onEvent = (event: EngineEvent) => {
           if (!mountedRef.current) return;
@@ -1007,21 +1073,19 @@ export function App({
           await tilawaController.startFree(onEvent);
         } else if (passage) {
           await tilawaController.startMemorization(passage, onEvent);
-          const startPage = mushafMap.ayahToPage[`${passage.surah}:${passage.fromAyah}`];
-          if (startPage && startPage !== rightPage && startPage !== leftPage) {
-            navigateToPage(startPage);
-          }
         }
 
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || abort.signal.aborted) return;
         setTasmiActive(true);
-        setTasmiSheetOpen(false);
       } catch (err) {
         if (!mountedRef.current) return;
         setModelLoading(null);
+        tasmiStateRef.current = null;
+        setTasmiState(null);
         if (abort.signal.aborted) return;
         const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
         setTasmiError(message);
+        setTasmiSheetOpen(true);
       } finally {
         tasmiStartingRef.current = false;
         if (mountedRef.current) setTasmiStarting(false);
@@ -1032,6 +1096,7 @@ export function App({
       audioController,
       ensureWordLookup,
       tilawaController,
+      getPagesForAyah,
       rightPage,
       leftPage,
       navigateToPage,
@@ -1361,6 +1426,8 @@ export function App({
         fromAyah: finalState.passage.fromAyah,
         toAyah: finalState.passage.toAyah,
         mistakes: finalState.confirmedMistakes,
+        recitedAyahs: countRecitedAyahs(finalState),
+        recitedWords: finalState.recitedWords.size,
         ...(peekedList.length > 0 ? { peekedAyahs: peekedList } : {}),
         kind: tasmiSessionKindRef.current,
       };
@@ -1400,8 +1467,14 @@ export function App({
 
   const handlePeekAyah = useCallback(
     (ayah: AyahKey) => {
-      if (tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled) {
+      if ((tasmiActive || tasmiStarting) && tasmiState?.mode === "memorization" && tasmiBlurEnabled) {
         tasmiPeekedAyahsRef.current.add(ayah);
+        // Peeking a blurred ayah without reciting it counts as a mistake.
+        if (tasmiActive && tasmiStateRef.current) {
+          const next = recordPeekMistake(tasmiStateRef.current, ayah);
+          tasmiStateRef.current = next;
+          setTasmiState(next);
+        }
         setPeekedAyah(ayah);
         if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current);
         peekTimerRef.current = window.setTimeout(() => {
@@ -1415,7 +1488,7 @@ export function App({
         return next;
       });
     },
-    [tasmiActive, tasmiState?.mode, tasmiBlurEnabled],
+    [tasmiActive, tasmiStarting, tasmiState?.mode, tasmiBlurEnabled],
   );
 
   // Bind Space (play/pause), M (Tasmi'), and H (Hifz blur) when not typing in an editable control
@@ -1473,16 +1546,23 @@ export function App({
   const handleSelectAyah = useCallback(
     (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => {
       setLastSelectedAyah(ayah);
-      // Tapping the same word again closes the popover; another word of the ayah moves it there.
-      setSelected((prev) =>
-        prev?.ayah === ayah && prev.word?.key === word?.key ? null : { ayah, rect: anchorRect, word },
-      );
       if (studyOpen) {
         setStudyAyah(ayah);
       }
+      if (focusMode) return;
+      setSelected((prev) =>
+        prev?.ayah === ayah && prev.word?.key === word?.key
+          ? null
+          : { ayah, rect: anchorRect, word },
+      );
     },
-    [studyOpen],
+    [focusMode, studyOpen],
   );
+
+  // Dismiss ayah/word popover when entering focus mode
+  useEffect(() => {
+    if (focusMode) setSelected(null);
+  }, [focusMode]);
 
   const bookmarkSet = useMemo(() => new Set(userData.bookmarks), [userData.bookmarks]);
 
@@ -1492,7 +1572,7 @@ export function App({
   );
 
   const isTasmiBlurActive = Boolean(
-    tasmiActive && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
+    (tasmiActive || tasmiStarting) && tasmiState?.mode === "memorization" && tasmiBlurEnabled,
   );
 
   useBackClose(paletteOpen, () => setPaletteOpen(false));
@@ -1523,8 +1603,6 @@ export function App({
   /** The page leaves room for the Tasmi' button; stays put while popups come and go so the page never jumps. */
   const tasmiLauncherSpace = !focusMode && !tasmiActive && !studyOpen;
   const tasmiLauncherVisible = tasmiLauncherSpace && !overlayOpen && selected === null;
-
-  const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
 
   // Which ayahs each glyph page really prints; the scanned-image map can disagree at page breaks.
   useEffect(() => {
@@ -1628,15 +1706,31 @@ export function App({
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
   const offlinePages = useOfflinePages(!platform.isDesktop);
+  const pwaInstall = usePwaInstall(!platform.isDesktop);
 
   const getPageImageUrl = useCallback(
     (page: number) => platform.getPageImageUrl(page),
     [platform],
   );
 
+  const tasmiStartingStatus = useMemo(() => {
+    if (!tasmiStarting) return null;
+    if (modelLoading) {
+      const pct = Math.round(modelLoading.fraction * 100);
+      if (modelLoading.stage === "model") {
+        return modelLoading.fromCache
+          ? `Memuat model dari cache (${pct}%)…`
+          : `Mengunduh model suara (${pct}%)…`;
+      }
+      if (modelLoading.stage === "warmup") return "Menyiapkan mesin Tasmi'…";
+      return "Menyiapkan teks Al-Qur'an…";
+    }
+    return "Membuka mikrofon…";
+  }, [tasmiStarting, modelLoading]);
+
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherSpace ? "app-shell--fab" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherSpace ? "app-shell--fab" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -1653,8 +1747,9 @@ export function App({
         }
         hifzBlurLevel={userData.settings.hifzBlurLevel}
         focusMode={focusMode}
-        wordTranslation={userData.settings.wordTranslation}
+        wordTranslation={userData.settings.wordTranslation && !focusMode}
         theme={userData.settings.theme}
+        pwaInstall={pwaInstall}
         onOpenPalette={(tab = "surah") => {
           setPaletteTab(tab);
           setPaletteOpen(true);
@@ -1731,7 +1826,7 @@ export function App({
           blurLevel={userData.settings.hifzBlurLevel}
           revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
           mistakeAyahs={effectiveMistakeAyahs}
-          wordTranslation={userData.settings.wordTranslation}
+          wordTranslation={userData.settings.wordTranslation && !focusMode}
           isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
           getPageImageUrl={getPageImageUrl}
           glyphLoader={glyphLoader}
@@ -1761,7 +1856,7 @@ export function App({
           blurLevel={userData.settings.hifzBlurLevel}
           revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
           mistakeAyahs={effectiveMistakeAyahs}
-          wordTranslation={userData.settings.wordTranslation}
+          wordTranslation={userData.settings.wordTranslation && !focusMode}
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
           isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
@@ -1781,7 +1876,7 @@ export function App({
         />
       )}
 
-      {selected && (
+      {selected && !focusMode && (
         <AyahPopover
           ayah={selected.ayah}
           surahName={selectedSurahName}
@@ -1874,12 +1969,13 @@ export function App({
         onToggleBookmark={handleToggleBookmark}
       />
 
-      {tasmiActive && tasmiState && (
+      {(tasmiActive || tasmiStarting) && tasmiState && (
         <RecitationRibbon
           state={tasmiState}
           surahs={catalog.surahs}
           blurActive={isTasmiBlurActive}
           isPeeking={peekedAyah !== null}
+          startingStatus={tasmiStartingStatus}
           getAyahWords={wordLookup}
           glyphLoader={glyphLoader}
           ayahToPage={mushafMap.ayahToPage}
@@ -1924,7 +2020,17 @@ export function App({
           }
           onDrillNext={errorDrill ? handleDrillNext : undefined}
           onStop={() => {
-            void handleStopTasmi();
+            if (tasmiStarting) {
+              tilawaAbortRef.current?.abort();
+              tilawaAbortRef.current = null;
+              setModelLoading(null);
+              tasmiStateRef.current = null;
+              setTasmiState(null);
+              setTasmiStarting(false);
+              tasmiStartingRef.current = false;
+            } else {
+              void handleStopTasmi();
+            }
           }}
         />
       )}

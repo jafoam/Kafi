@@ -23,6 +23,8 @@ export interface RecitationRibbonProps {
   surahs: SurahInfo[];
   blurActive: boolean;
   isPeeking: boolean;
+  /** Non-null while the Tasmi' engine or microphone is still initializing. */
+  startingStatus?: string | null;
   getAyahWords: (surah: number, ayah: number) => string[];
   glyphLoader?: GlyphPageLoader;
   ayahToPage?: Record<AyahKey, number>;
@@ -53,6 +55,7 @@ export function RecitationRibbon({
   surahs,
   blurActive,
   isPeeking,
+  startingStatus = null,
   getAyahWords,
   glyphLoader,
   ayahToPage,
@@ -140,17 +143,19 @@ export function RecitationRibbon({
           <div className="recitation-ribbon__status">
             <span
               className={`recitation-ribbon__dot recitation-ribbon__dot--${
-                randomPrompt?.playing || errorDrill?.phase === "listen"
+                startingStatus || randomPrompt?.playing || errorDrill?.phase === "listen"
                   ? "acquiring"
                   : state.trackerState
               }`}
               aria-hidden="true"
             />
             <span className="recitation-ribbon__state-text">
-              {errorDrill
-                ? errorDrill.phase === "listen"
-                  ? `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · Dengarkan ${errorDrill.loop}/${errorDrill.totalLoops}…`
-                  : `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · ${TRACKER_LABELS[state.trackerState]}`
+              {startingStatus
+                ? startingStatus
+                : errorDrill
+                  ? errorDrill.phase === "listen"
+                    ? `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · Dengarkan ${errorDrill.loop}/${errorDrill.totalLoops}…`
+                    : `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · ${TRACKER_LABELS[state.trackerState]}`
                 : randomPrompt
                   ? randomPrompt.playing
                     ? "Uji Acak · Membacakan pemicu…"
@@ -233,7 +238,7 @@ export function RecitationRibbon({
               className="recitation-ribbon__stop-btn"
               onClick={onStop}
             >
-              Selesai
+              {startingStatus ? "Batalkan" : "Selesai"}
             </button>
           </div>
         </div>

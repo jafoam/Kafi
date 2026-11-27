@@ -31,6 +31,7 @@ const BREAKDOWN_CLASSES = [
   "omitted_word",
   "added_word",
   "skipped_passage",
+  "peeked",
 ] as const;
 
 function formatDuration(sec: number): string {
@@ -51,6 +52,53 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function evaluateRecord(record: TasmiSessionRecord): {
+  label: string;
+  tone: "clean" | "warn" | "muted";
+  emptyNote: string;
+  progressText: string | null;
+} {
+  const totalAyahs = Math.max(1, record.toAyah - record.fromAyah + 1);
+  const hasCounts = typeof record.recitedWords === "number" || typeof record.recitedAyahs === "number";
+  const words = record.recitedWords ?? 0;
+  const ayahs = record.recitedAyahs ?? 0;
+  const progressText = hasCounts
+    ? `${ayahs}/${totalAyahs} ayat · ${words} kata terbaca`
+    : null;
+
+  if (hasCounts && words === 0 && ayahs === 0) {
+    return {
+      label: "Belum ada bacaan",
+      tone: "muted",
+      emptyNote:
+        "Belum ada bacaan yang terdeteksi pada sesi ini. Pastikan mikrofon aktif dan bacalah dengan suara yang jelas.",
+      progressText,
+    };
+  }
+  if (record.mistakes.length > 0) {
+    return {
+      label: `${record.mistakes.length} catatan`,
+      tone: "warn",
+      emptyNote: "",
+      progressText,
+    };
+  }
+  if (hasCounts && ayahs < totalAyahs) {
+    return {
+      label: `${ayahs}/${totalAyahs} ayat`,
+      tone: "muted",
+      emptyNote: `Terbaca ${ayahs} dari ${totalAyahs} ayat (${words} kata) tanpa kesalahan terkonfirmasi.`,
+      progressText,
+    };
+  }
+  return {
+    label: "Lancar",
+    tone: "clean",
+    emptyNote: "Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.",
+    progressText,
+  };
 }
 
 export function TasmiSummaryModal({
@@ -230,7 +278,9 @@ export function TasmiSummaryModal({
 
         <div className="tasmi-summary__body">
           {tab === "summary" ? (
-            activeRecord ? (
+            activeRecord ? (() => {
+              const status = evaluateRecord(activeRecord);
+              return (
               <>
                 <div className="tasmi-summary__hero">
                   <div>
@@ -241,21 +291,14 @@ export function TasmiSummaryModal({
                     <div className="tasmi-summary__meta">
                       Durasi {formatDuration(activeRecord.durationSec)} ·{" "}
                       {formatDate(activeRecord.startedAt)}
+                      {status.progressText ? ` · ${status.progressText}` : ""}
                       {activeRecord.peekedAyahs && activeRecord.peekedAyahs.length > 0
                         ? ` · ${activeRecord.peekedAyahs.length} diintip`
                         : ""}
                     </div>
                   </div>
-                  <div
-                    className={`tasmi-summary__score ${
-                      drillAyahs.length === 0
-                        ? "tasmi-summary__score--clean"
-                        : "tasmi-summary__score--warn"
-                    }`}
-                  >
-                    {drillAyahs.length === 0
-                      ? "Lancar"
-                      : `${activeRecord.mistakes.length} catatan`}
+                  <div className={`tasmi-summary__score tasmi-summary__score--${status.tone}`}>
+                    {status.label}
                   </div>
                 </div>
 
@@ -287,9 +330,7 @@ export function TasmiSummaryModal({
                 </div>
 
                 {activeRecord.mistakes.length === 0 ? (
-                  <div className="tasmi-summary__empty">
-                    Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.
-                  </div>
+                  <div className="tasmi-summary__empty">{status.emptyNote}</div>
                 ) : (
                   <div className="tasmi-summary__list">
                     {activeRecord.mistakes.map((m) => {
@@ -359,7 +400,8 @@ export function TasmiSummaryModal({
                   </div>
                 )}
               </>
-            ) : (
+              );
+            })() : (
               <div className="tasmi-summary__empty">Belum ada sesi Tasmi&apos; yang selesai.</div>
             )
           ) : tab === "history" ? (

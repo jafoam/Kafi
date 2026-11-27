@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { classifyRequest } from "../src/platform/sw-routing";
 import { registerServiceWorker } from "../src/platform/register-sw";
+import { detectInstallPlatform, isStandaloneMode } from "../src/state/usePwaInstall";
 
 const ORIGIN = "https://kafi.app";
 
@@ -145,5 +146,34 @@ describe("registerServiceWorker", () => {
     expect(register).toHaveBeenCalledWith(
       "/sw.js?mushafBase=https%3A%2F%2Fcdn.example.com%2Fmushaf%2Fpages",
     );
+  });
+});
+
+describe("PWA install detection", () => {
+  it("detects standalone mode from display-mode media query or iOS navigator.standalone", () => {
+    const mediaWindow = {
+      matchMedia: (q: string) => ({ matches: q === "(display-mode: standalone)" }),
+      navigator: {},
+    } as unknown as Window;
+    expect(isStandaloneMode(mediaWindow)).toBe(true);
+
+    const iosStandaloneWindow = {
+      matchMedia: () => ({ matches: false }),
+      navigator: { standalone: true },
+    } as unknown as Window;
+    expect(isStandaloneMode(iosStandaloneWindow)).toBe(true);
+
+    const browserWindow = {
+      matchMedia: () => ({ matches: false }),
+      navigator: { standalone: false },
+    } as unknown as Window;
+    expect(isStandaloneMode(browserWindow)).toBe(false);
+  });
+
+  it("detects iOS (including iPadOS desktop UA) vs other platforms", () => {
+    expect(detectInstallPlatform("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")).toBe("ios");
+    expect(detectInstallPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5)).toBe("ios");
+    expect(detectInstallPlatform("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 0)).toBe("other");
+    expect(detectInstallPlatform("Mozilla/5.0 (Linux; Android 15; Pixel 9)")).toBe("other");
   });
 });

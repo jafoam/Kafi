@@ -8,7 +8,7 @@ export interface GlyphWord {
   /** Glyph code point(s) from the page's QCF v1 font. */
   code: string;
   ayah: AyahKey;
-  /** 0-based position of this glyph within its ayah, counting glyphs on earlier pages. */
+  /** 0-based index of this glyph within its ayah (across page breaks). */
   wordIndex?: number;
 }
 
@@ -40,6 +40,8 @@ export interface GlyphPageLoader {
   load(page: number): Promise<GlyphPageData>;
   /** Fire-and-forget warm-up; errors are swallowed. */
   prefetch(page: number): void;
+  /** Maps every AyahKey to the QCF v1 page number(s) where it is printed. */
+  loadAyahPages(): Promise<Map<AyahKey, number[]>>;
 }
 
 export function glyphFontFamily(page: number): string {
@@ -94,10 +96,33 @@ export function parsePage(
   return { page, fontFamily: glyphFontFamily(page), lines, rows };
 }
 
-/** Glyphs each ayah already used on the previous page, for ayahs that continue onto `page`. */
+/** Builds an AyahKey -> ascending page numbers index directly from bundled QCF page rows. */
+export function buildAyahPagesIndex(pages: Record<string, unknown>): Map<AyahKey, number[]> {
+  const index = new Map<AyahKey, number[]>();
+  const pageNums = Object.keys(pages)
+    .map(Number)
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  for (const p of pageNums) {
+    const rows = pages[String(p)];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows as PageRow[]) {
+      if (row.t !== "a" || !Array.isArray(row.w)) continue;
+      for (const [ayah] of row.w) {
+        const key = ayah as AyahKey;
+        const list = index.get(key);
+        if (!list) index.set(key, [p]);
+        else if (list[list.length - 1] !== p) list.push(p);
+      }
+    }
+  }
+  return index;
+}
+
 function countPriorWords(pages: Record<string, unknown>, page: number): Map<AyahKey, number> {
   const counts = new Map<AyahKey, number>();
-  const prevRows = page > 1 ? pages[String(page - 1)] : null;
+  if (page <= 1) return counts;
+  const prevRows = pages[String(page - 1)];
   if (!Array.isArray(prevRows)) return counts;
   for (const row of prevRows as PageRow[]) {
     if (row.t !== "a" || !Array.isArray(row.w)) continue;
@@ -118,16 +143,21 @@ export function createGlyphPageLoader(
 ): GlyphPageLoader {
   const pending = new Map<number, Promise<GlyphPageData>>();
   let bundledPages: Promise<Record<string, unknown>> | null = null;
+  let ayahPagesIndex: Promise<Map<AyahKey, number[]>> | null = null;
 
-  async function loadData(page: number): Promise<GlyphPageData> {
+  function loadBundledPages(): Promise<Record<string, unknown>> {
     bundledPages ??= fetch(quranPagesUrl).then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status} loading mushaf pages`);
       return response.json() as Promise<Record<string, unknown>>;
     });
-    const pages = await bundledPages.catch((err) => {
+    return bundledPages.catch((err) => {
       bundledPages = null;
       throw err;
     });
+  }
+
+  async function loadData(page: number): Promise<GlyphPageData> {
+    const pages = await loadBundledPages();
     const parsed = parsePage(page, pages[String(page)], countPriorWords(pages, page));
     if (!parsed) throw new Error(`Unusable data for page ${page}`);
     return parsed;
@@ -202,6 +232,15 @@ export function createGlyphPageLoader(
     load,
     prefetch(page: number) {
       void load(page).catch(() => undefined);
+    },
+    loadAyahPages() {
+      ayahPagesIndex ??= loadBundledPages()
+        .then(buildAyahPagesIndex)
+        .catch((err) => {
+          ayahPagesIndex = null;
+          throw err;
+        });
+      return ayahPagesIndex;
     },
   };
 }

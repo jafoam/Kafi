@@ -89,9 +89,9 @@ export interface AudioController {
   setRepeat(count: RepeatCount): void;
   setScope(scope: PlaybackScope): void;
   setSpeed(rate: number): void;
-  setTalaqqi(enabled: boolean): void;
-  /** Current playback position in milliseconds, for word-level highlighting. */
+  /** Current playback position in milliseconds for word-level highlighting. */
   getCurrentTimeMs(): number;
+  setTalaqqi(enabled: boolean): void;
   subscribe(fn: (s: AudioState) => void): () => void;
   dispose(): void;
 }
@@ -742,12 +742,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     setRepeat,
     setScope,
     setSpeed,
-    setTalaqqi,
     getCurrentTimeMs() {
       return typeof audio.currentTime === "number" && Number.isFinite(audio.currentTime)
         ? audio.currentTime * 1000
         : 0;
     },
+    setTalaqqi,
     subscribe,
     dispose,
   };

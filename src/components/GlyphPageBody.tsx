@@ -70,13 +70,6 @@ export function GlyphPageBody({
     if (!wordTranslation || selectedAyah) setTip(null);
   }, [wordTranslation, selectedAyah]);
 
-  const wordFor = (code: string | undefined, wordKey: string | null): SelectedWord | undefined => {
-    const info = wordTranslation && code ? words?.get(code) : undefined;
-    return info && wordKey && info.translation
-      ? { key: `${data.page}:${wordKey}`, translation: info.translation, transliteration: info.transliteration }
-      : undefined;
-  };
-
   const showTip = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return setTip(null);
     const el = target.closest<HTMLElement>("[data-code]");
@@ -149,11 +142,17 @@ export function GlyphPageBody({
           return;
         }
         const el = (event.target as HTMLElement).closest<HTMLElement>("[data-ayah]");
-        onSelectAyah(
-          ayah,
-          (el ?? event.currentTarget).getBoundingClientRect(),
-          wordFor(el?.dataset.code, wordKey),
-        );
+        const code = el?.dataset.code;
+        const info = wordTranslation && code ? words?.get(code) : undefined;
+        const selectedWord: SelectedWord | undefined =
+          info && wordKey && info.translation
+            ? {
+                key: `${data.page}:${wordKey}`,
+                translation: info.translation,
+                transliteration: info.transliteration,
+              }
+            : undefined;
+        onSelectAyah(ayah, (el ?? event.currentTarget).getBoundingClientRect(), selectedWord);
       }}
     >
       {rows.map((row) => {
@@ -191,6 +190,13 @@ export function GlyphPageBody({
               );
               const wordBlurred = blurred && !(blurLevel === "first-word" && isFirst);
               const mistake = mistakeAyahs?.get(ayah);
+              const isPlayingWord = Boolean(
+                playingAyah === ayah &&
+                  playingWordRange &&
+                  typeof word.wordIndex === "number" &&
+                  word.wordIndex >= playingWordRange[0] &&
+                  word.wordIndex < playingWordRange[1],
+              );
               const prevAyah = index > 0 ? row.words[index - 1].ayah : null;
               const nextAyah = index + 1 < row.words.length ? row.words[index + 1].ayah : null;
               const classes = [
@@ -207,13 +213,7 @@ export function GlyphPageBody({
                   ? "glyph-word--selected"
                   : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
-                playingAyah === ayah &&
-                playingWordRange &&
-                typeof word.wordIndex === "number" &&
-                word.wordIndex >= playingWordRange[0] &&
-                word.wordIndex < playingWordRange[1]
-                  ? "glyph-word--playing-word"
-                  : "",
+                isPlayingWord ? "glyph-word--playing-word" : "",
                 mistake ? "glyph-word--mistake" : "",
                 wordBlurred ? "glyph-word--blurred" : "",
               ]
@@ -243,7 +243,16 @@ export function GlyphPageBody({
                     event.stopPropagation();
                     setTip(null);
                     setPickedWord(wordKey);
-                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect(), wordFor(word.code, wordKey));
+                    const info = wordTranslation ? words?.get(word.code) : undefined;
+                    const selectedWord: SelectedWord | undefined =
+                      info && info.translation
+                        ? {
+                            key: `${data.page}:${wordKey}`,
+                            translation: info.translation,
+                            transliteration: info.transliteration,
+                          }
+                        : undefined;
+                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect(), selectedWord);
                   }}
                 >
                   {word.code}

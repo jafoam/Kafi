@@ -52,6 +52,7 @@ export interface TasmiLiveState {
   activeAyah: AyahKey | null;
   expectedWord: WordRef | null;
   revealedAyahs: Set<AyahKey>;
+  recitedWords: Set<string>;
   mistakesById: Map<string, TasmiMistakeRecord>;
   confirmedMistakes: TasmiMistakeRecord[];
   lastErrorAt: number | null;
@@ -62,6 +63,7 @@ export const ERROR_CLASS_LABELS: Record<string, string> = {
   omitted_word: "Kata terlewat",
   added_word: "Kata berlebih",
   skipped_passage: "Ayat terloncat",
+  peeked: "Mengintip ayat",
 };
 
 export function formatErrorClass(errorClass: string): string {
@@ -160,6 +162,9 @@ export function buildPageTasmiCandidates(
     }
   }
 
+  // Prioritize surahs that start on the visible page(s) over the trailing tail of a previous surah.
+  options.sort((a, b) => Number(b.fromAyah === 1) - Number(a.fromAyah === 1));
+
   return options;
 }
 
@@ -175,9 +180,65 @@ export function createTasmiState(
     activeAyah: null,
     expectedWord: null,
     revealedAyahs: new Set<AyahKey>(),
+    recitedWords: new Set<string>(),
     mistakesById: new Map<string, TasmiMistakeRecord>(),
     confirmedMistakes: [],
     lastErrorAt: null,
+  };
+}
+
+export function countRecitedAyahs(state: TasmiLiveState): number {
+  const uniqueAyahs = new Set<AyahKey>();
+  for (const wKey of state.recitedWords) {
+    const [sStr, aStr] = wKey.split(":");
+    const s = Number(sStr);
+    const a = Number(aStr);
+    if (
+      !state.passage ||
+      (s === state.passage.surah && a >= state.passage.fromAyah && a <= state.passage.toAyah)
+    ) {
+      uniqueAyahs.add(`${s}:${a}`);
+    }
+  }
+  return uniqueAyahs.size;
+}
+
+function hasMistakeOnAyah(
+  mistakesById: ReadonlyMap<string, TasmiMistakeRecord>,
+  ayahKey: AyahKey,
+): boolean {
+  const [s, a] = ayahKey.split(":").map(Number);
+  for (const m of mistakesById.values()) {
+    if (m.surah === s && m.ayah === a) return true;
+  }
+  return false;
+}
+
+function compareAyah(a: AyahKey, b: AyahKey): number {
+  const [sa, aa] = a.split(":").map(Number);
+  const [sb, ab] = b.split(":").map(Number);
+  return sa - sb || aa - ab;
+}
+
+/** Records a mistake when the user taps a blurred ayah to peek without reciting it. */
+export function recordPeekMistake(state: TasmiLiveState, ayah: AyahKey): TasmiLiveState {
+  const id = `peek-${ayah}`;
+  if (state.mistakesById.has(id)) return state;
+  const [surah, ayahNum] = ayah.split(":").map(Number);
+  const nextMap = new Map(state.mistakesById);
+  nextMap.set(id, {
+    id,
+    errorClass: "peeked",
+    surah,
+    ayah: ayahNum,
+  });
+  const nextRevealed = new Set(state.revealedAyahs);
+  nextRevealed.delete(ayah);
+  return {
+    ...state,
+    revealedAyahs: nextRevealed,
+    mistakesById: nextMap,
+    confirmedMistakes: Array.from(nextMap.values()),
   };
 }
 
@@ -195,20 +256,42 @@ export function reduceTilawaEvent(
     let activeWord = state.activeWord;
     let activeAyah = state.activeAyah;
     let revealedAyahs = state.revealedAyahs;
+    let recitedWords = state.recitedWords;
 
     if (top && event.state === "locked") {
+      const prevAyah = state.activeAyah;
       activeWord = top.word;
       activeAyah = `${top.word.surah}:${top.word.ayah}`;
 
-      const nextRevealed = new Set(state.revealedAyahs);
-      nextRevealed.add(activeAyah);
       const { start, end } = top.span;
-      nextRevealed.add(`${start.surah}:${start.ayah}`);
-      nextRevealed.add(`${end.surah}:${end.ayah}`);
-      if (start.surah === end.surah && end.ayah >= start.ayah) {
-        for (let a = start.ayah; a <= end.ayah; a += 1) {
-          nextRevealed.add(`${start.surah}:${a}`);
+      const nextWords = new Set(state.recitedWords);
+      nextWords.add(`${top.word.surah}:${top.word.ayah}:${top.word.word}`);
+      nextWords.add(`${start.surah}:${start.ayah}:${start.word}`);
+      nextWords.add(`${end.surah}:${end.ayah}:${end.word}`);
+      if (start.surah === end.surah && start.ayah === end.ayah && end.word >= start.word) {
+        for (let w = start.word; w <= end.word; w += 1) {
+          nextWords.add(`${start.surah}:${start.ayah}:${w}`);
         }
+      }
+      recitedWords = nextWords;
+
+      // Only reveal an ayah once it is completed cleanly with zero mistakes on that ayah.
+      const nextRevealed = new Set(state.revealedAyahs);
+      if (
+        prevAyah &&
+        prevAyah !== activeAyah &&
+        compareAyah(prevAyah, activeAyah) < 0 &&
+        !hasMistakeOnAyah(state.mistakesById, prevAyah)
+      ) {
+        nextRevealed.add(prevAyah);
+      }
+      const wordsInActive = getAyahWords(top.word.surah, top.word.ayah);
+      if (
+        wordsInActive.length > 0 &&
+        top.word.word >= wordsInActive.length &&
+        !hasMistakeOnAyah(state.mistakesById, activeAyah)
+      ) {
+        nextRevealed.add(activeAyah);
       }
       revealedAyahs = nextRevealed;
     }
@@ -220,11 +303,13 @@ export function reduceTilawaEvent(
       activeAyah,
       expectedWord: event.expected,
       revealedAyahs,
+      recitedWords,
     };
   }
 
   // event.type === "checker"
   const nextMap = new Map(state.mistakesById);
+  let nextRevealed = state.revealedAyahs;
   let lastErrorAt = state.lastErrorAt;
 
   if (event.state === "confirmed") {
@@ -239,13 +324,19 @@ export function reduceTilawaEvent(
       wordText,
       confidence: event.confidence,
     });
+    const flaggedAyah: AyahKey = `${event.location.surah}:${event.location.ayah}`;
+    if (nextRevealed.has(flaggedAyah)) {
+      nextRevealed = new Set(nextRevealed);
+      nextRevealed.delete(flaggedAyah);
+    }
     lastErrorAt = event.timeMs;
-  } else if (event.state === "resolved" || event.state === "uncertain") {
+  } else if (event.state === "uncertain") {
     nextMap.delete(event.id);
   }
 
   return {
     ...state,
+    revealedAyahs: nextRevealed,
     mistakesById: nextMap,
     confirmedMistakes: Array.from(nextMap.values()),
     lastErrorAt,

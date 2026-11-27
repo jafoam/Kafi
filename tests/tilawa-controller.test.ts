@@ -120,4 +120,42 @@ describe("tilawa-controller concurrency", () => {
       "https://cdn.example.com/ort/",
     );
   });
+
+  it("forces wasm execution provider to avoid WebGPU JSEP Expand kernel failure", async () => {
+    const { createTilawa } = await import("@tilawa/core/web");
+    const mockCreate = vi.mocked(createTilawa);
+    mockCreate.mockClear();
+
+    const controller = createTilawaController(createDesktopMockPlatform());
+    await controller.ensureReady();
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providers: ["wasm"],
+      }),
+    );
+    controller.dispose();
+  });
+
+  it("warmupIfCached skips when storage is empty and warms up when model is cached", async () => {
+    const { createTilawa } = await import("@tilawa/core/web");
+    const mockCreate = vi.mocked(createTilawa);
+    mockCreate.mockClear();
+
+    const emptyController = createTilawaController(createDesktopMockPlatform());
+    await emptyController.warmupIfCached();
+    expect(mockCreate).not.toHaveBeenCalled();
+    emptyController.dispose();
+
+    const cachedPlatform = createDesktopMockPlatform();
+    cachedPlatform.createTilawaStorage = () => ({
+      get: async () => null,
+      put: async () => {},
+      delete: async () => {},
+      keys: async () => ["spliced-clean/1-int8"],
+    });
+    const cachedController = createTilawaController(cachedPlatform);
+    await cachedController.warmupIfCached();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    cachedController.dispose();
+  });
 });

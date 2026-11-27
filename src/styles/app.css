@@ -407,6 +407,15 @@ textarea:focus-visible {
   font-display: swap;
 }
 
+/* Amiri Bold subset to the letters of the 114 surah names, so the banner looks the same on every device
+   (Android has no Amiri and fell back to a different Arabic font). */
+@font-face {
+  font-family: "AmiriSurahNames";
+  src: url("../assets/fonts/amiri-surah-names.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+
 .surah-banner {
   position: relative;
   display: flex;
@@ -1746,17 +1755,21 @@ textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .tasmi-sheet__history-btn {
-  height: 28px;
-  padding: 0 10px;
+  min-height: 30px;
+  height: auto;
+  padding: 4px 12px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
   background: var(--bg-subtle);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: pointer;
 }
 
@@ -1774,7 +1787,14 @@ textarea:focus-visible {
 
 .tasmi-sheet__mode-btn {
   flex: 1;
-  height: 34px;
+  min-height: 38px;
+  height: auto;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.25;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: var(--bg-subtle);
@@ -1853,9 +1873,10 @@ textarea:focus-visible {
 }
 
 .tasmi-sheet__range-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 72px;
   gap: 8px;
-  align-items: flex-end;
+  align-items: end;
 }
 
 .tasmi-sheet__range-row--equal {
@@ -1874,7 +1895,7 @@ textarea:focus-visible {
 }
 
 .tasmi-sheet__field--num {
-  flex: 0 0 88px;
+  min-width: 0;
 }
 
 .tasmi-sheet__range-row--equal .tasmi-sheet__field--num {
@@ -2383,6 +2404,11 @@ textarea:focus-visible {
   color: var(--mistake-badge);
 }
 
+.tasmi-summary__score--muted {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
 .tasmi-summary__breakdown {
   display: flex;
   flex-wrap: nowrap;
@@ -2651,7 +2677,9 @@ textarea:focus-visible {
   .audio-dock__select,
   .audio-dock__download-btn,
   .audio-dock__pill-label,
-  .audio-dock__tasmi-label {
+  .audio-dock__pill-text,
+  .audio-dock__repeat-btn,
+  .audio-dock__speed-btn {
     display: none;
   }
 
@@ -2683,9 +2711,10 @@ textarea:focus-visible {
   }
 
   .audio-dock__tasmi-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
+    height: 34px;
+    padding: 0 11px;
+    gap: 5px;
+    font-size: 12.5px;
     justify-content: center;
   }
 
@@ -2882,6 +2911,16 @@ textarea:focus-visible {
 .playback-menu__loop--disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.playback-menu__toggles {
+  display: flex;
+  gap: 6px;
+}
+
+.playback-menu__toggles .playback-menu__option {
+  flex: 1;
+  text-align: center;
 }
 
 .playback-menu__hint {
@@ -3523,7 +3562,7 @@ textarea:focus-visible {
   position: fixed;
   z-index: 33;
   right: max(12px, calc(50vw - 490px));
-  bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
   width: min(300px, calc(100vw - 24px));
   padding: 16px;
   border-radius: var(--radius-lg);
@@ -3652,6 +3691,77 @@ textarea:focus-visible {
   border-width: 1px;
 }
 
+.topbar__install {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(19, 111, 90, 0.22);
+}
+
+.topbar__install:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  border-color: var(--accent);
+}
+
+.topbar__install .topbar__icon {
+  display: block;
+}
+
+.install-guide {
+  gap: 12px;
+  padding: 14px;
+}
+
+.install-guide__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.install-guide__title {
+  font-size: 14.5px;
+  color: var(--text-primary);
+}
+
+.install-guide__sub {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.install-guide__steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.install-guide__share-icon {
+  display: inline-block;
+  vertical-align: -2px;
+  color: var(--accent);
+}
+
+.install-guide__close {
+  height: var(--control-h);
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--control-font);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.install-guide__close:hover {
+  background: var(--accent-hover);
+}
+
 .topbar__tasmi,
 .audio-dock__tasmi-btn {
   display: inline-flex;
@@ -3739,11 +3849,6 @@ textarea:focus-visible {
   .audio-dock__reciter-btn {
     min-width: 0;
     padding: 0 6px;
-  }
-
-  /* The large Tasmi' button floats above the player on phones, so the dock does not repeat it */
-  .audio-dock__tasmi-btn {
-    display: none;
   }
 }
 
@@ -4172,23 +4277,68 @@ textarea:focus-visible {
   }
 }
 
-.sync-advanced summary {
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--text-secondary);
-}
+/* Phone landscape: expand the mushaf page to full screen width and scroll vertically so glyphs stay large and legible */
+@media (orientation: landscape) and (max-height: 540px) {
+  .reader-stage {
+    container-type: normal;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: calc(52px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(62px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
 
-.sync-advanced[open] summary {
-  margin-bottom: 8px;
+  .app-shell--focus .reader-stage {
+    padding: calc(8px + env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      calc(8px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .mushaf-spread {
+    width: 100%;
+    max-height: none;
+    flex-shrink: 0;
+  }
+
+  .mushaf-page {
+    container-type: inline-size;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 699 / 1020;
+  }
+
+  .mushaf-spread--double .mushaf-page {
+    width: 50%;
+    height: auto;
+  }
+
+  .turn-btn {
+    position: fixed;
+    top: 50%;
+  }
 }
 
 /* Phone portrait: the page card nearly touches the screen edges and the text nearly touches the card's,
    so the glyphs are as large as the screen allows while each page keeps its edge and shadow. */
 @media (max-width: 640px) and (orientation: portrait) {
-  .reader-stage,
-  .app-shell--focus .reader-stage {
+  .reader-stage {
+    align-items: flex-start;
+    padding-top: calc(56px + env(safe-area-inset-top, 0px));
     padding-left: 6px;
     padding-right: 6px;
+  }
+
+  .app-shell--focus .reader-stage {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .app-shell--tasmi .reader-stage {
+    padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px));
   }
 
   .mushaf-spread {
@@ -4253,4 +4403,19 @@ textarea:focus-visible {
 
 .tasmi-sheet .tasmi-sheet__footer {
   padding: 10px 16px 14px;
+}
+
+.app-shell--tasmi .reader-stage {
+  align-items: flex-start;
+  padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px));
+}
+
+.sync-advanced summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.sync-advanced[open] summary {
+  margin-bottom: 8px;
 }

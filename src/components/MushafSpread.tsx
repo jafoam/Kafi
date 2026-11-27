@@ -67,6 +67,12 @@ export function MushafSpread({
   onTogglePalette,
 }: MushafSpreadProps) {
   const prefetchedRef = useRef<Set<number>>(new Set());
+  const stageRef = useRef<HTMLElement>(null);
+
+  // Reset vertical scroll (used in phone landscape full-width mode) when turning pages
+  useEffect(() => {
+    if (stageRef.current) stageRef.current.scrollTop = 0;
+  }, [rightPageEntry.page, leftPageEntry?.page]);
 
   // Prefetch 2 adjacent pages in each direction for instant page turns
   useEffect(() => {
@@ -158,6 +164,7 @@ export function MushafSpread({
 
   return (
     <main
+      ref={stageRef}
       className="reader-stage"
       onClick={onClearSelection}
       onTouchStart={handleTouchStart}
@@ -213,7 +220,7 @@ export function MushafSpread({
           side={isDouble ? "right" : "single"}
           selectedAyah={selectedAyah}
           playingAyah={playingAyah}
-            playingWordRange={playingWordRange}
+          playingWordRange={playingWordRange}
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}

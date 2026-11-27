@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
 import type { HifzBlurLevel, PageNavMode, SpreadMode, ThemeMode } from "../data/types";
+import type { PwaInstall } from "../state/usePwaInstall";
 
 export interface TopBarProps {
   surahLabel: string;
@@ -13,6 +14,8 @@ export interface TopBarProps {
   focusMode: boolean;
   wordTranslation: boolean;
   theme: ThemeMode;
+  /** PWA install control; shown on web when not yet installed to Home Screen. */
+  pwaInstall?: PwaInstall;
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onChangePageNav: (mode: PageNavMode) => void;
@@ -59,6 +62,7 @@ export function TopBar({
   focusMode,
   wordTranslation,
   theme,
+  pwaInstall,
   onOpenPalette,
   onChangeSpreadMode,
   onChangePageNav,
@@ -75,10 +79,12 @@ export function TopBar({
   onMenuOpenChange,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
   useEffect(() => {
     onMenuOpenChange?.(menuOpen);
   }, [menuOpen, onMenuOpenChange]);
   useBackClose(menuOpen, () => setMenuOpen(false));
+  useBackClose(installGuideOpen, () => setInstallGuideOpen(false));
   return (
     <div className="topbar-zone">
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
@@ -99,6 +105,27 @@ export function TopBar({
         </div>
 
         <div className="topbar__right">
+          {pwaInstall?.canShow && (
+            <button
+              type="button"
+              className="topbar__btn topbar__install"
+              onClick={() => {
+                setMenuOpen(false);
+                void pwaInstall.prompt().then((result) => {
+                  if (result === "guide") setInstallGuideOpen(true);
+                });
+              }}
+              aria-label="Instal aplikasi ke layar utama"
+              title="Instal Kafi ke layar utama agar halaman baca lebih lega"
+            >
+              <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12m0 0-4-4m4 4 4-4" />
+                <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+              <span className="topbar__label">Instal</span>
+            </button>
+          )}
+
           <button
             type="button"
             className="topbar__btn"
@@ -147,7 +174,10 @@ export function TopBar({
           <button
             type="button"
             className={`topbar__btn topbar__btn--icon ${menuOpen ? "topbar__btn--active" : ""}`}
-            onClick={() => setMenuOpen((open) => !open)}
+            onClick={() => {
+              setInstallGuideOpen(false);
+              setMenuOpen((open) => !open);
+            }}
             aria-label="Menu: mode halaman, tema, dan unduh offline"
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
@@ -195,7 +225,75 @@ export function TopBar({
           onClose={() => setMenuOpen(false)}
         />
       )}
+      {installGuideOpen && pwaInstall?.canShow && (
+        <InstallGuide
+          platform={pwaInstall.platform}
+          onClose={() => setInstallGuideOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function InstallGuide({
+  platform,
+  onClose,
+}: {
+  platform: PwaInstall["platform"];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <>
+      <button type="button" className="app-menu__backdrop" aria-label="Tutup panduan instal" onClick={onClose} />
+      <div className="app-menu install-guide" role="dialog" aria-label="Instal Kafi ke Layar Utama">
+        <div className="install-guide__head">
+          <strong className="install-guide__title">Instal Kafi ke Layar Utama</strong>
+          <p className="install-guide__sub">
+            Buka layar penuh tanpa bilah browser agar halaman mushaf tampil lebih besar dan lega.
+          </p>
+        </div>
+
+        {platform === "ios" ? (
+          <ol className="install-guide__steps">
+            <li>
+              Ketuk ikon <strong>Bagikan</strong>{" "}
+              <svg className="install-guide__share-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12m0-12 4 4m-4-4-4 4" />
+                <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
+              </svg>{" "}
+              di bilah bawah Safari.
+            </li>
+            <li>
+              Geser ke bawah lalu pilih <strong>Tambahkan ke Layar Utama</strong>.
+            </li>
+            <li>
+              Ketuk <strong>Tambah</strong> di pojok kanan atas.
+            </li>
+          </ol>
+        ) : (
+          <ol className="install-guide__steps">
+            <li>
+              Buka menu browser (ikon <strong>⋮</strong> atau <strong>⋯</strong>).
+            </li>
+            <li>
+              Pilih <strong>Tambahkan ke Layar Utama</strong> atau <strong>Instal Aplikasi</strong>.
+            </li>
+          </ol>
+        )}
+
+        <button type="button" className="install-guide__close" onClick={onClose}>
+          Mengerti
+        </button>
+      </div>
+    </>
   );
 }
 

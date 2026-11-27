@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import fs from "node:fs";
 import type { Catalog, MushafMap, TasmiSessionRecord } from "../src/data/types";
+import { AyahPopover } from "../src/components/AyahPopover";
 import { AudioDock } from "../src/components/AudioDock";
 import { GlyphPageBody } from "../src/components/GlyphPageBody";
 import { NavPalette } from "../src/components/NavPalette";
@@ -292,6 +293,82 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
 
     const updatedTabs = el.querySelectorAll('[role="tab"]');
     expect(updatedTabs[1].getAttribute("aria-selected")).toBe("true");
+  });
+});
+
+describe("Unified word gloss inside AyahPopover", () => {
+  it("renders word translation and transliteration alongside ayah actions, and omits them when absent", () => {
+    const rect = { left: 100, top: 300, width: 40, height: 24, bottom: 324, right: 140 } as DOMRect;
+    const el = mount(
+      <AyahPopover
+        ayah="1:1"
+        surahName="Al-Fatihah"
+        anchorRect={rect}
+        word={{
+          key: "1:2-0",
+          translation: "dengan nama",
+          transliteration: "bis'mi",
+        }}
+        isBookmarked={false}
+        highlightColor={null}
+        onClose={() => {}}
+        onToggleBookmark={() => {}}
+        onSetHighlight={() => {}}
+      />,
+    );
+
+    expect(el.querySelector(".ayah-popover__word-translation")?.textContent).toBe("dengan nama");
+    expect(el.querySelector(".ayah-popover__word-translit")?.textContent).toBe("bis'mi");
+    expect(el.textContent).toContain("Putar");
+    expect(el.textContent).toContain("Tafsir & Terjemahan");
+    expect(el.textContent).toContain("Tasmi' dari sini");
+
+    mount(
+      <AyahPopover
+        ayah="1:1"
+        surahName="Al-Fatihah"
+        anchorRect={rect}
+        word={undefined}
+        isBookmarked={false}
+        highlightColor={null}
+        onClose={() => {}}
+        onToggleBookmark={() => {}}
+        onSetHighlight={() => {}}
+      />,
+    );
+    expect(el.querySelector(".ayah-popover__word")).toBeNull();
+  });
+
+  it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {
+    const silentRecord: TasmiSessionRecord = {
+      id: "silent-1",
+      startedAt: "2026-11-26T10:00:00Z",
+      durationSec: 12,
+      surah: 2,
+      fromAyah: 1,
+      toAyah: 5,
+      mistakes: [],
+      recitedAyahs: 0,
+      recitedWords: 0,
+    };
+
+    const el = mount(
+      <TasmiSummaryModal
+        open={true}
+        initialTab="summary"
+        record={silentRecord}
+        history={[silentRecord]}
+        surahs={catalog.surahs}
+        getAyahWords={() => []}
+        onClose={() => {}}
+        onPlayAyah={() => {}}
+        onJumpToAyah={() => {}}
+      />,
+    );
+
+    expect(el.textContent).toContain("Belum ada bacaan");
+    expect(el.textContent).not.toContain("Lancar");
+    expect(el.textContent).toContain("0/5 ayat · 0 kata terbaca");
   });
 });
 
