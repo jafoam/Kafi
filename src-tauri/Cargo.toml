@@ -1,7 +1,8 @@
 [package]
 name = "ayat"
 version = "0.1.0"
-description = "Ayat — Medina Mushaf Reader & Offline Tasmi'"
+description = "Kafi — Mushaf Madinah reader and Quran memorization companion"
+license = "GPL-3.0-or-later"
 authors = ["rifizzu"]
 edition = "2021"
 
