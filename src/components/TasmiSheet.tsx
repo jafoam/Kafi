@@ -43,6 +43,7 @@ export interface TasmiSheetProps {
   ) => void;
   onStartRandom?: (pool: RandomPool, enableBlur: boolean) => void;
   onOpenHistory: () => void;
+  onOpenGuide: () => void;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -75,6 +76,7 @@ export function TasmiSheet({
   onStartMemorization,
   onStartRandom,
   onOpenHistory,
+  onOpenGuide,
 }: TasmiSheetProps) {
   const candidates = useMemo(
     () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs),
@@ -202,6 +204,14 @@ export function TasmiSheet({
             <p className="tasmi-sheet__subtitle">Suaramu diproses di perangkat</p>
           </div>
           <div className="tasmi-sheet__header-actions">
+            <button
+              type="button"
+              className="tasmi-sheet__history-btn"
+              onClick={onOpenGuide}
+              disabled={isBusy}
+            >
+              Panduan
+            </button>
             <button
               type="button"
               className="tasmi-sheet__history-btn"
