@@ -343,3 +343,46 @@ describe("tasmi-logic", () => {
     expect(fallbackMatch?.reciter.id).toBe(second.id);
   });
 });
+
+describe("short opening ayahs", () => {
+  const fajrWords = (_s: number, a: number) =>
+    ({ 1: ["وَٱلْفَجْرِ"], 2: ["وَلَيَالٍ", "عَشْرٍۢ"], 3: ["وَٱلشَّفْعِ", "وَٱلْوَتْرِ"] })[a] ?? [];
+  const position = (state: string, word: [number, number], spanStart: [number, number], spanEnd: [number, number]) =>
+    ({
+      v: 1,
+      type: "position",
+      timeMs: 1000,
+      referenceVersion: "ref-v2",
+      state,
+      observed: [
+        {
+          word: { surah: 89, ayah: word[0], word: word[1] },
+          span: {
+            start: { surah: 89, ayah: spanStart[0], word: spanStart[1] },
+            end: { surah: 89, ayah: spanEnd[0], word: spanEnd[1] },
+          },
+          confidence: 0.9,
+          cost: 0,
+          per: 0,
+        },
+      ],
+      expected: null,
+    }) as any;
+
+  it("opens Al-Fajr 1 when the first lock lands in ayah 2 with a span reaching back over it", () => {
+    let st = createTasmiState("memorization", { surah: 89, fromAyah: 1, toAyah: 3 });
+    // The engine's real sequence for a clean recitation: وَٱلْفَجْرِ alone never locks.
+    st = reduceTilawaEvent(st, position("acquiring", [1, 1], [1, 1], [1, 1]), fajrWords);
+    expect(st.revealedAyahs.has("89:1")).toBe(false);
+
+    st = reduceTilawaEvent(st, position("locked", [2, 1], [1, 1], [2, 1]), fajrWords);
+    expect(st.revealedAyahs.has("89:1")).toBe(true);
+    expect(st.revealedAyahs.has("89:2")).toBe(false);
+    expect(st.recitedWords.has("89:1:1")).toBe(true);
+    expect(countRecitedAyahs(st)).toBe(2);
+
+    st = reduceTilawaEvent(st, position("locked", [3, 1], [1, 1], [3, 1]), fajrWords);
+    expect(st.revealedAyahs.has("89:2")).toBe(true);
+    expect(st.recitedWords.has("89:2:2")).toBe(true);
+  });
+});
