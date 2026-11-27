@@ -10,7 +10,7 @@ Pembaca Mushaf Madinah 15 baris dan pendamping hafalan Al-Qur'an dengan Tasmi' y
 [![Rilis](https://img.shields.io/github/v/release/jafoam/Kafi?include_prereleases&label=rilis)](https://github.com/jafoam/Kafi/releases)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20Android%20%C2%B7%20macOS-informational)
 
-[Buka versi web](https://kafi-1ia.pages.dev) · [Unduh APK Android](https://github.com/jafoam/Kafi/releases) · [Laporkan masalah](https://github.com/jafoam/Kafi/issues/new/choose)
+[Buka versi web](https://kafi.zudd.in) · [Unduh APK Android](https://github.com/jafoam/Kafi/releases) · [Laporkan masalah](https://github.com/jafoam/Kafi/issues/new/choose)
 
 </div>
 
@@ -42,7 +42,7 @@ Pembaca Mushaf Madinah 15 baris dan pendamping hafalan Al-Qur'an dengan Tasmi' y
 
 | Platform | Status | Cara memasang |
 | --- | --- | --- |
-| Web (PWA) | Tersedia | Buka [kafi-1ia.pages.dev](https://kafi-1ia.pages.dev), lalu pasang dari menu browser |
+| Web (PWA) | Tersedia | Buka [kafi.zudd.in](https://kafi.zudd.in), lalu pasang dari menu browser |
 | Android 7.0+ (arm64) | Alpha | Unduh APK dari [Releases](https://github.com/jafoam/Kafi/releases) |
 | macOS | Dalam pengembangan | Build dari sumber (lihat di bawah) |
 | Windows | Direncanakan | — |
