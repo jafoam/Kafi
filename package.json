@@ -2,6 +2,15 @@
   "name": "kafi",
   "private": true,
   "version": "0.1.0",
+  "description": "Pembaca Mushaf Madinah 15 baris dan pendamping hafalan Al-Qur'an dengan Tasmi' on-device.",
+  "homepage": "https://kafi-1ia.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jafoam/Kafi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jafoam/Kafi/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

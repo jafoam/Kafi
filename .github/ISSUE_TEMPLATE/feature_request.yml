@@ -1,0 +1,22 @@
+name: Usulan fitur
+description: Usulkan fitur baru atau perbaikan pada fitur yang ada.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Kebutuhan
+      description: Masalah atau kebutuhan apa yang ingin diselesaikan?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Usulan
+      description: Bagaimana fitur ini sebaiknya bekerja?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatif yang sudah dipertimbangkan

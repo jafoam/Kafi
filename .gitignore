@@ -13,3 +13,8 @@ src-tauri/resources/mushaf/
 *.aab
 public/fonts/qcf-v1/
 src-tauri/gen/android/
+
+# Local tooling
+.claude/
+CLAUDE.md
+docs/superpowers/
