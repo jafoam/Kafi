@@ -148,3 +148,46 @@ describe("sync-service", () => {
     expect(merged.lastPage).toBe(300);
   });
 });
+
+describe("bookmark removal across sync", () => {
+  it("keeps a removed bookmark removed when the other device still has it", () => {
+    const local: UserData = {
+      ...DEFAULT_USER_DATA,
+      bookmarks: [],
+      bookmarkLog: { "2:255": { on: false, at: "2026-11-27T10:00:00.000Z" } },
+      updatedAt: "2026-11-27T10:00:00.000Z",
+    };
+    const remote: UserData = {
+      ...DEFAULT_USER_DATA,
+      bookmarks: ["2:255", "1:1"],
+      bookmarkLog: { "2:255": { on: true, at: "2026-11-26T10:00:00.000Z" } },
+      updatedAt: "2026-11-26T10:00:00.000Z",
+    };
+    expect(mergeUserData(local, remote).bookmarks).toEqual(["1:1"]);
+    expect(mergeUserData(remote, local).bookmarks).toEqual(["1:1"]);
+  });
+
+  it("lets a removal beat a bookmark saved before the log existed", () => {
+    const local: UserData = {
+      ...DEFAULT_USER_DATA,
+      bookmarks: [],
+      bookmarkLog: { "78:1": { on: false, at: "2026-11-27T10:00:00.000Z" } },
+    };
+    const legacyRemote: UserData = { ...DEFAULT_USER_DATA, bookmarks: ["78:1"] };
+    expect(mergeUserData(local, legacyRemote).bookmarks).toEqual([]);
+  });
+
+  it("lets a later re-add win over an older removal", () => {
+    const a: UserData = {
+      ...DEFAULT_USER_DATA,
+      bookmarks: ["3:1"],
+      bookmarkLog: { "3:1": { on: true, at: "2026-11-27T12:00:00.000Z" } },
+    };
+    const b: UserData = {
+      ...DEFAULT_USER_DATA,
+      bookmarks: [],
+      bookmarkLog: { "3:1": { on: false, at: "2026-11-27T11:00:00.000Z" } },
+    };
+    expect(mergeUserData(b, a).bookmarks).toEqual(["3:1"]);
+  });
+});

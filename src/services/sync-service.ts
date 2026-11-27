@@ -1,4 +1,4 @@
-import type { AyahKey, MurajaahCard, SyncConfig, TasmiSessionRecord, UserData } from "../data/types";
+import type { AyahKey, BookmarkEvent, MurajaahCard, SyncConfig, TasmiSessionRecord, UserData } from "../data/types";
 
 export const SYNC_CONFIG_KEY = "kafi:sync:config";
 /** Kafi's own sync server; a build can point elsewhere with VITE_SYNC_URL. */
@@ -131,6 +131,39 @@ export async function decryptUserData(
   return JSON.parse(new TextDecoder().decode(decrypted)) as UserData;
 }
 
+/**
+ * Per ayah, the latest add or remove wins. A bookmark saved before the log
+ * existed counts as added at time 0, so any recorded removal beats it.
+ */
+function mergeBookmarks(
+  local: UserData,
+  remote: UserData,
+): { bookmarks: AyahKey[]; bookmarkLog: Record<AyahKey, BookmarkEvent> } {
+  const stateOf = (data: UserData, key: AyahKey): { on: boolean; ts: number; event?: BookmarkEvent } | null => {
+    const event = data.bookmarkLog?.[key];
+    if (event) return { on: event.on, ts: Date.parse(event.at) || 0, event };
+    return data.bookmarks.includes(key) ? { on: true, ts: 0 } : null;
+  };
+  const keys = new Set<AyahKey>([
+    ...local.bookmarks,
+    ...remote.bookmarks,
+    ...(Object.keys(local.bookmarkLog ?? {}) as AyahKey[]),
+    ...(Object.keys(remote.bookmarkLog ?? {}) as AyahKey[]),
+  ]);
+  const on = new Set<AyahKey>();
+  const bookmarkLog: Record<AyahKey, BookmarkEvent> = {};
+  for (const key of keys) {
+    const a = stateOf(local, key);
+    const b = stateOf(remote, key);
+    const win = !a ? b : !b ? a : b.ts > a.ts ? b : a;
+    if (!win) continue;
+    if (win.on) on.add(key);
+    if (win.event) bookmarkLog[key] = win.event;
+  }
+  const order = Array.from(new Set<AyahKey>([...local.bookmarks, ...remote.bookmarks, ...keys]));
+  return { bookmarks: order.filter((key) => on.has(key)), bookmarkLog };
+}
+
 /** Lossless merge of two UserData snapshots across devices. */
 export function mergeUserData(local: UserData, remote: UserData): UserData {
   const localTs = Date.parse(local.updatedAt ?? "") || 0;
@@ -143,7 +176,7 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
   const remoteSettingsNewer =
     localSettingsTs || remoteSettingsTs ? remoteSettingsTs > localSettingsTs : remoteNewer;
 
-  const bookmarks = Array.from(new Set<AyahKey>([...local.bookmarks, ...remote.bookmarks]));
+  const { bookmarks, bookmarkLog } = mergeBookmarks(local, remote);
 
   const highlights = remoteNewer
     ? { ...local.highlights, ...remote.highlights }
@@ -183,6 +216,7 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     lastPage: remoteNewer ? remote.lastPage : local.lastPage,
     recentPages,
     bookmarks,
+    bookmarkLog,
     highlights,
     notes,
     settings: remoteSettingsNewer

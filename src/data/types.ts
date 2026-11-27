@@ -171,10 +171,17 @@ export interface SyncConfig {
   lastSyncedAt?: string;
 }
 
+export interface BookmarkEvent {
+  on: boolean;
+  at: string;
+}
+
 export interface UserData {
   lastPage: number;
   recentPages?: number[];
   bookmarks: AyahKey[];
+  /** When each bookmark was last added or removed, so a removal survives sync. */
+  bookmarkLog?: Record<AyahKey, BookmarkEvent>;
   highlights: Record<AyahKey, HighlightColor>;
   notes: Record<AyahKey, string>;
   settings: AppSettings;
