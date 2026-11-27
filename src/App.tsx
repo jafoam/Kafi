@@ -1799,7 +1799,6 @@ export function App({
         spreadMode={userData.settings.spreadMode}
         pageNav={userData.settings.pageNav}
         onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
-        onOpenTasmiGuide={() => setTasmiGuideOpen(true)}
         onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         hifzBlur={
@@ -1966,7 +1965,8 @@ export function App({
           ayah={selected.ayah}
           surahName={selectedSurahName}
           anchorRect={selected.rect}
-          word={selected.word}
+          quranApi={quranApi}
+          translationId={userData.settings.translationId}
           isBookmarked={bookmarkSet.has(selected.ayah)}
           highlightColor={userData.highlights[selected.ayah] ?? null}
           onClose={() => setSelected(null)}
@@ -2175,6 +2175,7 @@ export function App({
           }
         }}
         onOpenHistory={handleOpenTasmiHistory}
+        onOpenGuide={() => setTasmiGuideOpen(true)}
       />
 
       {tajweedGuideOpen && <TajweedGuide onClose={() => setTajweedGuideOpen(false)} />}

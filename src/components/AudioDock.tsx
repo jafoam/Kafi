@@ -93,7 +93,7 @@ export function AudioDock({
             title="Buka Terjemahan, Tafsir & Catatan"
           >
             <span className="audio-dock__ayah-title">
-              {surahName} - {ayahNum}
+              {surahName} : {ayahNum}
             </span>
           </button>
 

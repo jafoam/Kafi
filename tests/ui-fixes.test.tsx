@@ -14,6 +14,7 @@ import type { GlyphPageLoader } from "../src/services/glyph-pages";
 import { MushafSpread } from "../src/components/MushafSpread";
 import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
+import type { QuranApi } from "../src/services/quran-api";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -171,6 +172,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
         onStartFree={() => {}}
         onStartMemorization={onStartMemorization}
         onOpenHistory={() => {}}
+        onOpenGuide={() => {}}
       />,
     );
 
@@ -205,6 +207,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
         onStartMemorization={() => {}}
         onStartRandom={onStartRandom}
         onOpenHistory={() => {}}
+        onOpenGuide={() => {}}
       />,
     );
 
@@ -296,19 +299,21 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
   });
 });
 
-describe("Unified word gloss inside AyahPopover", () => {
-  it("renders word translation and transliteration alongside ayah actions, and omits them when absent", () => {
+describe("Full ayah translation inside AyahPopover", () => {
+  it("shows the whole ayah's translation, without footnote markers, alongside ayah actions", async () => {
     const rect = { left: 100, top: 300, width: 40, height: 24, bottom: 324, right: 140 } as DOMRect;
+    const getTranslation = vi.fn(async () => ({
+      html: "Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.<sup>1</sup>",
+      fromCache: true,
+    }));
+    const quranApi = { getTranslation } as unknown as QuranApi;
     const el = mount(
       <AyahPopover
         ayah="1:1"
         surahName="Al-Fatihah"
         anchorRect={rect}
-        word={{
-          key: "1:2-0",
-          translation: "dengan nama",
-          transliteration: "bis'mi",
-        }}
+        quranApi={quranApi}
+        translationId={33}
         isBookmarked={false}
         highlightColor={null}
         onClose={() => {}}
@@ -316,27 +321,16 @@ describe("Unified word gloss inside AyahPopover", () => {
         onSetHighlight={() => {}}
       />,
     );
+    await act(async () => {});
 
-    expect(el.querySelector(".ayah-popover__word-translation")?.textContent).toBe("dengan nama");
-    expect(el.querySelector(".ayah-popover__word-translit")?.textContent).toBe("bis'mi");
+    expect(getTranslation).toHaveBeenCalledWith(33, 1, 1, expect.anything());
+    expect(el.querySelector(".ayah-popover__translation-text")?.textContent).toContain(
+      "Dengan nama Allah Yang Maha Pengasih",
+    );
+    expect(el.querySelector(".ayah-popover__word")).toBeNull();
     expect(el.textContent).toContain("Putar");
     expect(el.textContent).toContain("Tafsir & Terjemahan");
     expect(el.textContent).toContain("Tasmi' dari sini");
-
-    mount(
-      <AyahPopover
-        ayah="1:1"
-        surahName="Al-Fatihah"
-        anchorRect={rect}
-        word={undefined}
-        isBookmarked={false}
-        highlightColor={null}
-        onClose={() => {}}
-        onToggleBookmark={() => {}}
-        onSetHighlight={() => {}}
-      />,
-    );
-    expect(el.querySelector(".ayah-popover__word")).toBeNull();
   });
 
   it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {

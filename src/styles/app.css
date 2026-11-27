@@ -836,27 +836,31 @@ textarea:focus-visible {
   color: var(--text-primary);
 }
 
-.ayah-popover__word {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 10px;
+.ayah-popover__translation {
+  max-height: 168px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
 }
 
-.ayah-popover__word-translation {
+.ayah-popover__translation-text {
+  margin: 0;
   font-size: 13.5px;
-  font-weight: 600;
+  line-height: 1.5;
   color: var(--text-primary);
-  line-height: 1.3;
 }
 
-.ayah-popover__word-translit {
-  font-size: 11.5px;
+/* Footnote markers point at notes the popover does not show. */
+.ayah-popover__translation-text sup {
+  display: none;
+}
+
+.ayah-popover__translation-muted {
+  font-size: 12.5px;
   color: var(--text-secondary);
-  font-style: italic;
 }
 
 .ayah-popover__actions {

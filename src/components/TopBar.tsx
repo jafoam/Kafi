@@ -29,7 +29,6 @@ export interface TopBarProps {
   onToggleTajweed: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
-  onOpenTasmiGuide: () => void;
   onOpenTajweedGuide: () => void;
   onOpenAbout: () => void;
   onOpenDownloads: () => void;
@@ -89,7 +88,6 @@ export function TopBar({
   onToggleTajweed,
   onChangeTheme,
   onOpenTasmi,
-  onOpenTasmiGuide,
   onOpenTajweedGuide,
   onOpenAbout,
   onOpenDownloads,
@@ -236,7 +234,6 @@ export function TopBar({
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
           onChangePageNav={onChangePageNav}
-          onOpenTasmiGuide={onOpenTasmiGuide}
           onOpenTajweedGuide={onOpenTajweedGuide}
           onOpenAbout={onOpenAbout}
           onToggleHifzBlur={onToggleHifzBlur}
@@ -329,7 +326,6 @@ interface AppMenuProps {
   spreadMode: SpreadMode;
   pageNav: PageNavMode;
   onChangePageNav: (mode: PageNavMode) => void;
-  onOpenTasmiGuide: () => void;
   onOpenTajweedGuide: () => void;
   onOpenAbout: () => void;
   hifzBlur: boolean;
@@ -359,7 +355,6 @@ function AppMenu({
   spreadMode,
   pageNav,
   onChangePageNav,
-  onOpenTasmiGuide,
   onOpenTajweedGuide,
   onOpenAbout,
   hifzBlur,
@@ -492,7 +487,6 @@ function AppMenu({
         <span className="app-menu__divider" aria-hidden="true" />
         <span className="app-menu__section">Lainnya</span>
 
-        {linkRow("Panduan Tasmi'", "Setor hafalan dalam 4 langkah", onOpenTasmiGuide)}
         {linkRow("Unduh Offline", "Murottal, terjemahan, tafsir, mushaf", onOpenDownloads)}
         {onOpenSync &&
           linkRow(
