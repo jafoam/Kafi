@@ -1,0 +1,46 @@
+name: Laporan bug
+description: Laporkan sesuatu yang tidak berjalan sebagaimana mestinya.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Apa yang terjadi?
+      description: Jelaskan masalahnya dan apa yang seharusnya terjadi.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah untuk mereproduksi
+      placeholder: |
+        1. Buka surah ...
+        2. Ketuk ...
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Web (browser)
+        - Web (dipasang ke layar utama)
+        - Android
+        - macOS
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Perangkat dan browser
+      placeholder: "Contoh: iPhone 15, iOS 19, Safari"
+  - type: input
+    id: version
+    attributes:
+      label: Versi Kafi
+      placeholder: "Contoh: 0.1.0-alpha.1"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Tangkapan layar atau informasi tambahan
