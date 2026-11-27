@@ -165,6 +165,7 @@ export function normalizeUserData(raw: unknown): UserData {
     : [];
   const murajaahCards = backfillMurajaahCards(tasmiHistory, rawCards);
   const updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : undefined;
+  const settingsUpdatedAt = typeof raw.settingsUpdatedAt === "string" ? raw.settingsUpdatedAt : undefined;
 
   return {
     lastPage,
@@ -176,6 +177,7 @@ export function normalizeUserData(raw: unknown): UserData {
     tasmiHistory,
     murajaahCards,
     updatedAt,
+    settingsUpdatedAt,
   };
 }
 
@@ -261,6 +263,7 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
       return mutate((current) => ({
         ...current,
         settings: { ...current.settings, ...patch },
+        settingsUpdatedAt: new Date().toISOString(),
       }));
     },
     setLastPage(page: number) {

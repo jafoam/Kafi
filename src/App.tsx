@@ -67,7 +67,6 @@ import {
 } from "./state/reader-logic";
 import { AudioDock } from "./components/AudioDock";
 import { AudioDownloadsPanel, type DownloadsTab } from "./components/AudioDownloadsPanel";
-import { FocusExit } from "./components/FocusExit";
 import { TasmiLauncher } from "./components/TasmiLauncher";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
@@ -88,6 +87,7 @@ import {
   type RandomPromptInfo,
 } from "./components/RecitationRibbon";
 import { StudyDrawer } from "./components/StudyDrawer";
+import { TranslationReader } from "./components/TranslationReader";
 import { SyncModal } from "./components/SyncModal";
 import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiGuide } from "./components/TasmiGuide";
@@ -236,6 +236,7 @@ export function App({
   const [audioState, setAudioState] = useState<AudioState>(INITIAL_AUDIO_STATE);
   const [studyOpen, setStudyOpen] = useState(false);
   const [studyAyah, setStudyAyah] = useState<AyahKey | null>(null);
+  const [readerAyah, setReaderAyah] = useState<AyahKey | null>(null);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [downloadsTab, setDownloadsTab] = useState<DownloadsTab>("audio");
   const [toast, setToast] = useState<string | null>(null);
@@ -1549,15 +1550,33 @@ export function App({
       if (studyOpen) {
         setStudyAyah(ayah);
       }
-      if (focusMode) return;
       setSelected((prev) =>
         prev?.ayah === ayah && prev.word?.key === word?.key
           ? null
           : { ayah, rect: anchorRect, word },
       );
     },
-    [focusMode, studyOpen],
+    [studyOpen],
   );
+
+  // Touch: a tap on the page toggles focus mode (the ayah menu opens on a hold). A tap while a
+  // popover is open only closes it. Mouse clicks keep selecting ayahs and only clear selection.
+  const lastPointerRef = useRef<string>("mouse");
+  useEffect(() => {
+    const onDown = (event: PointerEvent) => {
+      lastPointerRef.current = event.pointerType || "mouse";
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => window.removeEventListener("pointerdown", onDown, true);
+  }, []);
+  const handleTapPage = useCallback(() => {
+    if (selected) {
+      setSelected(null);
+      return;
+    }
+    if (lastPointerRef.current === "mouse" || tasmiActive) return;
+    setFocusMode((prev) => !prev);
+  }, [selected, tasmiActive]);
 
   // Dismiss ayah/word popover when entering focus mode
   useEffect(() => {
@@ -1577,6 +1596,7 @@ export function App({
 
   useBackClose(paletteOpen, () => setPaletteOpen(false));
   useBackClose(studyOpen, () => setStudyOpen(false));
+  useBackClose(readerAyah !== null, () => setReaderAyah(null));
   useBackClose(downloadsOpen, () => setDownloadsOpen(false));
   useBackClose(syncOpen, () => setSyncOpen(false));
   useBackClose(tasmiSheetOpen, () => setTasmiSheetOpen(false));
@@ -1774,6 +1794,7 @@ export function App({
           setSyncError(null);
           setSyncOpen(true);
         }}
+        onOpenReader={() => setReaderAyah(selected?.ayah ?? activeAyah)}
         syncConnected={syncConfig !== null}
         onMenuOpenChange={setTopMenuOpen}
       />
@@ -1802,7 +1823,6 @@ export function App({
         />
       )}
 
-      {focusMode && <FocusExit onExit={() => setFocusMode(false)} />}
 
       <TasmiLauncher
         visible={tasmiLauncherVisible}
@@ -1835,6 +1855,7 @@ export function App({
           onSelectAyah={handleSelectAyah}
           onPeekAyah={handlePeekAyah}
           onClearSelection={() => setSelected(null)}
+          onTapPage={handleTapPage}
           onToggleFocus={() => setFocusMode((prev) => !prev)}
           onTogglePalette={() => {
             if (tasmiSheetOpen || summaryModal.open) return;
@@ -1867,6 +1888,7 @@ export function App({
           onSelectAyah={handleSelectAyah}
           onPeekAyah={handlePeekAyah}
           onClearSelection={() => setSelected(null)}
+          onTapPage={handleTapPage}
           onToggleFocus={() => setFocusMode((prev) => !prev)}
           onTogglePalette={() => {
             if (tasmiSheetOpen || summaryModal.open) return;
@@ -1876,7 +1898,7 @@ export function App({
         />
       )}
 
-      {selected && !focusMode && (
+      {selected && (
         <AyahPopover
           ayah={selected.ayah}
           surahName={selectedSurahName}
@@ -1952,6 +1974,32 @@ export function App({
         onSaveNote={handleSaveNote}
         onPlayAyah={handlePlayAyah}
         onOpenDownloads={(tab) => openDownloads(tab)}
+        onOpenReader={(ayah) => {
+          setStudyOpen(false);
+          setReaderAyah(ayah);
+        }}
+      />
+
+      <TranslationReader
+        open={readerAyah !== null}
+        startAyah={readerAyah ?? activeAyah}
+        playingAyah={audioState.isPlaying ? audioState.currentAyah : null}
+        surahs={catalog.surahs}
+        quranApi={quranApi}
+        glyphLoader={glyphLoader}
+        ayahPages={ayahPages}
+        translations={catalog.translations}
+        tafsirs={catalog.tafsirs}
+        translationId={userData.settings.translationId}
+        tafsirId={userData.settings.tafsirId}
+        onChangeTranslation={handleChangeTranslation}
+        onChangeTafsir={handleChangeTafsir}
+        onPlayAyah={handlePlayAyah}
+        onClose={(last) => {
+          setReaderAyah(null);
+          const page = getPagesForAyah(last)[0];
+          if (page) navigateToPage(page);
+        }}
       />
 
       <NavPalette

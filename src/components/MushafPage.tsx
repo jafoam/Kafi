@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLongPress } from "../state/useLongPress";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData, GlyphPageLoader } from "../services/glyph-pages";
 import type { SelectedWord } from "../services/word-translations";
@@ -90,6 +91,15 @@ export function MushafPage({
     };
   }, [glyphLoader, pageEntry.page]);
 
+  const pointerTypeRef = useRef<string>("mouse");
+  const longPress = useLongPress((target) => {
+    const box = target.closest<HTMLElement>("[data-ayah]");
+    const ayah = box?.dataset.ayah as AyahKey | undefined;
+    if (!box || !ayah) return false;
+    onSelectAyah(ayah, box.getBoundingClientRect());
+    return true;
+  });
+
   const useGlyphs = glyphData !== null;
   const showImage = glyphFailed && !useGlyphs;
 
@@ -163,7 +173,17 @@ export function MushafPage({
       {side !== "single" && <div className="mushaf-page__spine" aria-hidden="true" />}
 
       {showImage && (
-      <div className="mushaf-page__overlays">
+      <div
+        className="mushaf-page__overlays"
+        onPointerDown={(event) => {
+          pointerTypeRef.current = event.pointerType || "mouse";
+          longPress.handlers.onPointerDown(event);
+        }}
+        onPointerMove={longPress.handlers.onPointerMove}
+        onPointerUp={longPress.handlers.onPointerUp}
+        onPointerCancel={longPress.handlers.onPointerCancel}
+        onContextMenu={longPress.handlers.onContextMenu}
+      >
         {pageEntry.ayahs.map((segment) => {
           const ayahKey: AyahKey = `${segment.surah}:${segment.ayah}`;
           const isHovered = hoveredAyah === ayahKey;
@@ -198,6 +218,7 @@ export function MushafPage({
                 key={`${ayahKey}-${boxIndex}`}
                 type="button"
                 className={classes}
+                data-ayah={ayahKey}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
@@ -216,11 +237,18 @@ export function MushafPage({
                 onMouseEnter={() => setHoveredAyah(ayahKey)}
                 onMouseLeave={() => setHoveredAyah((prev) => (prev === ayahKey ? null : prev))}
                 onClick={(event) => {
-                  event.stopPropagation();
+                  if (longPress.consumeClick()) {
+                    event.stopPropagation();
+                    return;
+                  }
                   if (isBlurred && onPeekAyah) {
+                    event.stopPropagation();
                     onPeekAyah(ayahKey);
                     return;
                   }
+                  // A touch tap falls through to the page, which toggles focus mode.
+                  if (pointerTypeRef.current !== "mouse") return;
+                  event.stopPropagation();
                   onSelectAyah(ayahKey, event.currentTarget.getBoundingClientRect());
                 }}
               >

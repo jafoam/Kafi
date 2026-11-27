@@ -59,6 +59,13 @@ interface CachedSurahTafsirEntry {
 }
 
 const MAX_BLOB_URLS = 24;
+
+/** Indonesian tafsirs served as static JSON (github.com/spa5k/tafsir_api via jsDelivr). */
+const SPA5K_TAFSIRS: Record<string, string> = {
+  "id-saadi": "id-tafsir-as-saadi",
+  "id-mukhtasar": "indonesian-mokhtasar",
+};
+const SPA5K_BASE = "https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir";
 const DOWNLOAD_CONCURRENCY = 3;
 
 const encoder = new TextEncoder();
@@ -243,6 +250,7 @@ export function createQuranApi(
     if (tafsirId === "equran-id") {
       return getEquranTafsir(surah, ayah, signal);
     }
+    const spaSlug = SPA5K_TAFSIRS[tafsirId];
 
     const surahCached = await platform.cacheGet("tafsir", tafsirSurahCacheKey(tafsirId, surah));
     if (surahCached) {
@@ -261,9 +269,15 @@ export function createQuranApi(
       }
     }
 
-    const url = `https://api.quran.com/api/v4/tafsirs/${encodeURIComponent(tafsirId)}/by_ayah/${surah}:${ayah}`;
-    const data = await fetchJson<{ tafsir?: { text?: string } }>(url, signal);
-    const html = sanitizeHtml(data.tafsir?.text ?? "");
+    let html: string;
+    if (spaSlug) {
+      const data = await fetchJson<{ text?: string }>(`${SPA5K_BASE}/${spaSlug}/${surah}/${ayah}.json`, signal);
+      html = formatParagraphsToSafeHtml(data.text ?? "");
+    } else {
+      const url = `https://api.quran.com/api/v4/tafsirs/${encodeURIComponent(tafsirId)}/by_ayah/${surah}:${ayah}`;
+      const data = await fetchJson<{ tafsir?: { text?: string } }>(url, signal);
+      html = sanitizeHtml(data.tafsir?.text ?? "");
+    }
     if (html.length > 0) {
       await platform.cachePut("tafsir", key, encodeJson({ html }));
     }
@@ -311,6 +325,21 @@ export function createQuranApi(
     }
 
     const ayahs: Record<string, string> = {};
+    const spaSlug = SPA5K_TAFSIRS[tafsirId];
+    if (spaSlug) {
+      const list = await fetchJson<Array<{ ayah?: number; text?: string }>>(
+        `${SPA5K_BASE}/${spaSlug}/${surah}.json`,
+        signal,
+      );
+      for (const item of Array.isArray(list) ? list : []) {
+        if (typeof item.ayah === "number" && item.ayah > 0) {
+          ayahs[String(item.ayah)] = formatParagraphsToSafeHtml(item.text ?? "");
+        }
+      }
+      if (Object.keys(ayahs).length === 0) throw new Error(`Empty tafsir ${tafsirId} for surah ${surah}`);
+      await platform.cachePut("tafsir", key, encodeJson({ ayahs }));
+      return;
+    }
     let page = 1;
     while (true) {
       const url = `https://api.quran.com/api/v4/tafsirs/${encodeURIComponent(tafsirId)}/by_chapter/${surah}?per_page=300&page=${page}`;

@@ -29,6 +29,8 @@ export interface MushafSpreadProps {
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onClearSelection: () => void;
+  /** A click or tap on the page that no ayah or word handled. */
+  onTapPage?: () => void;
   onToggleFocus: () => void;
   onTogglePalette: () => void;
 }
@@ -63,6 +65,7 @@ export function MushafSpread({
   onSelectAyah,
   onPeekAyah,
   onClearSelection,
+  onTapPage,
   onToggleFocus,
   onTogglePalette,
 }: MushafSpreadProps) {
@@ -166,7 +169,7 @@ export function MushafSpread({
     <main
       ref={stageRef}
       className="reader-stage"
-      onClick={onClearSelection}
+      onClick={onTapPage ?? onClearSelection}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={() => {

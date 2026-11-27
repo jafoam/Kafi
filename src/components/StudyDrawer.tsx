@@ -31,6 +31,8 @@ export interface StudyDrawerProps {
   onSaveNote: (ayah: AyahKey, text: string) => void;
   onPlayAyah: (ayah: AyahKey) => void;
   onOpenDownloads?: (tab: "translation" | "tafsir") => void;
+  /** Opens the full-screen reader at this ayah. */
+  onOpenReader?: (ayah: AyahKey) => void;
 }
 
 const HIGHLIGHT_OPTIONS: Array<{ color: HighlightColor; label: string }> = [
@@ -75,6 +77,7 @@ export function StudyDrawer({
   onSaveNote,
   onPlayAyah,
   onOpenDownloads,
+  onOpenReader,
 }: StudyDrawerProps) {
   const [tab, setTab] = useState<StudyTab>("terjemahan");
   const [translationState, setTranslationState] = useState<FetchState>(INITIAL_FETCH);
@@ -211,6 +214,20 @@ export function StudyDrawer({
           )}
         </div>
         <div className="study-drawer__header-actions">
+          {onOpenReader && (
+            <button
+              type="button"
+              className="study-drawer__icon-btn"
+              onClick={() => {
+                flushNoteNow();
+                onOpenReader(ayah);
+              }}
+              aria-label="Baca layar penuh, geser per ayat"
+              title="Baca layar penuh"
+            >
+              ⤢
+            </button>
+          )}
           <button
             type="button"
             className="study-drawer__icon-btn"

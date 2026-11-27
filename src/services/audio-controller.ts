@@ -54,6 +54,8 @@ export interface AudioElementLike {
   onended: ((...args: never[]) => unknown) | null;
   onerror?: ((...args: never[]) => unknown) | null;
   ontimeupdate?: ((...args: never[]) => unknown) | null;
+  onplaying?: ((...args: never[]) => unknown) | null;
+  onloadedmetadata?: ((...args: never[]) => unknown) | null;
   load?: () => void;
   play(): Promise<void>;
   pause(): void;
@@ -76,6 +78,21 @@ export interface AudioControllerDeps {
    * file's lead-in silence and moves on as soon as the recitation ends instead of on `ended`.
    */
   analyzeSilence?: (url: string, signal?: AbortSignal) => Promise<SilenceBounds | null>;
+  /**
+   * Seconds before the end of the recitation to start the next ayah, covering the output
+   * latency of starting a second audio element (large on phone WebViews). The outgoing deck
+   * keeps playing its trailing silence meanwhile, so nothing is cut. Defaults to 0.12 on touch
+   * devices and 0 elsewhere.
+   */
+  handoverLeadS?: number;
+}
+
+function defaultHandoverLead(): number {
+  try {
+    return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 0.12 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 export interface AudioController {
@@ -178,6 +195,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   let endTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
   const bounds = new Map<string, SilenceBounds>();
+  const handoverLead = deps.handoverLeadS ?? defaultHandoverLead();
 
   function clearEndTimer(): void {
     if (endTimer !== null) {
@@ -225,16 +243,20 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       fired = true;
       clearEndTimer();
       deck.ontimeupdate = null;
+      deck.onplaying = null;
       onEnd();
     };
-    deck.onended = fire;
-    deck.ontimeupdate = () => {
-      if (fired || endTimer !== null || deck.paused || deck !== audio) return;
+    // Re-armed from every timeupdate/playing so the timer tracks the real playhead even when a
+    // phone WebView fires timeupdate late or irregularly.
+    const arm = () => {
+      if (fired || deck.paused || deck !== audio) return;
       const b = boundsOf(deck);
       if (!b || b.end >= b.duration - 0.05 || typeof deck.currentTime !== "number") return;
-      const remaining = (b.end - deck.currentTime) / (state.speed || 1);
-      // timeupdate fires every ~250ms, so arm a precise timer once the end is close.
-      if (remaining > 0.4) return;
+      // Only lead into the next ayah; a repeat or talaqqi pause replays from this same deck.
+      const lead = remainingRepeats === 0 && !state.talaqqi ? handoverLead : 0;
+      const remaining = (b.end - lead - deck.currentTime) / (state.speed || 1);
+      if (remaining > 2) return;
+      clearEndTimer();
       endTimer = setTimeout(
         () => {
           endTimer = null;
@@ -243,6 +265,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         Math.max(0, remaining * 1000 - 10),
       );
     };
+    deck.onended = fire;
+    deck.ontimeupdate = arm;
+    deck.onplaying = () => {
+      skipLeadIn(deck);
+      arm();
+    };
   }
 
   function clearStandby(): void {
@@ -250,6 +278,8 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     if (standby) {
       standby.onended = null;
       standby.ontimeupdate = null;
+      standby.onplaying = null;
+      standby.onloadedmetadata = null;
       standby.pause();
     }
   }
@@ -303,11 +333,14 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       .then(async ({ url, fromCache }) => {
         await learnBounds(url, controller.signal);
         if (disposed || controller.signal.aborted || !standby) return;
-        standby.preload = "auto";
-        standby.src = url;
-        standby.playbackRate = state.speed;
-        standby.load?.();
-        skipLeadIn(standby);
+        const deck = standby;
+        deck.preload = "auto";
+        // Seeking before metadata is ignored on iOS, so skip the lead-in once it has loaded.
+        deck.onloadedmetadata = () => skipLeadIn(deck);
+        deck.src = url;
+        deck.playbackRate = state.speed;
+        deck.load?.();
+        skipLeadIn(deck);
         standbyReady = {
           key: firstKey,
           surah: firstTarget.surah,
@@ -447,10 +480,13 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       const ready = standbyReady;
       standbyReady = null;
 
+      // The outgoing deck is left running through its trailing silence until the next one is
+      // audible (prefetchNextTwo pauses it), so the start-up latency of play() is not heard.
       const prev = audio;
       prev.onended = null;
       prev.ontimeupdate = null;
-      prev.pause();
+      prev.onplaying = null;
+      prev.onloadedmetadata = null;
       audio = standby;
       standby = prev;
       skipLeadIn(audio);
@@ -556,6 +592,9 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         }
       }
 
+      standby?.pause();
+      const deck = audio;
+      deck.onloadedmetadata = () => skipLeadIn(deck);
       audio.src = url;
       audio.playbackRate = state.speed;
       skipLeadIn(audio);
@@ -604,6 +643,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
       abortInFlight();
     }
     audio.pause();
+    if (!standbyReady) standby?.pause();
     if (state.isPlaying || state.isLoading || state.isTalaqqiPause) {
       state = { ...state, isPlaying: false, isLoading: false, isTalaqqiPause: false };
       emit();

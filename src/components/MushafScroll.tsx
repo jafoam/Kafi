@@ -27,6 +27,8 @@ export interface MushafScrollProps {
   onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onClearSelection: () => void;
+  /** A click or tap on the page that no ayah or word handled. */
+  onTapPage?: () => void;
   onToggleFocus: () => void;
   onTogglePalette: () => void;
 }
@@ -61,6 +63,7 @@ export function MushafScroll({
   onSelectAyah,
   onPeekAyah,
   onClearSelection,
+  onTapPage,
   onToggleFocus,
   onTogglePalette,
 }: MushafScrollProps) {
@@ -210,7 +213,7 @@ export function MushafScroll({
   return (
     <main
       className={`reader-stage reader-scroll ${snap ? "reader-scroll--snap" : ""}`}
-      ref={scrollRef} onClick={onClearSelection}>
+      ref={scrollRef} onClick={onTapPage ?? onClearSelection}>
       {pages.map((entry) => {
         const mounted = entry.page >= from && entry.page <= to;
         return (
