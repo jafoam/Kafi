@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   AyahKey,
+  BookmarkEvent,
   HifzBlurLevel,
   HighlightColor,
   MurajaahCard,
@@ -117,6 +118,15 @@ export function normalizeUserData(raw: unknown): UserData {
     ? raw.bookmarks.filter((item): item is AyahKey => typeof item === "string" && item.includes(":"))
     : [];
 
+  const bookmarkLog: Record<AyahKey, BookmarkEvent> = {};
+  if (isPlainObject(raw.bookmarkLog)) {
+    for (const [key, val] of Object.entries(raw.bookmarkLog)) {
+      if (key.includes(":") && isPlainObject(val) && typeof val.on === "boolean" && typeof val.at === "string") {
+        bookmarkLog[key as AyahKey] = { on: val.on, at: val.at };
+      }
+    }
+  }
+
   const highlights: Record<AyahKey, HighlightColor> = {};
   if (isPlainObject(raw.highlights)) {
     for (const [key, val] of Object.entries(raw.highlights)) {
@@ -181,6 +191,7 @@ export function normalizeUserData(raw: unknown): UserData {
     lastPage,
     recentPages,
     bookmarks,
+    bookmarkLog,
     highlights,
     notes,
     settings,
@@ -200,6 +211,8 @@ export interface UserStore {
   setLastPage(page: number): Promise<UserData>;
   addTasmiHistory(record: TasmiSessionRecord): Promise<UserData>;
   replaceAll(next: UserData): Promise<UserData>;
+  /** Replace with a value built from the latest stored data, inside the write queue. */
+  replaceWith(build: (current: UserData) => UserData): Promise<UserData>;
 }
 
 export function createUserStore(platform: PlatformAdapter): UserStore {
@@ -244,7 +257,11 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
         const bookmarks = exists
           ? current.bookmarks.filter((item) => item !== ayah)
           : [...current.bookmarks, ayah];
-        return { ...current, bookmarks };
+        const bookmarkLog = {
+          ...current.bookmarkLog,
+          [ayah]: { on: !exists, at: new Date().toISOString() },
+        };
+        return { ...current, bookmarks, bookmarkLog };
       });
     },
     setHighlight(ayah: AyahKey, color: HighlightColor | null) {
@@ -298,6 +315,17 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
     replaceAll(nextData: UserData) {
       const normalized = normalizeUserData(nextData);
       const next = writeQueue.then(async () => {
+        await platform.kvSet(USER_DATA_KEY, JSON.stringify(normalized));
+        state = normalized;
+        return normalized;
+      });
+      writeQueue = next.catch(() => {});
+      return next;
+    },
+    replaceWith(build: (current: UserData) => UserData) {
+      const next = writeQueue.then(async () => {
+        const current = state ?? (await loadFromStorage());
+        const normalized = normalizeUserData(build(current));
         await platform.kvSet(USER_DATA_KEY, JSON.stringify(normalized));
         state = normalized;
         return normalized;

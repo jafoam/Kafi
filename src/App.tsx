@@ -54,6 +54,7 @@ import {
 import { createTilawaController } from "./services/tilawa-controller";
 import {
   parseSyncConfig,
+  mergeUserData,
   SYNC_CONFIG_KEY,
   syncUserData,
 } from "./services/sync-service";
@@ -364,7 +365,9 @@ export function App({
           localData: data,
         });
         if (!mountedRef.current) return;
-        const saved = await userStore.replaceAll(result.merged);
+        // Merge into what is stored now, so a change made while the request was
+        // in flight (e.g. removing a bookmark) is not overwritten.
+        const saved = await userStore.replaceWith((current) => mergeUserData(current, result.merged));
         skipNextAutoSyncRef.current = true;
         setUserData(saved);
         setCurrentPage(saved.lastPage);
@@ -2240,7 +2243,7 @@ export function App({
           await saveBackupFile(buildBackup(userDataRef.current, now), backupFileName(now));
         }}
         onImportBackup={async (data) => {
-          const saved = await userStore.replaceAll(mergeBackup(userDataRef.current, data));
+          const saved = await userStore.replaceWith((current) => mergeBackup(current, data));
           if (mountedRef.current) setUserData(saved);
           showToast("Cadangan digabungkan");
         }}
