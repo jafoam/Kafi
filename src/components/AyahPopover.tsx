@@ -8,6 +8,8 @@ export interface AyahPopoverProps {
   anchorRect: DOMRect;
   quranApi: QuranApi;
   translationId: number;
+  /** Uthmani text of the ayah, for Salin and Bagikan. */
+  getArabicText: (ayah: AyahKey) => Promise<string>;
   isBookmarked: boolean;
   highlightColor: HighlightColor | null;
   onClose: () => void;
@@ -17,6 +19,15 @@ export interface AyahPopoverProps {
   onToggleBookmark: (ayah: AyahKey) => void;
   onSetHighlight: (ayah: AyahKey, color: HighlightColor | null) => void;
 }
+
+function htmlToPlainText(html: string): string {
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  el.querySelectorAll("sup").forEach((sup) => sup.remove());
+  return (el.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
 const HIGHLIGHT_COLORS: { color: HighlightColor; label: string }[] = [
   { color: "amber", label: "Kuning" },
@@ -31,6 +42,7 @@ export function AyahPopover({
   anchorRect,
   quranApi,
   translationId,
+  getArabicText,
   isBookmarked,
   highlightColor,
   onClose,
@@ -42,7 +54,10 @@ export function AyahPopover({
 }: AyahPopoverProps) {
   const ayahNum = ayah.split(":")[1] ?? "";
   const popoverRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<{ w: number; h: number }>(() => ({ w: 310, h: 220 }));
+  const [size, setSize] = useState<{ w: number; h: number }>(() => ({
+    w: 310,
+    h: 220,
+  }));
   const [translation, setTranslation] = useState<
     { status: "loading" } | { status: "ready"; html: string } | { status: "error" }
   >({ status: "loading" });
@@ -61,6 +76,36 @@ export function AyahPopover({
       });
     return () => controller.abort();
   }, [ayah, translationId, quranApi]);
+
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const id = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(id);
+  }, [copied]);
+
+  const buildShareText = async (): Promise<string> => {
+    const arabic = await getArabicText(ayah).catch(() => "");
+    const meaning = translation.status === "ready" ? htmlToPlainText(translation.html) : "";
+    return [arabic, meaning, `QS. ${surahName}: ${ayahNum}`].filter(Boolean).join("\n\n");
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(await buildShareText());
+      setCopied(true);
+    } catch {
+      // Clipboard can be blocked (insecure context, denied permission); nothing to undo.
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({ text: await buildShareText() });
+    } catch {
+      // The user closed the share sheet.
+    }
+  };
 
   useLayoutEffect(() => {
     const el = popoverRef.current;
@@ -95,12 +140,7 @@ export function AyahPopover({
         <span className="ayah-popover__title">
           {surahName} : {ayahNum}
         </span>
-        <button
-          type="button"
-          className="ayah-popover__close"
-          aria-label="Tutup"
-          onClick={onClose}
-        >
+        <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
           ×
         </button>
       </div>
@@ -129,35 +169,46 @@ export function AyahPopover({
           className="ayah-popover__action ayah-popover__action--primary"
           onClick={() => onPlayAyah?.(ayah)}
         >
-          Putar
+          Putar dari sini
         </button>
-        <button
-          type="button"
-          className="ayah-popover__action"
-          onClick={() => onOpenStudy?.(ayah)}
-        >
-          Tafsir &amp; Terjemahan
+        <button type="button" className="ayah-popover__action" onClick={() => onOpenStudy?.(ayah)}>
+          Tafsir
         </button>
-        <button
-          type="button"
-          className="ayah-popover__action"
-          onClick={() => onStartTasmi?.(ayah)}
-        >
+        <button type="button" className="ayah-popover__action" onClick={() => onStartTasmi?.(ayah)}>
           Tasmi&apos; dari sini
         </button>
       </div>
 
       <div className="ayah-popover__meta-row">
-        <button
-          type="button"
-          className={`ayah-popover__bookmark-btn ${
-            isBookmarked ? "ayah-popover__bookmark-btn--active" : ""
-          }`}
-          aria-pressed={isBookmarked}
-          onClick={() => onToggleBookmark(ayah)}
-        >
-          {isBookmarked ? "Tersimpan" : "Bookmark"}
-        </button>
+        <div className="ayah-popover__pills">
+          <button
+            type="button"
+            className="ayah-popover__bookmark-btn"
+            onClick={() => void handleCopy()}
+            aria-live="polite"
+          >
+            {copied ? "Tersalin" : "Salin"}
+          </button>
+          {canShare && (
+            <button
+              type="button"
+              className="ayah-popover__bookmark-btn"
+              onClick={() => void handleShare()}
+            >
+              Bagikan
+            </button>
+          )}
+          <button
+            type="button"
+            className={`ayah-popover__bookmark-btn ${
+              isBookmarked ? "ayah-popover__bookmark-btn--active" : ""
+            }`}
+            aria-pressed={isBookmarked}
+            onClick={() => onToggleBookmark(ayah)}
+          >
+            {isBookmarked ? "Tersimpan" : "Bookmark"}
+          </button>
+        </div>
 
         <div className="hl-swatches" role="group" aria-label="Warna Sorotan">
           {HIGHLIGHT_COLORS.map((item) => (
