@@ -203,17 +203,6 @@ export function countRecitedAyahs(state: TasmiLiveState): number {
   return uniqueAyahs.size;
 }
 
-function hasMistakeOnAyah(
-  mistakesById: ReadonlyMap<string, TasmiMistakeRecord>,
-  ayahKey: AyahKey,
-): boolean {
-  const [s, a] = ayahKey.split(":").map(Number);
-  for (const m of mistakesById.values()) {
-    if (m.surah === s && m.ayah === a) return true;
-  }
-  return false;
-}
-
 function compareAyah(a: AyahKey, b: AyahKey): number {
   const [sa, aa] = a.split(":").map(Number);
   const [sb, ab] = b.split(":").map(Number);
@@ -232,8 +221,9 @@ export function recordPeekMistake(state: TasmiLiveState, ayah: AyahKey): TasmiLi
     surah,
     ayah: ayahNum,
   });
+  // Once an ayah has been opened it stays open for the rest of the session.
   const nextRevealed = new Set(state.revealedAyahs);
-  nextRevealed.delete(ayah);
+  nextRevealed.add(ayah);
   return {
     ...state,
     revealedAyahs: nextRevealed,
@@ -275,22 +265,13 @@ export function reduceTilawaEvent(
       }
       recitedWords = nextWords;
 
-      // Only reveal an ayah once it is completed cleanly with zero mistakes on that ayah.
+      // An ayah opens once it has been recited to its end (or left for the next one), and stays open.
       const nextRevealed = new Set(state.revealedAyahs);
-      if (
-        prevAyah &&
-        prevAyah !== activeAyah &&
-        compareAyah(prevAyah, activeAyah) < 0 &&
-        !hasMistakeOnAyah(state.mistakesById, prevAyah)
-      ) {
+      if (prevAyah && prevAyah !== activeAyah && compareAyah(prevAyah, activeAyah) < 0) {
         nextRevealed.add(prevAyah);
       }
       const wordsInActive = getAyahWords(top.word.surah, top.word.ayah);
-      if (
-        wordsInActive.length > 0 &&
-        top.word.word >= wordsInActive.length &&
-        !hasMistakeOnAyah(state.mistakesById, activeAyah)
-      ) {
+      if (wordsInActive.length > 0 && top.word.word >= wordsInActive.length) {
         nextRevealed.add(activeAyah);
       }
       revealedAyahs = nextRevealed;
@@ -324,10 +305,11 @@ export function reduceTilawaEvent(
       wordText,
       confidence: event.confidence,
     });
+    // A mistake opens its ayah so the correct text shows, and it stays open for the session.
     const flaggedAyah: AyahKey = `${event.location.surah}:${event.location.ayah}`;
-    if (nextRevealed.has(flaggedAyah)) {
+    if (!nextRevealed.has(flaggedAyah)) {
       nextRevealed = new Set(nextRevealed);
-      nextRevealed.delete(flaggedAyah);
+      nextRevealed.add(flaggedAyah);
     }
     lastErrorAt = event.timeMs;
   } else if (event.state === "uncertain") {

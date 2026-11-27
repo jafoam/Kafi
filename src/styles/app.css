@@ -1998,13 +1998,16 @@ textarea:focus-visible {
 }
 
 .tasmi-summary__drill-btn {
+  /* Never squeezed by the scrolling column it sits in: as tall as every other button. */
+  flex-shrink: 0;
   width: 100%;
-  height: 38px;
+  height: var(--control-h);
+  min-height: var(--control-h);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: #ffffff;
-  font-size: 13px;
+  font-size: var(--control-font);
   font-weight: 600;
   cursor: pointer;
 }
