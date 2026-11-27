@@ -3547,6 +3547,129 @@ textarea:focus-visible {
   color: var(--text-primary);
 }
 
+/* About & data sources */
+.about {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(86dvh, 760px);
+  margin-top: auto;
+  margin-bottom: auto;
+  border-radius: var(--radius-lg);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.about__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.about__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.about__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0 18px;
+}
+
+.about__intro {
+  padding: 18px 20px 16px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.about__intro p {
+  margin: 0;
+}
+
+.about__intro .about__app {
+  margin-bottom: 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.about__group-title {
+  margin: 0;
+  padding: 20px 20px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.about__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about__source {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 20px;
+}
+
+.about__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.about__detail,
+.about__note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.about__meta {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.about a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.about a:hover,
+.about a:focus-visible {
+  text-decoration: underline;
+}
+
+.about__note {
+  padding: 6px 20px 0;
+}
+
+.about__note p {
+  margin: 0 0 8px;
+}
+
+.about__footer {
+  margin: 12px 20px 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 /* Tasmi' quick-start guide */
 .tasmi-guide {
   width: 100%;

@@ -31,6 +31,7 @@ export interface TopBarProps {
   onOpenTasmi: () => void;
   onOpenTasmiGuide: () => void;
   onOpenTajweedGuide: () => void;
+  onOpenAbout: () => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
   onOpenReader?: () => void;
@@ -90,6 +91,7 @@ export function TopBar({
   onOpenTasmi,
   onOpenTasmiGuide,
   onOpenTajweedGuide,
+  onOpenAbout,
   onOpenDownloads,
   onOpenSync,
   onOpenReader,
@@ -236,6 +238,7 @@ export function TopBar({
           onChangePageNav={onChangePageNav}
           onOpenTasmiGuide={onOpenTasmiGuide}
           onOpenTajweedGuide={onOpenTajweedGuide}
+          onOpenAbout={onOpenAbout}
           onToggleHifzBlur={onToggleHifzBlur}
           onChangeHifzBlurLevel={onChangeHifzBlurLevel}
           onToggleFocusMode={onToggleFocusMode}
@@ -328,6 +331,7 @@ interface AppMenuProps {
   onChangePageNav: (mode: PageNavMode) => void;
   onOpenTasmiGuide: () => void;
   onOpenTajweedGuide: () => void;
+  onOpenAbout: () => void;
   hifzBlur: boolean;
   hifzBlurLevel: HifzBlurLevel;
   focusMode: boolean;
@@ -357,6 +361,7 @@ function AppMenu({
   onChangePageNav,
   onOpenTasmiGuide,
   onOpenTajweedGuide,
+  onOpenAbout,
   hifzBlur,
   hifzBlurLevel,
   focusMode,
@@ -495,6 +500,7 @@ function AppMenu({
             "Tanpa login, kode terenkripsi",
             onOpenSync,
           )}
+        {linkRow("Tentang & Sumber Data", "Asal teks, terjemahan, tafsir, dan audio", onOpenAbout)}
       </div>
     </>
   );
