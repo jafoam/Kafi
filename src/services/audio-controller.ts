@@ -85,6 +85,39 @@ export interface AudioControllerDeps {
    * devices and 0 elsewhere.
    */
   handoverLeadS?: number;
+  /**
+   * A short silent clip each deck plays once, synchronously inside the first tap. iOS home-screen
+   * apps only let an audio element start on its own (after a fetch, or when the next ayah begins)
+   * once it has played during a user gesture, and the real clip is only ready after an await.
+   */
+  unlockSrc?: string;
+}
+
+/** 0.1 s of silence as a WAV data URI, for `unlockSrc`. */
+export function silentWavDataUri(): string {
+  const samples = 800;
+  const bytes = new Uint8Array(44 + samples);
+  const view = new DataView(bytes.buffer);
+  const ascii = (at: number, text: string) => {
+    for (let i = 0; i < text.length; i += 1) bytes[at + i] = text.charCodeAt(i);
+  };
+  ascii(0, "RIFF");
+  view.setUint32(4, 36 + samples, true);
+  ascii(8, "WAVE");
+  ascii(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, 8000, true);
+  view.setUint32(28, 8000, true);
+  view.setUint16(32, 1, true);
+  view.setUint16(34, 8, true);
+  ascii(36, "data");
+  view.setUint32(40, samples, true);
+  bytes.fill(128, 44);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return `data:audio/wav;base64,${btoa(binary)}`;
 }
 
 function defaultHandoverLead(): number {
@@ -196,6 +229,28 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   let disposed = false;
   const bounds = new Map<string, SilenceBounds>();
   const handoverLead = deps.handoverLeadS ?? defaultHandoverLead();
+  const unlocked = new WeakSet<AudioElementLike>();
+
+  /** Must run synchronously inside the tap that starts playback (see `unlockSrc`). */
+  function unlockDecks(): void {
+    const src = deps.unlockSrc;
+    if (!src) return;
+    for (const deck of [audio, standby]) {
+      if (!deck || unlocked.has(deck) || !deck.paused) continue;
+      if (deck === standby && standbyReady) continue;
+      unlocked.add(deck);
+      deck.src = src;
+      deck.play().then(
+        () => {
+          if (deck.src === src) deck.pause();
+        },
+        (err: unknown) => {
+          // Swapping in the real clip aborts this play(); only a refusal means it stays locked.
+          if (err instanceof Error && err.name === "NotAllowedError") unlocked.delete(deck);
+        },
+      );
+    }
+  }
 
   function clearEndTimer(): void {
     if (endTimer !== null) {
@@ -542,6 +597,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
   async function playAyah(surah: number, ayah: number, withBismillah = false): Promise<void> {
     if (disposed) return;
+    unlockDecks();
 
     const seq = ++requestSeq;
     clearTalaqqiTimer();
