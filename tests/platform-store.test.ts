@@ -299,10 +299,25 @@ describe("platform & user-store", () => {
     expect(getPlatform().isDesktop).toBe(true);
   });
 
-  it("omits startNativeMic on mobile Tauri builds so WebView getUserMedia is used", () => {
-    const mobileAdapter = createTauriAdapter({ isMobile: true });
+  it("omits startNativeMic and uses base64 cache_put on mobile Tauri builds", async () => {
+    const mobileCalls: Array<{ cmd: string; args?: unknown }> = [];
+    const mobileAdapter = createTauriAdapter({
+      isMobile: true,
+      invoke: async <T>(cmd: string, args?: unknown) => {
+        mobileCalls.push({ cmd, args });
+        return undefined as T;
+      },
+    });
     expect(mobileAdapter.isDesktop).toBe(true);
     expect(mobileAdapter.startNativeMic).toBeUndefined();
+
+    await mobileAdapter.cachePut("audio", "001001.mp3", new Uint8Array([1, 2, 3, 255]));
+    expect(mobileCalls).toEqual([
+      {
+        cmd: "cache_put",
+        args: { bucket: "audio", key: "001001.mp3", dataB64: "AQID/w==" },
+      },
+    ]);
 
     const desktopAdapter = createTauriAdapter({ isMobile: false });
     expect(desktopAdapter.startNativeMic).toBeTypeOf("function");

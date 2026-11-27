@@ -24,6 +24,15 @@ function isMobileUserAgent(): boolean {
   return typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
 const TILAWA_BUCKET = "tilawa";
 const TILAWA_KEYS_KV = "kafi:tilawa-keys";
 
@@ -51,6 +60,10 @@ export function createTauriAdapter(deps?: Partial<TauriAdapterDeps>): PlatformAd
   };
 
   const cachePut = async (bucket: string, key: string, bytes: Uint8Array): Promise<void> => {
+    if (isMobile) {
+      await tauriInvoke("cache_put", { bucket, key, dataB64: bytesToBase64(bytes) });
+      return;
+    }
     await tauriInvoke("cache_put", bytes, {
       headers: {
         "x-cache-bucket": bucket,
