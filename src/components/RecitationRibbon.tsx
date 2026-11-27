@@ -138,6 +138,37 @@ export function RecitationRibbon({
 
   return (
     <div className="recitation-ribbon-zone">
+      {showWords && activeWord && (
+        <div className="recitation-ribbon__words" dir="rtl" lang="ar">
+          {ayahWords.map((word, idx) => {
+            const wordNum = idx + 1;
+            const isCurrent = wordNum === activeWord.word;
+            const isPassed = wordNum < activeWord.word;
+            const isMistake = mistakeWordsInAyah.has(wordNum);
+
+            const qcf = activeQcf?.[idx];
+            const classes = [
+              "recitation-ribbon__word",
+              qcf ? "recitation-ribbon__word--qcf" : "",
+              isCurrent ? "recitation-ribbon__word--current" : "",
+              isPassed ? "recitation-ribbon__word--passed" : "",
+              isMistake ? "recitation-ribbon__word--mistake" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <span
+                key={`${activeWord.surah}:${activeWord.ayah}:${wordNum}`}
+                className={classes}
+                style={qcf ? { fontFamily: `"${qcf.fontFamily}"` } : undefined}
+              >
+                {qcf ? qcf.code : word}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="recitation-ribbon" role="status" aria-live="polite">
         <div className="recitation-ribbon__bar">
           <div className="recitation-ribbon__status">
@@ -242,38 +273,6 @@ export function RecitationRibbon({
             </button>
           </div>
         </div>
-
-        {showWords && activeWord && (
-          <div className="recitation-ribbon__words" dir="rtl" lang="ar">
-            {ayahWords.map((word, idx) => {
-              const wordNum = idx + 1;
-              const isCurrent = wordNum === activeWord.word;
-              const isPassed = wordNum < activeWord.word;
-              const isMistake = mistakeWordsInAyah.has(wordNum);
-
-              const qcf = activeQcf?.[idx];
-              const classes = [
-                "recitation-ribbon__word",
-                qcf ? "recitation-ribbon__word--qcf" : "",
-                isCurrent ? "recitation-ribbon__word--current" : "",
-                isPassed ? "recitation-ribbon__word--passed" : "",
-                isMistake ? "recitation-ribbon__word--mistake" : "",
-              ]
-                .filter(Boolean)
-                .join(" ");
-
-              return (
-                <span
-                  key={`${activeWord.surah}:${activeWord.ayah}:${wordNum}`}
-                  className={classes}
-                  style={qcf ? { fontFamily: `"${qcf.fontFamily}"` } : undefined}
-                >
-                  {qcf ? qcf.code : word}
-                </span>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
