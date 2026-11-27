@@ -66,6 +66,7 @@ jobs:
       - name: Initialize Tauri Android project
         run: |
           npx tauri android init --ci
+          npx tauri icon public/icons/icon-512.png --ios-color "#136f5a"
           node scripts/patch-android-manifest.mjs
 
       - name: Build APK

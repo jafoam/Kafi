@@ -103,8 +103,32 @@ export function TopBar({
   }, [menuOpen, onMenuOpenChange]);
   useBackClose(menuOpen, () => setMenuOpen(false));
   useBackClose(installGuideOpen, () => setInstallGuideOpen(false));
+  useEffect(() => {
+    if (!focusMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !menuOpen && !installGuideOpen) {
+        onToggleFocusMode();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [focusMode, menuOpen, installGuideOpen, onToggleFocusMode]);
   return (
-    <div className="topbar-zone">
+    <div className={`topbar-zone ${menuOpen || installGuideOpen ? "topbar-zone--menu-open" : ""}`}>
+      {focusMode && !menuOpen && (
+        <button
+          type="button"
+          className="focus-exit-btn"
+          onClick={onToggleFocusMode}
+          aria-label="Keluar Mode Fokus"
+          title="Keluar Mode Fokus (F / Esc)"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+          </svg>
+          <span>Keluar Fokus</span>
+        </button>
+      )}
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
         <div className="topbar__left">
           <span className="topbar__brand">Kafi</span>

@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:; connect-src 'self' blob: https://cdn.jsdelivr.net https://api.quran.com https://equran.id https://everyayah.com https://tilawa.dev https://verses.quran.com; media-src 'self' blob: https://everyayah.com; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost https://asset.localhost data: blob:; connect-src 'self' blob: https://cdn.jsdelivr.net https://api.quran.com https://equran.id https://everyayah.com https://tilawa.dev https://verses.quran.com https://kafi-sync.jasafotoambon.workers.dev https://*.workers.dev; media-src 'self' blob: https://everyayah.com; worker-src 'self' blob:; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
       "assetProtocol": {
         "enable": true,
         "scope": [

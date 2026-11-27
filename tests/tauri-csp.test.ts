@@ -13,4 +13,14 @@ describe("Tauri CSP", () => {
       .find((d) => d.startsWith("script-src "));
     expect(scriptSrc?.split(/\s+/)).toContain("blob:");
   });
+
+  it("allows connecting to the default sync worker", () => {
+    const conf = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
+    const csp: string = conf.app.security.csp;
+    const connectSrc = csp
+      .split(";")
+      .map((d) => d.trim())
+      .find((d) => d.startsWith("connect-src "));
+    expect(connectSrc?.split(/\s+/)).toContain("https://kafi-sync.jasafotoambon.workers.dev");
+  });
 });

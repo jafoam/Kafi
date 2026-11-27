@@ -25,7 +25,7 @@
     "fetch:words": "node scripts/fetch-word-translations.mjs",
     "fetch:fonts": "node scripts/fetch-qcf-fonts.mjs",
     "prepare:desktop": "node scripts/prepare-desktop.mjs",
-    "android:init": "tauri android init && node scripts/patch-android-manifest.mjs",
+    "android:init": "tauri android init && tauri icon public/icons/icon-512.png --ios-color \"#136f5a\" && node scripts/patch-android-manifest.mjs",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
     "android:aab": "tauri android build --aab",

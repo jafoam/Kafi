@@ -14,6 +14,7 @@ import type { GlyphPageLoader } from "../src/services/glyph-pages";
 import { MushafSpread } from "../src/components/MushafSpread";
 import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
+import { TopBar } from "../src/components/TopBar";
 import type { QuranApi } from "../src/services/quran-api";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -631,5 +632,57 @@ describe("Gradual blur and recent pages in search", () => {
       chips[0].click();
     });
     expect(onJumpToPage).toHaveBeenCalledWith(593);
+  });
+
+  it("shows a visible exit button in Focus Mode and lifts the topbar zone when the menu opens", () => {
+    const onToggleFocusMode = vi.fn();
+    const baseProps = {
+      surahLabel: "Al-Fatihah",
+      juzNumber: 1,
+      pageLabel: "1",
+      spreadMode: "auto" as const,
+      pageNav: "swipe" as const,
+      hifzBlur: false,
+      wordTranslation: true,
+      tajweed: false,
+      letterStyle: "1405" as const,
+      theme: "light" as const,
+      onOpenPalette: () => {},
+      onOpenTasmi: () => {},
+      onOpenDownloads: () => {},
+      onOpenTajweedGuide: () => {},
+      onOpenAbout: () => {},
+      onChangeSpreadMode: () => {},
+      onChangePageNav: () => {},
+      onToggleHifzBlur: () => {},
+      onToggleFocusMode,
+      onToggleWordTranslation: () => {},
+      onToggleTajweed: () => {},
+      onChangeLetterStyle: () => {},
+      onChangeTheme: () => {},
+    };
+
+    const el = mount(<TopBar {...baseProps} focusMode={true} />);
+    const exitBtn = el.querySelector<HTMLButtonElement>(".focus-exit-btn");
+    expect(exitBtn).not.toBeNull();
+    act(() => {
+      exitBtn?.click();
+    });
+    expect(onToggleFocusMode).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(onToggleFocusMode).toHaveBeenCalledTimes(2);
+
+    const normalEl = mount(<TopBar {...baseProps} focusMode={false} />);
+    expect(normalEl.querySelector(".focus-exit-btn")).toBeNull();
+    const zone = normalEl.querySelector(".topbar-zone");
+    expect(zone?.classList.contains("topbar-zone--menu-open")).toBe(false);
+    const menuBtn = normalEl.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]');
+    act(() => {
+      menuBtn?.click();
+    });
+    expect(zone?.classList.contains("topbar-zone--menu-open")).toBe(true);
   });
 });
