@@ -19,7 +19,8 @@
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk",
     "android:aab": "tauri android build --aab",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "verify:mushaf": "node scripts/verify-mushaf.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.5",

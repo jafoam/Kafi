@@ -63,7 +63,12 @@ Setiap push ke `main` menjalankan [`deploy-web.yml`](.github/workflows/deploy-we
 ```bash
 npm test
 npm run typecheck
+npm run verify:mushaf   # cek keutuhan mushaf offline
 ```
+
+`npm run verify:mushaf` mencocokkan data mushaf offline (cetakan Madinah 1405 dan 1441) dengan data rujukan Tanzil di `tests/fixtures/tanzil-reference.json`. Yang dicek: 6.236 ayat ada semua, masing-masing muncul sekali dan berurutan, jumlah kata tiap ayat sama, dan setiap halaman 1405 dimulai dari ayat yang benar. Skrip ini juga memastikan setiap glyph punya bentuk yang benar-benar tergambar di font halamannya. Tambahkan `--refresh` untuk mengunduh ulang rujukan dari tanzil.net. Cek yang sama ikut berjalan di `npm test`.
+
+Cek ini menangkap kesalahan pengolahan data (kata atau ayat hilang, ganda, tertukar, atau glyph kosong). Huruf dan harakat di dalam glyph tetap bergantung pada font Kompleks Raja Fahd, dan pewarnaan tajwid belum diperiksa otomatis.
 
 ---
 
@@ -138,7 +143,7 @@ Kafi dibangun di atas kerja keras komunitas open-source dan lembaga penyedia dat
 
 ### Teks, Mushaf, Terjemahan, Tafsir & Audio
 - **[King Fahd Glorious Qur'an Printing Complex (KFGQPC)](https://qurancomplex.gov.sa/)** — halaman Mushaf Madinah 15 baris.
-- **[Tanzil (`tanzil.net`)](https://tanzil.net/)** — teks Al-Qur'an Utsmani sebagai referensi pencarian dan pencocokan bacaan.
+- **[Tanzil (`tanzil.net`)](https://tanzil.net/)** — teks Al-Qur'an Utsmani sebagai referensi pencarian dan pencocokan bacaan, serta metadata halaman dan jumlah kata yang dipakai `npm run verify:mushaf` untuk memeriksa mushaf offline (CC BY 3.0).
 - **[Quran.com API v4 (`api.quran.com`)](https://api-docs.quran.com/)** — terjemahan (Kemenag RI, Kompleks Raja Fahd, The Sabiq Company, Saheeh International, M.A.S. Abdel Haleem, A. Yusuf Ali, Transliterasi) dan tafsir (Al-Muyassar, Ibn Kathir, Al-Tabari, Al-Qurtubi, Al-Sa'di).
 - **Teks mushaf offline** — teks 604 halaman (15 baris Madinah) diunduh sekali dari Quran.com API v4 oleh `npm run fetch:pages` ke `src/data/quran-pages.json`, lalu dibundel di aplikasi.
 - **Font halaman QCF v1** — 604 font glyph dari Kompleks Raja Fahd (disajikan Quran.com), diunduh `npm run fetch:fonts` ke `public/fonts/qcf-v1/` (±47 MB, tidak di-commit; CI mengunduhnya sebelum build) dan di-cache service worker, sehingga halaman terbuka tanpa jaringan.
