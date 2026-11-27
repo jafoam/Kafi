@@ -97,6 +97,13 @@ textarea:focus-visible {
   border-color: var(--border-strong);
 }
 
+/* Touch devices (Android / iPhone / iPad) already exit Focus Mode by tapping the page. */
+@media (hover: none), (pointer: coarse) {
+  .focus-exit-btn {
+    display: none;
+  }
+}
+
 .topbar {
   pointer-events: auto;
   display: flex;
@@ -119,13 +126,7 @@ textarea:focus-visible {
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
-}
-
-.topbar-zone:hover .topbar--hidden,
-.topbar-zone:focus-within .topbar--hidden {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+  visibility: hidden;
 }
 
 .topbar__left,
@@ -1364,13 +1365,7 @@ textarea:focus-visible {
   opacity: 0;
   transform: translateY(14px);
   pointer-events: none;
-}
-
-.audio-dock-zone:hover .audio-dock--hidden,
-.audio-dock-zone:focus-within .audio-dock--hidden {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
+  visibility: hidden;
 }
 
 .audio-dock__info {

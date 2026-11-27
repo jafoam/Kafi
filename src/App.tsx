@@ -1870,8 +1870,7 @@ export function App({
       randomPrompt !== null,
   );
 
-  const hideAudioDock =
-    focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
+  const hideAudioDock = focusMode;
 
   const offlinePages = useOfflinePages(platform);
   const tajweedPages = useTajweedPages(platform);
