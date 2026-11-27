@@ -4881,3 +4881,63 @@ textarea:focus-visible {
   touch-action: pan-y pinch-zoom;
 }
 
+
+/* Touch screens: the small icon buttons in panel headers (close, full screen, play) get a full
+   44px target and a larger glyph, so they are easy to hit with a thumb. */
+@media (pointer: coarse) {
+  .study-drawer__icon-btn,
+  .ayah-popover__close,
+  .reader__icon-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+
+  .study-drawer__header-actions {
+    gap: 0;
+    margin-right: -8px;
+  }
+}
+
+/* Phones: a compact menu. One line per item (the explanations are dropped), tighter rows and
+   controls, still at least 40px to tap. */
+@media (max-width: 640px) {
+  .app-menu {
+    gap: 0;
+    padding: 4px;
+  }
+
+  .app-menu__row {
+    min-height: 42px;
+    padding: 2px 10px;
+  }
+
+  .app-menu__row .app-menu__sub {
+    display: none;
+  }
+
+  .app-menu__title {
+    font-weight: 550;
+  }
+
+  .app-menu__section {
+    padding: 6px 10px 0;
+  }
+
+  .app-menu__field {
+    gap: 4px;
+    padding: 4px 10px 6px;
+  }
+
+  .app-menu__seg {
+    height: 30px;
+  }
+
+  .app-menu__swatch {
+    height: 32px;
+  }
+
+  .app-menu__divider {
+    margin: 4px 10px 0;
+  }
+}
