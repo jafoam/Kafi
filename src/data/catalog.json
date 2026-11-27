@@ -1276,6 +1276,20 @@
       "source": "equran"
     },
     {
+      "id": "id-saadi",
+      "name": "Tafsir As-Sa'di (Indonesia)",
+      "author": "Abdurrahman as-Sa'di",
+      "language": "indonesian",
+      "source": "spa5k"
+    },
+    {
+      "id": "id-mukhtasar",
+      "name": "Al-Mukhtashar (Indonesia)",
+      "author": "Markaz Tafsir",
+      "language": "indonesian",
+      "source": "spa5k"
+    },
+    {
       "id": "16",
       "name": "Tafsir al-Muyassar",
       "author": "King Fahad Quran Complex",

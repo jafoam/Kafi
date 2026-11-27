@@ -63,7 +63,7 @@ export interface TafsirInfo {
   name: string;
   author: string;
   language: string;
-  source: "equran" | "qurancom";
+  source: "equran" | "qurancom" | "spa5k";
   resourceId?: number;
 }
 
@@ -172,4 +172,6 @@ export interface UserData {
   tasmiHistory: TasmiSessionRecord[];
   murajaahCards?: MurajaahCard[];
   updatedAt?: string;
+  /** When settings last changed; settings merge by this, not by updatedAt. */
+  settingsUpdatedAt?: string;
 }

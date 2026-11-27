@@ -6,6 +6,7 @@ import {
   type PageWords,
   type SelectedWord,
 } from "../services/word-translations";
+import { useLongPress } from "../state/useLongPress";
 import { SurahBanner } from "./SurahBanner";
 
 const wordLoader = createWordTranslationLoader();
@@ -53,7 +54,10 @@ export function GlyphPageBody({
   const [pickedWord, setPickedWord] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [words, setWords] = useState<PageWords | null>(null);
-  const [tip, setTip] = useState<{ code: string; rect: DOMRect } | null>(null);
+  const [tip, setTip] = useState<{ code: string; rect: DOMRect; word?: string; touch?: boolean } | null>(
+    null,
+  );
+  const pointerTypeRef = useRef<string>("mouse");
 
   useEffect(() => {
     let live = true;
@@ -65,10 +69,38 @@ export function GlyphPageBody({
     };
   }, [data.page, wordTranslation]);
 
-  // The hover tooltip is for mouse users only; once an ayah is selected its popover shows the word.
+  // Once an ayah is selected its popover shows the word, so the tooltip steps aside.
   useEffect(() => {
     if (!wordTranslation || selectedAyah) setTip(null);
   }, [wordTranslation, selectedAyah]);
+
+  // A tapped tooltip is placed from a fixed rect, so it goes away on scroll or a tap elsewhere.
+  const touchTip = Boolean(tip?.touch);
+  useEffect(() => {
+    if (!touchTip) return;
+    const close = () => setTip(null);
+    const onDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && bodyRef.current?.contains(target) && target.closest("[data-word]")) return;
+      close();
+      // A tap on the page that dismisses the tooltip must not also toggle focus mode.
+      const swallow = (click: MouseEvent) => {
+        const el = click.target instanceof Element ? click.target : null;
+        if (!el?.closest(".reader-stage") || el.closest("button")) return;
+        click.stopPropagation();
+      };
+      document.addEventListener("click", swallow, { capture: true, once: true });
+      window.setTimeout(() => document.removeEventListener("click", swallow, { capture: true }), 600);
+    };
+    const timer = window.setTimeout(close, 6000);
+    window.addEventListener("scroll", close, true);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("scroll", close, true);
+      document.removeEventListener("pointerdown", onDown, true);
+    };
+  }, [touchTip, tip]);
 
   const showTip = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return setTip(null);
@@ -109,6 +141,25 @@ export function GlyphPageBody({
     return target.closest<HTMLElement>("[data-word]")?.dataset.word ?? null;
   };
 
+  /** Opens the ayah menu for a pressed word, with its translation when word mode is on. */
+  const selectFromElement = (target: HTMLElement): boolean => {
+    const el = target.closest<HTMLElement>("[data-ayah]");
+    const ayah = el?.dataset.ayah as AyahKey | undefined;
+    if (!el || !ayah) return false;
+    const wordKey = el.dataset.word ?? null;
+    const code = el.dataset.code;
+    const info = wordTranslation && code ? words?.get(code) : undefined;
+    const selectedWord: SelectedWord | undefined =
+      info && wordKey && info.translation
+        ? { key: `${data.page}:${wordKey}`, translation: info.translation, transliteration: info.transliteration }
+        : undefined;
+    setTip(null);
+    setPickedWord(wordKey);
+    onSelectAyah(ayah, el.getBoundingClientRect(), selectedWord);
+    return true;
+  };
+  const longPress = useLongPress(selectFromElement);
+
   const firstWordOfAyah = new Set<AyahKey>();
 
   return (
@@ -117,42 +168,62 @@ export function GlyphPageBody({
       className="glyph-page"
       data-lines={totalLines}
       style={{ fontFamily: `"${data.fontFamily}"` }}
+      onPointerDown={(event) => {
+        pointerTypeRef.current = event.pointerType || "mouse";
+        longPress.handlers.onPointerDown(event);
+      }}
+      onPointerMove={longPress.handlers.onPointerMove}
+      onPointerUp={longPress.handlers.onPointerUp}
+      onPointerCancel={longPress.handlers.onPointerCancel}
+      onContextMenu={longPress.handlers.onContextMenu}
       onPointerOver={(event) => {
         setHoveredAyah(resolveAyah(event.target));
         setHoveredWord(resolveWord(event.target));
         if (event.pointerType === "mouse" && !selectedAyah) showTip(event.target);
       }}
-      onPointerLeave={() => {
+      onPointerLeave={(event) => {
         setHoveredAyah(null);
         setHoveredWord(null);
-        setTip(null);
+        // Touch fires pointerleave right after the tap, which would close the tapped tooltip.
+        if (event.pointerType === "mouse") setTip(null);
       }}
       onClick={(event) => {
-        setTip(null);
+        if (longPress.consumeClick()) {
+          event.stopPropagation();
+          return;
+        }
         const wordKey = resolveWord(event.target);
-        setPickedWord(wordKey);
         const ayah = resolveAyah(event.target);
-        if (!ayah) return;
-        event.stopPropagation();
+        const el = (event.target as HTMLElement).closest<HTMLElement>("[data-ayah]");
+        const code = el?.dataset.code;
         const blurred = Boolean(
-          !isLeadingSplit(ayah) && blurSet?.has(ayah) && !revealedSet?.has(ayah),
+          ayah && !isLeadingSplit(ayah) && blurSet?.has(ayah) && !revealedSet?.has(ayah),
         );
-        if (blurred && onPeekAyah) {
+        if (blurred && ayah && onPeekAyah) {
+          event.stopPropagation();
+          setTip(null);
           onPeekAyah(ayah);
           return;
         }
-        const el = (event.target as HTMLElement).closest<HTMLElement>("[data-ayah]");
-        const code = el?.dataset.code;
-        const info = wordTranslation && code ? words?.get(code) : undefined;
-        const selectedWord: SelectedWord | undefined =
-          info && wordKey && info.translation
-            ? {
-                key: `${data.page}:${wordKey}`,
-                translation: info.translation,
-                transliteration: info.transliteration,
-              }
-            : undefined;
-        onSelectAyah(ayah, (el ?? event.currentTarget).getBoundingClientRect(), selectedWord);
+        // Touch: a tap shows a word's meaning when word mode is on, and otherwise falls through to
+        // the page, which toggles focus mode. The ayah menu opens on a hold (see useLongPress).
+        if (pointerTypeRef.current !== "mouse") {
+          if (tip?.touch) {
+            event.stopPropagation();
+            setTip(null);
+            if (tip.word === wordKey) return;
+          }
+          if (wordTranslation && el && wordKey && code && words?.has(code)) {
+            event.stopPropagation();
+            setHoveredWord(wordKey);
+            setTip({ code, rect: el.getBoundingClientRect(), word: wordKey, touch: true });
+          }
+          return;
+        }
+        setTip(null);
+        if (!el) return;
+        event.stopPropagation();
+        selectFromElement(el);
       }}
     >
       {rows.map((row) => {
@@ -280,6 +351,7 @@ export function GlyphPageBody({
         >
           <span className="word-tip__tr">{tipInfo.transliteration}</span>
           <span className="word-tip__id">{tipInfo.translation}</span>
+          {tip.touch && <span className="word-tip__hint">Tahan kata untuk menu ayat</span>}
         </div>
       )}
     </div>

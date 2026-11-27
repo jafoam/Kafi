@@ -286,9 +286,6 @@ export function AudioDock({
                   >
                     <span className="reciter-menu__names">
                       <span className="reciter-menu__latin">{r.name}</span>
-                      <span className="reciter-menu__arabic" lang="ar" dir="rtl">
-                        {r.arabicName}
-                      </span>
                     </span>
                     {active && (
                       <svg

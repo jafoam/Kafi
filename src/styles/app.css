@@ -375,8 +375,11 @@ textarea:focus-visible {
 }
 
 .glyph-page[data-lines="8"] {
-  grid-template-rows: repeat(8, calc(100% / 15));
+  /* Al-Fatihah and the opening of Al-Baqarah print few lines, so they get larger letters and
+     wider line spacing, as in printed mushafs, instead of a small block in an empty page. */
+  grid-template-rows: repeat(8, calc(100% / 11));
   align-content: center;
+  font-size: calc(5.35cqw * 1.3 * var(--glyph-fit));
 }
 
 .glyph-line {
@@ -2997,16 +3000,6 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.reciter-menu__arabic {
-  font-family: var(--font-arabic);
-  font-size: 15px;
-  color: var(--text-secondary);
-}
-
-.reciter-menu__item--active .reciter-menu__arabic {
-  color: var(--accent);
-}
-
 .reciter-menu__check {
   flex-shrink: 0;
   color: var(--accent);
@@ -3310,29 +3303,6 @@ textarea:focus-visible {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-}
-
-/* Focus mode: a visible way back, since the bars it hides cannot be hovered on a phone */
-.focus-exit {
-  position: fixed;
-  z-index: 40;
-  top: calc(10px + env(safe-area-inset-top, 0px));
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  background: var(--bg-elevated);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  cursor: pointer;
 }
 
 /* Tasmi' button: large on phones, where the dock has no room for it */
@@ -3643,7 +3613,6 @@ textarea:focus-visible {
 .audio-dock__pill-btn,
 .audio-dock__select,
 .audio-dock__tasmi-btn,
-.focus-exit,
 .tasmi-hint__primary,
 .tasmi-hint__later {
   box-sizing: border-box;
@@ -3654,8 +3623,7 @@ textarea:focus-visible {
 
 .topbar__tasmi,
 .audio-dock__tasmi-btn,
-.tasmi-hint__primary,
-.focus-exit {
+.tasmi-hint__primary {
   font-weight: 600;
 }
 
@@ -3886,6 +3854,7 @@ textarea:focus-visible {
 }
 .word-tip__tr { font-size: 0.75rem; font-style: italic; opacity: 0.7; }
 .word-tip__id { font-size: 0.9rem; font-weight: 600; }
+.word-tip__hint { font-size: 0.68rem; opacity: 0.6; margin-top: 2px; }
 
 /* Download screen (Unduh Suara) */
 .dl-backdrop {
@@ -4424,5 +4393,277 @@ textarea:focus-visible {
 @media (max-width: 900px) {
   .audio-dock .audio-dock__tasmi-btn {
     display: none;
+  }
+}
+
+/* Translation & tafsir reader (full screen, one ayah per panel) */
+.reader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.reader__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.reader__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.reader__surah {
+  font-weight: 650;
+  font-size: 15px;
+}
+
+.reader__count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.reader__icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.reader__icon-btn:hover,
+.reader__icon-btn--on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.reader__views {
+  display: flex;
+  gap: 4px;
+  margin: 10px auto 0;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+}
+
+.reader__view {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.reader__view--on {
+  background: var(--bg-surface);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.reader__settings {
+  display: grid;
+  gap: 10px;
+  width: min(640px, 100% - 32px);
+  margin: 10px auto 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.reader__setting {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.reader__setting select {
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.reader__setting--check {
+  grid-template-columns: auto 1fr;
+  cursor: pointer;
+}
+
+.reader__scroller {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.reader__scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.reader__panel {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.reader__panel-inner {
+  width: min(680px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+.reader__arabic {
+  margin: 0 0 20px;
+  font-size: clamp(26px, 7vw, 34px);
+  line-height: 2;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.reader__block + .reader__block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.reader__block-title {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.reader__text {
+  font-size: 16.5px;
+  line-height: 1.75;
+}
+
+.reader__text p {
+  margin: 0 0 12px;
+}
+
+.reader__text p:last-child {
+  margin-bottom: 0;
+}
+
+.reader__text--arabic {
+  font-family: var(--font-arabic);
+  font-size: 21px;
+  line-height: 1.95;
+  text-align: right;
+}
+
+.reader__nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.reader__nav-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.reader__nav-btn--next {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.reader__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Phone portrait: the page always takes the full screen width. When the bars and the browser's
+   toolbar leave less height than that needs, the stage scrolls rather than shrinking the page. */
+@media (max-width: 640px) and (orientation: portrait) {
+  .reader-stage:not(.reader-scroll) {
+    container-type: normal;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .reader-stage:not(.reader-scroll) .mushaf-spread {
+    max-height: none;
+    flex-shrink: 0;
+  }
+
+  .reader-stage:not(.reader-scroll) .mushaf-page {
+    container-type: inline-size;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 699 / 1020;
+  }
+
+  .glyph-page[data-lines="8"] {
+    font-size: calc(5.7cqw * 1.3 * var(--glyph-fit));
+  }
+
+  /* Focus: no card. The page sits in the middle of the screen and grows taller (up to a printed
+     page's proportions), so the fifteen lines get room between them. */
+  .app-shell--focus .reader-stage:not(.reader-scroll) .mushaf-spread {
+    margin-block: auto;
+    box-shadow: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .app-shell--focus .reader-stage:not(.reader-scroll) .mushaf-page {
+    aspect-ratio: auto;
+    background: transparent;
+    height: clamp(
+      calc((100vw - 12px) * 1020 / 699),
+      calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)),
+      calc((100vw - 12px) * 1.75)
+    );
+  }
+
+  .app-shell--focus .reader-stage:not(.reader-scroll) .glyph-page {
+    inset: 1.5% 2.8% 4%;
   }
 }

@@ -28,6 +28,7 @@ export interface TopBarProps {
   onOpenTasmiGuide: () => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
+  onOpenReader?: () => void;
   syncConnected?: boolean;
   /** Told when the ☰ menu opens or closes, so other popups can step aside. */
   onMenuOpenChange?: (open: boolean) => void;
@@ -75,6 +76,7 @@ export function TopBar({
   onOpenTasmiGuide,
   onOpenDownloads,
   onOpenSync,
+  onOpenReader,
   syncConnected = false,
   onMenuOpenChange,
 }: TopBarProps) {
@@ -221,6 +223,7 @@ export function TopBar({
           onChangeTheme={onChangeTheme}
           onOpenDownloads={onOpenDownloads}
           onOpenSync={onOpenSync}
+          onOpenReader={onOpenReader}
           syncConnected={syncConnected}
           onClose={() => setMenuOpen(false)}
         />
@@ -316,6 +319,7 @@ interface AppMenuProps {
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
+  onOpenReader?: () => void;
   syncConnected?: boolean;
   onClose: () => void;
 }
@@ -339,6 +343,7 @@ function AppMenu({
   onChangeTheme,
   onOpenDownloads,
   onOpenSync,
+  onOpenReader,
   syncConnected = false,
   onClose,
 }: AppMenuProps) {
@@ -389,6 +394,8 @@ function AppMenu({
       <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
       <div className="app-menu" role="dialog" aria-label="Menu">
         <span className="app-menu__section">Membaca</span>
+
+        {onOpenReader && linkRow("Baca Terjemahan & Tafsir", "Geser per ayat, fokus ke maknanya", onOpenReader)}
 
         {toggleRow("Mode Fokus", "Halaman memenuhi layar", focusMode, () => {
           onToggleFocusMode();

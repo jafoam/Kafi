@@ -136,6 +136,12 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
   const localTs = Date.parse(local.updatedAt ?? "") || 0;
   const remoteTs = Date.parse(remote.updatedAt ?? "") || 0;
   const remoteNewer = remoteTs > localTs;
+  // Settings win by their own timestamp: reading a page on another device must
+  // not roll back a reciter or theme chosen here.
+  const localSettingsTs = Date.parse(local.settingsUpdatedAt ?? "") || 0;
+  const remoteSettingsTs = Date.parse(remote.settingsUpdatedAt ?? "") || 0;
+  const remoteSettingsNewer =
+    localSettingsTs || remoteSettingsTs ? remoteSettingsTs > localSettingsTs : remoteNewer;
 
   const bookmarks = Array.from(new Set<AyahKey>([...local.bookmarks, ...remote.bookmarks]));
 
@@ -179,7 +185,10 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     bookmarks,
     highlights,
     notes,
-    settings: remoteNewer ? { ...local.settings, ...remote.settings } : { ...remote.settings, ...local.settings },
+    settings: remoteSettingsNewer
+      ? { ...local.settings, ...remote.settings }
+      : { ...remote.settings, ...local.settings },
+    settingsUpdatedAt: remoteSettingsNewer ? remote.settingsUpdatedAt : local.settingsUpdatedAt,
     tasmiHistory,
     murajaahCards: Array.from(cardMap.values()),
     updatedAt: new Date(Math.max(localTs, remoteTs, Date.now())).toISOString(),

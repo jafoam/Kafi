@@ -1,0 +1,431 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { AyahKey, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
+import type { GlyphPageLoader } from "../services/glyph-pages";
+import type { QuranApi } from "../services/quran-api";
+import { parseAyahKey } from "../services/audio-controller";
+
+/**
+ * A full-screen reader for translation and tafsir: one ayah per panel, swiped sideways like the
+ * a book page by page, each panel scrolling on its own for long tafsir.
+ */
+
+type ReaderView = "terjemahan" | "tafsir" | "keduanya";
+
+interface ReaderPrefs {
+  view: ReaderView;
+  arabic: boolean;
+}
+
+const PREFS_KEY = "kafi:reader-prefs";
+const DEFAULT_PREFS: ReaderPrefs = { view: "keduanya", arabic: true };
+/** Panels this far from the current one have their content loaded. */
+const LOAD_WINDOW = 1;
+
+function readPrefs(): ReaderPrefs {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null") as Partial<ReaderPrefs> | null;
+    if (!raw) return DEFAULT_PREFS;
+    return {
+      view: raw.view === "terjemahan" || raw.view === "tafsir" || raw.view === "keduanya" ? raw.view : DEFAULT_PREFS.view,
+      arabic: typeof raw.arabic === "boolean" ? raw.arabic : DEFAULT_PREFS.arabic,
+    };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
+
+function writePrefs(prefs: ReaderPrefs): void {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Private mode or blocked storage: the reader still works, it just forgets the choice.
+  }
+}
+
+type Loaded = { status: "loading" } | { status: "ready"; html: string } | { status: "error" };
+
+interface GlyphRun {
+  fontFamily: string;
+  codes: string[];
+}
+
+export interface TranslationReaderProps {
+  open: boolean;
+  /** The ayah to open on. */
+  startAyah: AyahKey;
+  /** Follows recitation: when it changes while open, the reader moves to it. */
+  playingAyah: AyahKey | null;
+  surahs: SurahInfo[];
+  quranApi: QuranApi;
+  glyphLoader: GlyphPageLoader;
+  ayahPages: Map<AyahKey, number[]> | null;
+  translations: ResourceInfo[];
+  tafsirs: TafsirInfo[];
+  translationId: number;
+  tafsirId: string;
+  onChangeTranslation: (id: number) => void;
+  onChangeTafsir: (id: string) => void;
+  onPlayAyah: (ayah: AyahKey) => void;
+  /** Closes the reader; the mushaf can turn to the ayah that was being read. */
+  onClose: (lastAyah: AyahKey) => void;
+}
+
+export function TranslationReader(props: TranslationReaderProps) {
+  if (!props.open) return null;
+  return <ReaderBody {...props} />;
+}
+
+function ReaderBody({
+  startAyah,
+  playingAyah,
+  surahs,
+  quranApi,
+  glyphLoader,
+  ayahPages,
+  translations,
+  tafsirs,
+  translationId,
+  tafsirId,
+  onChangeTranslation,
+  onChangeTafsir,
+  onPlayAyah,
+  onClose,
+}: TranslationReaderProps) {
+  const [prefs, setPrefs] = useState<ReaderPrefs>(readPrefs);
+  const [current, setCurrent] = useState<AyahKey>(startAyah);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { surah, ayah } = parseAyahKey(current);
+  const surahInfo = surahs.find((s) => s.number === surah);
+  const total = surahInfo?.ayahs ?? 1;
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  /** Set while the scroller is being moved by code, so its scroll events don't fight back. */
+  const programmaticRef = useRef(false);
+
+  const updatePrefs = (patch: Partial<ReaderPrefs>) => {
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch };
+      writePrefs(next);
+      return next;
+    });
+  };
+
+  const showTranslation = prefs.view !== "tafsir";
+  const showTafsir = prefs.view !== "terjemahan";
+
+  // Content, keyed by "t:<id>:<ayah>" / "f:<id>:<ayah>" / "g:<ayah>".
+  const [content, setContent] = useState<Map<string, Loaded>>(() => new Map());
+  const [glyphs, setGlyphs] = useState<Map<AyahKey, GlyphRun[]>>(() => new Map());
+  const requested = useRef(new Set<string>());
+
+  const loadAround = useCallback(
+    (center: number) => {
+      const from = Math.max(1, center - LOAD_WINDOW);
+      const to = Math.min(total, center + LOAD_WINDOW);
+      for (let n = from; n <= to; n++) {
+        const key = `${surah}:${n}` as AyahKey;
+        const jobs: Array<[string, () => Promise<{ html: string }>]> = [];
+        if (showTranslation) jobs.push([`t:${translationId}:${key}`, () => quranApi.getTranslation(translationId, surah, n)]);
+        if (showTafsir) jobs.push([`f:${tafsirId}:${key}`, () => quranApi.getTafsir(tafsirId, surah, n)]);
+        for (const [id, run] of jobs) {
+          if (requested.current.has(id)) continue;
+          requested.current.add(id);
+          setContent((prev) => new Map(prev).set(id, { status: "loading" }));
+          run().then(
+            (res) => setContent((prev) => new Map(prev).set(id, { status: "ready", html: res.html })),
+            () => {
+              requested.current.delete(id);
+              setContent((prev) => new Map(prev).set(id, { status: "error" }));
+            },
+          );
+        }
+        const gid = `g:${key}`;
+        if (prefs.arabic && ayahPages && !requested.current.has(gid)) {
+          requested.current.add(gid);
+          const pages = ayahPages.get(key) ?? [];
+          void Promise.all(pages.map((p) => glyphLoader.load(p))).then(
+            (datas) => {
+              const runs: GlyphRun[] = [];
+              for (const data of datas) {
+                const codes: string[] = [];
+                for (const line of data.lines) {
+                  for (const w of line.words) if (w.ayah === key) codes.push(w.code);
+                }
+                if (codes.length) runs.push({ fontFamily: data.fontFamily, codes });
+              }
+              setGlyphs((prev) => new Map(prev).set(key, runs));
+            },
+            () => requested.current.delete(gid),
+          );
+        }
+      }
+    },
+    [surah, total, showTranslation, showTafsir, translationId, tafsirId, quranApi, glyphLoader, ayahPages, prefs.arabic],
+  );
+
+  useEffect(() => {
+    loadAround(ayah);
+  }, [loadAround, ayah]);
+
+  const retry = (id: string) => {
+    requested.current.delete(id);
+    setContent((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+    loadAround(ayah);
+  };
+
+  // Move the scroller to the current panel (on open, surah change, buttons, recitation).
+  const scrollToAyah = useCallback((n: number, smooth: boolean) => {
+    const scroller = scrollerRef.current;
+    const panel = scroller?.children[n - 1] as HTMLElement | undefined;
+    if (!scroller || !panel) return;
+    programmaticRef.current = true;
+    scroller.scrollTo({ left: panel.offsetLeft - (scroller.clientWidth - panel.offsetWidth) / 2, behavior: smooth ? "smooth" : "auto" });
+    window.setTimeout(() => {
+      programmaticRef.current = false;
+    }, smooth ? 450 : 50);
+  }, []);
+
+  useLayoutEffect(() => {
+    scrollToAyah(parseAyahKey(current).ayah, false);
+    // Only when the surah changes; moves within a surah scroll themselves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surah]);
+
+  const goTo = useCallback(
+    (target: AyahKey, smooth = true) => {
+      const t = parseAyahKey(target);
+      setCurrent(target);
+      if (t.surah === surah) scrollToAyah(t.ayah, smooth);
+    },
+    [surah, scrollToAyah],
+  );
+
+  const step = useCallback(
+    (dir: 1 | -1) => {
+      if (dir === 1) {
+        if (ayah < total) goTo(`${surah}:${ayah + 1}`);
+        else if (surah < 114) goTo(`${surah + 1}:1`);
+      } else if (ayah > 1) {
+        goTo(`${surah}:${ayah - 1}`);
+      } else if (surah > 1) {
+        const prev = surahs.find((s) => s.number === surah - 1);
+        if (prev) goTo(`${prev.number}:${prev.ayahs}`);
+      }
+    },
+    [ayah, total, surah, surahs, goTo],
+  );
+
+  // Follow the recitation while the reader is open.
+  const lastPlaying = useRef(playingAyah);
+  useEffect(() => {
+    if (!playingAyah || playingAyah === lastPlaying.current) return;
+    lastPlaying.current = playingAyah;
+    goTo(playingAyah);
+  }, [playingAyah, goTo]);
+
+  // Swiping: the panel nearest the scroller's centre becomes current.
+  const onScroll = () => {
+    if (programmaticRef.current) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const mid = scroller.getBoundingClientRect().left + scroller.clientWidth / 2;
+    let best = ayah;
+    let bestDist = Infinity;
+    const children = scroller.children;
+    // Only panels near the current one can be under the centre after a swipe.
+    for (let n = Math.max(1, ayah - 3); n <= Math.min(total, ayah + 3); n++) {
+      const rect = (children[n - 1] as HTMLElement).getBoundingClientRect();
+      const dist = Math.abs(rect.left + rect.width / 2 - mid);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = n;
+      }
+    }
+    if (best !== ayah) setCurrent(`${surah}:${best}`);
+  };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "SELECT" || target.tagName === "INPUT")) return;
+      if (event.key === "ArrowRight") step(1);
+      else if (event.key === "ArrowLeft") step(-1);
+      else if (event.key === "Escape") onClose(current);
+      else return;
+      event.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step, onClose, current]);
+
+  const activeTafsir = tafsirs.find((t) => t.id === tafsirId);
+  const tafsirArabic = activeTafsir?.language === "arabic";
+  const panels = useMemo(() => Array.from({ length: total }, (_, i) => i + 1), [total]);
+
+  const renderBlock = (id: string, label: string, arabic: boolean) => {
+    const state = content.get(id);
+    return (
+      <section className="reader__block">
+        <h3 className="reader__block-title">{label}</h3>
+        {!state || state.status === "loading" ? (
+          <div className="study-drawer__loading" aria-busy="true">
+            <div className="study-drawer__skeleton-line" />
+            <div className="study-drawer__skeleton-line study-drawer__skeleton-line--short" />
+          </div>
+        ) : state.status === "error" ? (
+          <div className="study-drawer__error">
+            <p>Tidak dapat dimuat. Periksa koneksi internet.</p>
+            <button type="button" className="study-drawer__retry-btn" onClick={() => retry(id)}>
+              Coba lagi
+            </button>
+          </div>
+        ) : (
+          <div
+            className={`reader__text ${arabic ? "reader__text--arabic" : ""}`}
+            dir={arabic ? "rtl" : "ltr"}
+            lang={arabic ? "ar" : undefined}
+            dangerouslySetInnerHTML={{ __html: state.html || "<p>Tidak tersedia untuk ayat ini.</p>" }}
+          />
+        )}
+      </section>
+    );
+  };
+
+  return (
+    <div className="reader" role="dialog" aria-modal="true" aria-label="Baca terjemahan dan tafsir">
+      <header className="reader__bar">
+        <button type="button" className="reader__icon-btn" onClick={() => onClose(current)} aria-label="Tutup">
+          ×
+        </button>
+        <div className="reader__heading">
+          <span className="reader__surah">{surahInfo?.name ?? `Surah ${surah}`}</span>
+          <span className="reader__count">
+            Ayat {ayah} / {total}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="reader__icon-btn"
+          onClick={() => onPlayAyah(current)}
+          aria-label={`Putar ayat ${ayah}`}
+          title="Putar dari ayat ini"
+        >
+          ▶
+        </button>
+        <button
+          type="button"
+          className={`reader__icon-btn ${settingsOpen ? "reader__icon-btn--on" : ""}`}
+          onClick={() => setSettingsOpen((v) => !v)}
+          aria-expanded={settingsOpen}
+          aria-label="Pengaturan tampilan"
+          title="Pengaturan tampilan"
+        >
+          Aa
+        </button>
+      </header>
+
+      <div className="reader__views" role="tablist" aria-label="Tampilkan">
+        {(
+          [
+            ["terjemahan", "Terjemahan"],
+            ["tafsir", "Tafsir"],
+            ["keduanya", "Keduanya"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={prefs.view === value}
+            className={`reader__view ${prefs.view === value ? "reader__view--on" : ""}`}
+            onClick={() => updatePrefs({ view: value })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {settingsOpen && (
+        <div className="reader__settings">
+          <label className="reader__setting">
+            <span>Terjemahan</span>
+            <select value={translationId} onChange={(e) => onChangeTranslation(Number(e.target.value))}>
+              {translations.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="reader__setting">
+            <span>Tafsir</span>
+            <select value={tafsirId} onChange={(e) => onChangeTafsir(e.target.value)}>
+              {tafsirs.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="reader__setting reader__setting--check">
+            <input type="checkbox" checked={prefs.arabic} onChange={(e) => updatePrefs({ arabic: e.target.checked })} />
+            <span>Tampilkan teks Arab</span>
+          </label>
+        </div>
+      )}
+
+      <div className="reader__scroller" ref={scrollerRef} onScroll={onScroll}>
+        {panels.map((n) => {
+          const key = `${surah}:${n}` as AyahKey;
+          const near = Math.abs(n - ayah) <= LOAD_WINDOW;
+          const runs = glyphs.get(key);
+          return (
+            <article key={key} className="reader__panel" aria-hidden={n !== ayah} aria-label={`Ayat ${n}`}>
+              {near && (
+                <div className="reader__panel-inner">
+                  {prefs.arabic && (
+                    <p className="reader__arabic" dir="rtl" lang="ar">
+                      {runs
+                        ? runs.map((run, i) => (
+                            <span key={i} style={{ fontFamily: `"${run.fontFamily}"` }}>
+                              {run.codes.join(" ")}
+                            </span>
+                          ))
+                        : null}
+                    </p>
+                  )}
+                  {showTranslation &&
+                    renderBlock(`t:${translationId}:${key}`, translations.find((t) => t.id === translationId)?.name ?? "Terjemahan", false)}
+                  {showTafsir && renderBlock(`f:${tafsirId}:${key}`, activeTafsir?.name ?? "Tafsir", tafsirArabic)}
+                </div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+
+      <footer className="reader__nav">
+        <button
+          type="button"
+          className="reader__nav-btn"
+          onClick={() => step(-1)}
+          disabled={surah === 1 && ayah === 1}
+        >
+          ‹ Sebelumnya
+        </button>
+        <button
+          type="button"
+          className="reader__nav-btn reader__nav-btn--next"
+          onClick={() => step(1)}
+          disabled={surah === 114 && ayah === total}
+        >
+          {ayah === total && surah < 114 ? "Surah berikutnya ›" : "Berikutnya ›"}
+        </button>
+      </footer>
+    </div>
+  );
+}

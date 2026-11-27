@@ -129,4 +129,22 @@ describe("sync-service", () => {
     expect(resB.pulled).toBe(true);
     expect(resB.merged.bookmarks.sort()).toEqual(["112:1", "2:255"]);
   });
+
+  it("keeps a reciter chosen here when the other device is newer only from reading", () => {
+    const local: UserData = {
+      ...DEFAULT_USER_DATA,
+      settings: { ...DEFAULT_USER_DATA.settings, reciterId: "Husary_128kbps" },
+      settingsUpdatedAt: "2026-11-27T09:00:00.000Z",
+      updatedAt: "2026-11-27T09:00:00.000Z",
+    };
+    const remote: UserData = {
+      ...DEFAULT_USER_DATA,
+      lastPage: 300,
+      settingsUpdatedAt: "2026-11-20T09:00:00.000Z",
+      updatedAt: "2026-11-27T10:00:00.000Z",
+    };
+    const merged = mergeUserData(local, remote);
+    expect(merged.settings.reciterId).toBe("Husary_128kbps");
+    expect(merged.lastPage).toBe(300);
+  });
 });
