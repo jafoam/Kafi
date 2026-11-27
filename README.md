@@ -131,6 +131,8 @@ Kode fondasi desktop native (macOS & Windows) menggunakan **Tauri v2** sudah ter
 
 ## Acknowledgements & Sumber Data
 
+Daftar yang sama tampil di aplikasi: menu ☰ → **Tentang & Sumber Data** (`src/data/acknowledgements.ts`).
+
 Kafi dibangun di atas kerja keras komunitas open-source dan lembaga penyedia data Al-Qur'an. Terima kasih sebesar-besarnya kepada:
 
 ### Engine Tasmi' & Model AI
@@ -150,4 +152,5 @@ Kafi dibangun di atas kerja keras komunitas open-source dan lembaga penyedia dat
 - **Unduh semua halaman** — tombol "Unduh Offline" di bilah atas (web) menyimpan seluruh 604 font ke cache service worker (`kafi-media-v1`), bisa dilanjutkan jika terputus. Aplikasi desktop sudah membundel semuanya.
 - **[Amiri](https://github.com/aliftype/amiri)** — glyph basmalah kaligrafi U+FDFD (SIL OFL 1.1, © The Amiri Project Authors), di-subset ke satu glyph di `src/assets/fonts/` beserta lisensinya.
 - **[eQuran.id (`equran.id`)](https://equran.id/)** — API Tafsir Kemenag RI berbahasa Indonesia.
+- **[Tafsir API (`spa5k/tafsir_api`)](https://github.com/spa5k/tafsir_api)** — Tafsir As-Sa'di dan Al-Mukhtashar berbahasa Indonesia (via jsDelivr).
 - **[EveryAyah (`everyayah.com`)](https://everyayah.com/)** — audio murottal per ayat dari para qari (Mishary Alafasy, Al-Husary, Abdul Basit, Al-Minshawy, As-Sudais, Al-Ghamdi, Al-Muaiqly, Al-Shuraim, Al-Shatri, Hani Ar-Rifai).

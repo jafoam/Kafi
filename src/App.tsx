@@ -95,6 +95,7 @@ import { SyncModal } from "./components/SyncModal";
 import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiGuide } from "./components/TasmiGuide";
 import { TajweedGuide } from "./components/TajweedGuide";
+import { AboutSources } from "./components/AboutSources";
 import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
 import { TopBar } from "./components/TopBar";
 
@@ -237,6 +238,7 @@ export function App({
   const [tasmiHint, setTasmiHint] = useState(false);
   const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
   const [tajweedGuideOpen, setTajweedGuideOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [topMenuOpen, setTopMenuOpen] = useState(false);
   const [dockPopupOpen, setDockPopupOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1615,6 +1617,7 @@ export function App({
   useBackClose(selected !== null, () => setSelected(null));
   useBackClose(focusMode, () => setFocusMode(false));
   useBackClose(tajweedGuideOpen, () => setTajweedGuideOpen(false));
+  useBackClose(aboutOpen, () => setAboutOpen(false));
 
   // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
   // hides the Tasmi' card and button.
@@ -1626,6 +1629,7 @@ export function App({
     downloadsOpen ||
     tasmiGuideOpen ||
     tajweedGuideOpen ||
+    aboutOpen ||
     topMenuOpen ||
     dockPopupOpen;
 
@@ -1797,6 +1801,7 @@ export function App({
         onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
         onOpenTasmiGuide={() => setTasmiGuideOpen(true)}
         onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
+        onOpenAbout={() => setAboutOpen(true)}
         hifzBlur={
           tasmiActive && tasmiState?.mode === "memorization"
             ? tasmiBlurEnabled
@@ -2173,6 +2178,7 @@ export function App({
       />
 
       {tajweedGuideOpen && <TajweedGuide onClose={() => setTajweedGuideOpen(false)} />}
+      {aboutOpen && <AboutSources onClose={() => setAboutOpen(false)} />}
 
       {tasmiGuideOpen && (
         <TasmiGuide
