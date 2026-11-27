@@ -18,6 +18,9 @@ export interface AyahPopoverProps {
   onStartTasmi?: (ayah: AyahKey) => void;
   onToggleBookmark: (ayah: AyahKey) => void;
   onSetHighlight: (ayah: AyahKey, color: HighlightColor | null) => void;
+  /** Sembunyikan Ayat, the same setting as the app menu's. */
+  hifzBlur?: boolean;
+  onToggleHifzBlur?: () => void;
 }
 
 function htmlToPlainText(html: string): string {
@@ -51,6 +54,8 @@ export function AyahPopover({
   onStartTasmi,
   onToggleBookmark,
   onSetHighlight,
+  hifzBlur = false,
+  onToggleHifzBlur,
 }: AyahPopoverProps) {
   const ayahNum = ayah.split(":")[1] ?? "";
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -238,6 +243,22 @@ export function AyahPopover({
           )}
         </div>
       </div>
+
+      {onToggleHifzBlur && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={hifzBlur}
+          className="ayah-popover__toggle"
+          onClick={onToggleHifzBlur}
+        >
+          <span>Sembunyikan Ayat</span>
+          <span
+            className={`app-menu__switch ${hifzBlur ? "app-menu__switch--on" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+      )}
     </div>
   );
 }

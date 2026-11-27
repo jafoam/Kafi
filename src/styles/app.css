@@ -889,6 +889,24 @@ textarea:focus-visible {
   border-top: 1px solid var(--border-subtle);
 }
 
+.ayah-popover__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
 .ayah-popover__pills {
   display: inline-flex;
   align-items: center;
