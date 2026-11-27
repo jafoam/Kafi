@@ -12,11 +12,12 @@ import { SurahBanner } from "./SurahBanner";
 const wordLoader = createWordTranslationLoader();
 
 /**
- * Width of a normal full line in em for each print, from the fonts' advance widths: about 90% of all
- * lines are at most this wide (v1: median 14.2em, v4: median 16.1em). It sets the one letter size used
- * on every page.
+ * Width of a normal full line in em for each kind of glyph, from the fonts' advance widths. It sets the
+ * one letter size used on every page. v1: about 90% of lines are at most 14.6em (median 14.2em).
+ * tajweed: the same v1 lines drawn with the v4 color glyphs, which vary more (median 16.1em, 85% at most
+ * 17.3em); at 17.2em only about 6% of lines are narrowed by more than 6%.
  */
-const FULL_LINE_EM = { v1: 14.6, tajweed: 16.4 } as const;
+const FULL_LINE_EM = { v1: 14.6, tajweed: 17.2 } as const;
 
 /** U+FDFD ARABIC LIGATURE BISMILLAH, drawn as one calligraphic glyph by the AmiriBismillah font. */
 const BISMILLAH = "\uFDFD";
@@ -119,9 +120,6 @@ export function GlyphPageBody({
   const totalLines = data.page <= 2 ? 8 : 15;
   const rows = data.rows;
 
-  /** Tajweed (1441 print) lines much shorter than a full line, printed centered at their natural width. */
-  const [shortLines, setShortLines] = useState<ReadonlySet<number>>(() => new Set());
-
   // One letter size for every page of a print: it is set so a normal full line spans the page, so the
   // letters (and their stroke weight) never change from page to page. Container-relative units keep it
   // valid on resize. A rare line drawn wider than that is narrowed on its own instead of shrinking the page.
@@ -188,24 +186,8 @@ export function GlyphPageBody({
         line.dataset.squeeze = "";
         line.style.setProperty("--line-squeeze", String((width / (natural * fit)) * 0.998));
       }
-
-      // The v4 glyphs are drawn so a full line fills the measure by itself; anything well short of that is
-      // a surah's closing line, which the print centers instead of spreading.
-      const short = new Set<number>();
-      if (data.variant === "tajweed" && data.page > 2) {
-        const shortPx = FULL_LINE_EM.tajweed * fontSize * 0.8;
-        for (const [line, measured] of widths) {
-          // Ignore the centered lines' padding so the answer cannot flip once a line is centered.
-          const padding = line.classList.contains("glyph-line--center") ? line.children.length * 0.32 * fontSize : 0;
-          if (measured - padding < shortPx) short.add(Number(line.dataset.glyphLine));
-        }
-      }
-      setShortLines((prev) =>
-        prev.size === short.size && [...short].every((line) => prev.has(line)) ? prev : short,
-      );
     }
-    // shortLines: centering changes a line's padding, so the fit is measured again once it settles.
-  }, [data, shortLines]);
+  }, [data]);
 
   const isLeadingSplit = (ayah: AyahKey) => pageEntry.leadingSplitAyah === ayah;
 
@@ -322,7 +304,7 @@ export function GlyphPageBody({
         }
         // The two opening pages, and the short surah-ending lines flagged in the data, print centered at
         // the normal letter size instead of being stretched to the page.
-        const centered = data.page <= 2 || row.centered === true || shortLines.has(row.line);
+        const centered = data.page <= 2 || row.centered === true;
         return (
           <div
             key={row.line}
@@ -378,6 +360,7 @@ export function GlyphPageBody({
                   data-ayah={ayah}
                   data-code={lookupCode}
                   data-word={wordKey}
+                  style={word.fontFamily ? { fontFamily: `"${word.fontFamily}"` } : undefined}
                   role={isFirst ? "button" : undefined}
                   tabIndex={isFirst ? 0 : undefined}
                   aria-label={

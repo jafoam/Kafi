@@ -178,7 +178,7 @@ export function TasmiSummaryModal({
         for (const line of data.lines) {
           for (const w of line.words) {
             if (!ayahKeys.has(w.ayah)) continue;
-            (map[w.ayah] ??= []).push({ code: w.code, fontFamily: data.fontFamily });
+            (map[w.ayah] ??= []).push({ code: w.code, fontFamily: w.fontFamily ?? data.fontFamily });
           }
         }
       }

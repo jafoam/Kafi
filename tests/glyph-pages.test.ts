@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parsePage, glyphFontUrl, glyphFontFamily } from "../src/services/glyph-pages";
+import { applyTajweedGlyphs, parsePage, glyphFontUrl, glyphFontFamily } from "../src/services/glyph-pages";
 import quranPages from "../src/data/quran-pages.json";
 
 const ayahLine = (l: number, runs: [string, string[]][]) => ({ l, t: "a", w: runs });
@@ -82,5 +82,45 @@ describe("bundled mushaf data", () => {
       }
     }
     expect(surahs).toEqual(Array.from({ length: 114 }, (_, i) => i + 1));
+  });
+});
+
+describe("tajweed glyphs on the v1 layout", () => {
+  it("keeps every v1 row and word, swapping in each word's v4 glyph and font", () => {
+    const v1 = parsePage(5, [
+      { l: 1, t: "a", w: [["2:1", ["a1", "a2"]], ["2:2", ["b1"]]] },
+      { l: 2, t: "a", w: [["2:2", ["b2", "b3"]]] },
+    ])!;
+    const glyphs = new Map([
+      ["2:1", [{ page: 4, code: "A1" }, { page: 5, code: "A2" }]],
+      ["2:2", [{ page: 5, code: "B1" }, { page: 5, code: "B2" }, { page: 5, code: "B3" }]],
+    ]) as Map<`${number}:${number}`, { page: number; code: string }[]>;
+    const v1Codes = new Map([
+      ["2:1", ["a1", "a2"]],
+      ["2:2", ["b1", "b2", "b3"]],
+    ]) as Map<`${number}:${number}`, string[]>;
+
+    const out = applyTajweedGlyphs(v1, glyphs, v1Codes);
+    expect(out.variant).toBe("tajweed");
+    expect(out.rows.map((r) => r.line)).toEqual([1, 2]);
+    expect(out.fontFamily).toBe("QCFv4T-p5");
+    expect(out.fontFamilies?.sort()).toEqual(["QCFv4T-p4", "QCFv4T-p5"]);
+    const first = out.lines[0].words;
+    expect(first.map((w) => w.code)).toEqual(["A1", "A2", "B1"]);
+    expect(first[0]).toMatchObject({ v1Code: "a1", fontFamily: "QCFv4T-p4" });
+    expect(first[1].fontFamily).toBeUndefined();
+    expect(out.lines[1].words.map((w) => w.code)).toEqual(["B2", "B3"]);
+  });
+
+  it("keeps an ayah's v1 glyphs when the prints split it differently", () => {
+    const v1 = parsePage(5, [{ l: 1, t: "a", w: [["2:1", ["a1", "a2"]]] }])!;
+    const glyphs = new Map([["2:1", [{ page: 5, code: "A1" }]]]) as Map<
+      `${number}:${number}`,
+      { page: number; code: string }[]
+    >;
+    const v1Codes = new Map([["2:1", ["a1", "a2"]]]) as Map<`${number}:${number}`, string[]>;
+    const out = applyTajweedGlyphs(v1, glyphs, v1Codes);
+    expect(out.lines[0].words.map((w) => w.code)).toEqual(["a1", "a2"]);
+    expect(out.fontFamily).toBe("QCFv1-p5");
   });
 });

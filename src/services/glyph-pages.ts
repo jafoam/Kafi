@@ -10,7 +10,9 @@ export const REMOTE_TAJWEED_FONT_BASE = "https://verses.quran.com/fonts/quran/ha
 
 /**
  * `v1`: the 1405 Madinah print in plain QCF v1 fonts (bundled or cached).
- * `tajweed`: the 1441 print in QCF v4 COLRv1 fonts, which carry the tajweed colors.
+ * `tajweed`: the same 1405 pages and lines, each word drawn with its colored glyph from the QCF v4
+ * COLRv1 fonts (made for the 1441 print), so switching tajweed on never moves a word to another
+ * page or line.
  */
 export type GlyphVariant = "v1" | "tajweed";
 
@@ -22,6 +24,8 @@ export interface GlyphWord {
   ayah: AyahKey;
   /** 0-based index of this glyph within its ayah (across page breaks). */
   wordIndex?: number;
+  /** The font that draws `code` when it is not the page's own font. */
+  fontFamily?: string;
 }
 
 export interface GlyphLine {
@@ -45,6 +49,8 @@ export interface GlyphPageData {
   page: number;
   fontFamily: string;
   variant?: GlyphVariant;
+  /** Every font the page's words use, its own included. */
+  fontFamilies?: string[];
   lines: GlyphLine[];
   rows: GlyphRow[];
 }
@@ -152,6 +158,59 @@ export function buildAyahCodesIndex(pages: Record<string, unknown>): Map<AyahKey
   return index;
 }
 
+/** Maps every AyahKey to each of its words' glyph code and the page whose font draws it. */
+export function buildAyahGlyphIndex(
+  pages: Record<string, unknown>,
+): Map<AyahKey, { page: number; code: string }[]> {
+  const index = new Map<AyahKey, { page: number; code: string }[]>();
+  for (let p = 1; pages[String(p)] !== undefined; p++) {
+    const rows = pages[String(p)];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows as PageRow[]) {
+      if (row.t !== "a" || !Array.isArray(row.w)) continue;
+      for (const [ayah, codes] of row.w) {
+        const key = ayah as AyahKey;
+        const list = index.get(key) ?? [];
+        for (const code of codes) list.push({ page: p, code });
+        index.set(key, list);
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * Redraws a v1 page with the tajweed glyphs: same rows, same words, each word's code swapped for its
+ * v4 glyph (found by ayah and word position) and the font of the v4 page that holds it. An ayah whose
+ * word count differs between the prints keeps its v1 glyphs.
+ */
+export function applyTajweedGlyphs(
+  data: GlyphPageData,
+  glyphs: ReadonlyMap<AyahKey, { page: number; code: string }[]>,
+  v1Codes: ReadonlyMap<AyahKey, string[]>,
+): GlyphPageData {
+  const v1Family = data.fontFamily;
+  const counts = new Map<string, number>();
+  const words = (list: GlyphWord[]): GlyphWord[] =>
+    list.map((word) => {
+      const all = glyphs.get(word.ayah);
+      const glyph = typeof word.wordIndex === "number" ? all?.[word.wordIndex] : undefined;
+      if (!glyph || all?.length !== v1Codes.get(word.ayah)?.length) return { ...word, fontFamily: v1Family };
+      const family = glyphFontFamily(glyph.page, "tajweed");
+      counts.set(family, (counts.get(family) ?? 0) + 1);
+      return { ...word, code: glyph.code, v1Code: word.code, fontFamily: family };
+    });
+  const rows = data.rows.map((row) => (row.kind === "text" ? { ...row, words: words(row.words) } : row));
+  const lines = rows.flatMap((row) => (row.kind === "text" ? [{ line: row.line, words: row.words }] : []));
+  const main = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? v1Family;
+  const families = new Set<string>();
+  for (const line of lines) for (const word of line.words) families.add(word.fontFamily ?? main);
+  for (const line of lines) {
+    for (const word of line.words) if (word.fontFamily === main) delete word.fontFamily;
+  }
+  return { ...data, variant: "tajweed", fontFamily: main, fontFamilies: [...families], lines, rows };
+}
+
 function countPriorWords(pages: Record<string, unknown>, page: number): Map<AyahKey, number> {
   const counts = new Map<AyahKey, number>();
   if (page <= 1) return counts;
@@ -181,6 +240,7 @@ export function createGlyphPageLoader(
   let variantPages: Promise<Record<string, unknown>> | null = null;
   let ayahPagesIndex: Promise<Map<AyahKey, number[]>> | null = null;
   let ayahCodes: Promise<Map<AyahKey, string[]>> | null = null;
+  let ayahGlyphs: Promise<Map<AyahKey, { page: number; code: string }[]>> | null = null;
 
   function fetchJson(url: string): Promise<Record<string, unknown>> {
     return fetch(url).then((response) => {
@@ -214,23 +274,21 @@ export function createGlyphPageLoader(
     });
   }
 
+  function loadAyahGlyphs(): Promise<Map<AyahKey, { page: number; code: string }[]>> {
+    ayahGlyphs ??= loadVariantPages().then(buildAyahGlyphIndex);
+    return ayahGlyphs.catch((err) => {
+      ayahGlyphs = null;
+      throw err;
+    });
+  }
+
   async function loadData(page: number): Promise<GlyphPageData> {
-    const pages = await loadVariantPages();
-    const parsed = parsePage(page, pages[String(page)], countPriorWords(pages, page), variant);
+    const pages = await loadBundledPages();
+    const parsed = parsePage(page, pages[String(page)], countPriorWords(pages, page), "v1");
     if (!parsed) throw new Error(`Unusable data for page ${page}`);
-    if (variant !== "v1") {
-      // Both prints split every ayah into the same words, so the v1 code at the same index is this word.
-      const codes = await loadAyahCodes().catch(() => null);
-      if (codes) {
-        for (const line of parsed.lines) {
-          for (const word of line.words) {
-            const v1 = typeof word.wordIndex === "number" ? codes.get(word.ayah)?.[word.wordIndex] : undefined;
-            if (v1) word.v1Code = v1;
-          }
-        }
-      }
-    }
-    return parsed;
+    if (variant === "v1") return parsed;
+    const [glyphs, codes] = await Promise.all([loadAyahGlyphs(), loadAyahCodes()]);
+    return applyTajweedGlyphs(parsed, glyphs, codes);
   }
 
   async function loadFontFromBytes(family: string, bytes: Uint8Array): Promise<void> {
@@ -240,15 +298,15 @@ export function createGlyphPageLoader(
     document.fonts.add(face);
   }
 
-  async function ensureFont(page: number): Promise<void> {
+  async function ensureFont(page: number, fontVariant: GlyphVariant): Promise<void> {
     if (typeof document === "undefined" || typeof FontFace === "undefined") {
       throw new Error("FontFace unavailable");
     }
-    const family = glyphFontFamily(page, variant);
+    const family = glyphFontFamily(page, fontVariant);
     if (hasFont(family)) return;
 
     const fileName = `p${page}.woff2`;
-    const cacheKey = variant === "tajweed" ? `v4t-${fileName}` : fileName;
+    const cacheKey = fontVariant === "tajweed" ? `v4t-${fileName}` : fileName;
     if (platform) {
       const cached = await platform.cacheGet("font", cacheKey).catch(() => null);
       if (cached && cached.byteLength > 0) {
@@ -257,7 +315,7 @@ export function createGlyphPageLoader(
       }
     }
 
-    if (variant === "v1") {
+    if (fontVariant === "v1") {
       try {
         const face = new FontFace(family, `url(${glyphFontUrl(page)}) format("woff2")`, {
           display: "block",
@@ -270,7 +328,7 @@ export function createGlyphPageLoader(
       }
     }
 
-    const base = variant === "tajweed" ? REMOTE_TAJWEED_FONT_BASE : REMOTE_QCF_FONT_BASE;
+    const base = fontVariant === "tajweed" ? REMOTE_TAJWEED_FONT_BASE : REMOTE_QCF_FONT_BASE;
     const response = await fetch(`${base}/${fileName}`);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} loading font ${fileName}`);
@@ -292,9 +350,17 @@ export function createGlyphPageLoader(
   function load(page: number): Promise<GlyphPageData> {
     const existing = pending.get(page);
     if (existing) return existing;
-    const promise = Promise.all([loadData(page), ensureFont(page)])
-      .then(([data]) => {
-        if (variant === "tajweed") registerTajweedPalette(data.fontFamily);
+    const promise = loadData(page)
+      .then(async (data) => {
+        const families = data.fontFamilies ?? [data.fontFamily];
+        await Promise.all(
+          families.map((family) => {
+            const match = /^QCFv(1|4T)-p(\d+)$/.exec(family);
+            if (!match) return Promise.resolve();
+            return ensureFont(Number(match[2]), match[1] === "4T" ? "tajweed" : "v1");
+          }),
+        );
+        for (const family of families) if (family.startsWith("QCFv4T-")) registerTajweedPalette(family);
         return data;
       })
       .catch((err) => {

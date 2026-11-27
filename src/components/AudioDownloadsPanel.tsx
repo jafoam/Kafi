@@ -432,7 +432,7 @@ export function AudioDownloadsPanel({
                             ? `Sebagian gagal (${tajweedPages.done}/${tajweedPages.total}). Coba lagi.`
                             : tajweedPages.done > 0
                               ? `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±60 MB total) untuk mode Tajwid berwarna tanpa internet.`
-                              : "Mushaf cetakan 1441 dengan warna hukum tajwid (±60 MB), untuk mode Tajwid berwarna tanpa internet."}
+                              : "Huruf berwarna tajwid (±60 MB), untuk mode Tajwid berwarna tanpa internet."}
                     </div>
                     <div className="dl-bar dl-bar--thin" aria-hidden="true">
                       <div

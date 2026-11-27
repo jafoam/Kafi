@@ -431,7 +431,7 @@ function AppMenu({
           </div>
         )}
         {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
-        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, mushaf cetakan 1441", tajweed, onToggleTajweed)}
+        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, tata letak halaman tetap sama", tajweed, onToggleTajweed)}
         {linkRow("Hukum Tajwid", "Arti tiap warna dan contohnya", onOpenTajweedGuide)}
 
         <div className="app-menu__field">
