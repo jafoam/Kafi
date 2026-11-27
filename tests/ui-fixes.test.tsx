@@ -346,6 +346,34 @@ describe("Full ayah translation inside AyahPopover", () => {
     expect(copyBtn?.textContent).toBe("Tersalin");
   });
 
+  it("offers the Sembunyikan Ayat switch, reflecting and toggling the setting", () => {
+    const rect = { left: 100, top: 300, width: 40, height: 24, bottom: 324, right: 140 } as DOMRect;
+    const onToggleHifzBlur = vi.fn();
+    const quranApi = { getTranslation: async () => ({ html: "", fromCache: true }) } as unknown as QuranApi;
+    const el = mount(
+      <AyahPopover
+        ayah="1:1"
+        surahName="Al-Fatihah"
+        anchorRect={rect}
+        quranApi={quranApi}
+        translationId={33}
+        getArabicText={async () => ""}
+        isBookmarked={false}
+        highlightColor={null}
+        onClose={() => {}}
+        onToggleBookmark={() => {}}
+        onSetHighlight={() => {}}
+        hifzBlur={true}
+        onToggleHifzBlur={onToggleHifzBlur}
+      />,
+    );
+    const toggle = el.querySelector('[role="switch"]') as HTMLButtonElement;
+    expect(toggle.textContent).toContain("Sembunyikan Ayat");
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    act(() => toggle.click());
+    expect(onToggleHifzBlur).toHaveBeenCalledTimes(1);
+  });
+
   it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {
     const silentRecord: TasmiSessionRecord = {
       id: "silent-1",

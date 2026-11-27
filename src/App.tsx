@@ -2016,6 +2016,8 @@ export function App({
           }}
           onToggleBookmark={handleToggleBookmark}
           onSetHighlight={handleSetHighlight}
+          hifzBlur={userData.settings.hifzBlur}
+          onToggleHifzBlur={handleToggleHifzBlur}
         />
       )}
 
