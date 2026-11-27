@@ -30,6 +30,7 @@ export const DEFAULT_USER_DATA: UserData = {
     hifzBlurLevel: "full",
     wordTranslation: true,
     mistakeSound: false,
+    pageNav: "swipe",
   },
   tasmiHistory: [],
 };
@@ -61,7 +62,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-function normalizeUserData(raw: unknown): UserData {
+export function normalizeUserData(raw: unknown): UserData {
   if (!isPlainObject(raw)) return cloneDefaultData();
 
   const defaults = DEFAULT_USER_DATA.settings;
@@ -94,6 +95,12 @@ function normalizeUserData(raw: unknown): UserData {
       typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
     mistakeSound:
       typeof rawSettings.mistakeSound === "boolean" ? rawSettings.mistakeSound : defaults.mistakeSound,
+    pageNav:
+      rawSettings.pageNav === "scroll" ||
+      rawSettings.pageNav === "scroll-page" ||
+      rawSettings.pageNav === "swipe"
+        ? rawSettings.pageNav
+        : defaults.pageNav,
   };
 
   const bookmarks = Array.isArray(raw.bookmarks)

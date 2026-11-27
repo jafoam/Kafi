@@ -2,7 +2,8 @@
   "surahs": [
     {
       "number": 1,
-      "name": "Al-Fatiha",
+      "name": "Al-Fatihah",
+      "nameAlt": "Al-Fatiha",
       "arabicName": "الفاتحة",
       "ayahs": 7,
       "page": 1,
@@ -10,7 +11,8 @@
     },
     {
       "number": 2,
-      "name": "Al-Baqara",
+      "name": "Al-Baqarah",
+      "nameAlt": "Al-Baqara",
       "arabicName": "البقرة",
       "ayahs": 286,
       "page": 2,
@@ -18,7 +20,8 @@
     },
     {
       "number": 3,
-      "name": "Al-Imran",
+      "name": "Ali 'Imran",
+      "nameAlt": "Al-Imran",
       "arabicName": "آل عمران",
       "ayahs": 200,
       "page": 50,
@@ -26,7 +29,8 @@
     },
     {
       "number": 4,
-      "name": "An-Nisa",
+      "name": "An-Nisa'",
+      "nameAlt": "An-Nisa",
       "arabicName": "النساء",
       "ayahs": 176,
       "page": 77,
@@ -34,7 +38,8 @@
     },
     {
       "number": 5,
-      "name": "Al-Ma'ida",
+      "name": "Al-Ma'idah",
+      "nameAlt": "Al-Ma'ida",
       "arabicName": "المائدة",
       "ayahs": 120,
       "page": 106,
@@ -66,7 +71,8 @@
     },
     {
       "number": 9,
-      "name": "At-Tawba",
+      "name": "At-Taubah",
+      "nameAlt": "At-Tawba",
       "arabicName": "التوبة",
       "ayahs": 129,
       "page": 187,
@@ -130,7 +136,8 @@
     },
     {
       "number": 17,
-      "name": "Al-Isra",
+      "name": "Al-Isra'",
+      "nameAlt": "Al-Isra",
       "arabicName": "الإسراء",
       "ayahs": 111,
       "page": 282,
@@ -154,7 +161,8 @@
     },
     {
       "number": 20,
-      "name": "Ta-Ha'",
+      "name": "Taha",
+      "nameAlt": "Ta-Ha'",
       "arabicName": "طه",
       "ayahs": 135,
       "page": 312,
@@ -162,7 +170,8 @@
     },
     {
       "number": 21,
-      "name": "Al-Anbiya",
+      "name": "Al-Anbiya'",
+      "nameAlt": "Al-Anbiya",
       "arabicName": "الأنبياء",
       "ayahs": 112,
       "page": 322,
@@ -178,7 +187,8 @@
     },
     {
       "number": 23,
-      "name": "Al-Muminun",
+      "name": "Al-Mu'minun",
+      "nameAlt": "Al-Muminun",
       "arabicName": "المؤمنون",
       "ayahs": 118,
       "page": 342,
@@ -186,7 +196,8 @@
     },
     {
       "number": 24,
-      "name": "An-Noor",
+      "name": "An-Nur",
+      "nameAlt": "An-Noor",
       "arabicName": "النور",
       "ayahs": 64,
       "page": 350,
@@ -202,7 +213,8 @@
     },
     {
       "number": 26,
-      "name": "Ash-Shu'ara",
+      "name": "Asy-Syu'ara'",
+      "nameAlt": "Ash-Shu'ara",
       "arabicName": "الشعراء",
       "ayahs": 227,
       "page": 367,
@@ -226,7 +238,8 @@
     },
     {
       "number": 29,
-      "name": "Al-Ankabut",
+      "name": "Al-'Ankabut",
+      "nameAlt": "Al-Ankabut",
       "arabicName": "العنكبوت",
       "ayahs": 69,
       "page": 396,
@@ -250,7 +263,8 @@
     },
     {
       "number": 32,
-      "name": "As-Sajda",
+      "name": "As-Sajdah",
+      "nameAlt": "As-Sajda",
       "arabicName": "السجدة",
       "ayahs": 30,
       "page": 415,
@@ -266,7 +280,8 @@
     },
     {
       "number": 34,
-      "name": "Saba",
+      "name": "Saba'",
+      "nameAlt": "Saba",
       "arabicName": "سبإ",
       "ayahs": 54,
       "page": 428,
@@ -282,7 +297,8 @@
     },
     {
       "number": 36,
-      "name": "Ya-Seen",
+      "name": "Yasin",
+      "nameAlt": "Ya-Seen",
       "arabicName": "يس",
       "ayahs": 83,
       "page": 440,
@@ -290,7 +306,8 @@
     },
     {
       "number": 37,
-      "name": "As-Saaffat",
+      "name": "As-Saffat",
+      "nameAlt": "As-Saaffat",
       "arabicName": "الصافات",
       "ayahs": 182,
       "page": 446,
@@ -314,7 +331,8 @@
     },
     {
       "number": 40,
-      "name": "Ghafir",
+      "name": "Gafir",
+      "nameAlt": "Ghafir",
       "arabicName": "غافر",
       "ayahs": 85,
       "page": 467,
@@ -330,7 +348,8 @@
     },
     {
       "number": 42,
-      "name": "Ash-Shura",
+      "name": "Asy-Syura",
+      "nameAlt": "Ash-Shura",
       "arabicName": "الشورى",
       "ayahs": 53,
       "page": 483,
@@ -354,7 +373,8 @@
     },
     {
       "number": 45,
-      "name": "Al-Jathiya",
+      "name": "Al-Jasiyah",
+      "nameAlt": "Al-Jathiya",
       "arabicName": "الجاثية",
       "ayahs": 37,
       "page": 499,
@@ -386,7 +406,8 @@
     },
     {
       "number": 49,
-      "name": "Al-Hujraat",
+      "name": "Al-Hujurat",
+      "nameAlt": "Al-Hujraat",
       "arabicName": "الحجرات",
       "ayahs": 18,
       "page": 515,
@@ -402,7 +423,8 @@
     },
     {
       "number": 51,
-      "name": "Adh-Dhariyat",
+      "name": "Az-Zariyat",
+      "nameAlt": "Adh-Dhariyat",
       "arabicName": "الذاريات",
       "ayahs": 60,
       "page": 520,
@@ -442,7 +464,8 @@
     },
     {
       "number": 56,
-      "name": "Al-Waqia",
+      "name": "Al-Waqi'ah",
+      "nameAlt": "Al-Waqia",
       "arabicName": "الواقعة",
       "ayahs": 96,
       "page": 534,
@@ -458,7 +481,8 @@
     },
     {
       "number": 58,
-      "name": "Al-Mujadila",
+      "name": "Al-Mujadilah",
+      "nameAlt": "Al-Mujadila",
       "arabicName": "المجادلة",
       "ayahs": 22,
       "page": 542,
@@ -466,7 +490,8 @@
     },
     {
       "number": 59,
-      "name": "Al-Hashr",
+      "name": "Al-Hasyr",
+      "nameAlt": "Al-Hashr",
       "arabicName": "الحشر",
       "ayahs": 24,
       "page": 545,
@@ -474,7 +499,8 @@
     },
     {
       "number": 60,
-      "name": "Al-Mumtahina",
+      "name": "Al-Mumtahanah",
+      "nameAlt": "Al-Mumtahina",
       "arabicName": "الممتحنة",
       "ayahs": 13,
       "page": 549,
@@ -490,7 +516,8 @@
     },
     {
       "number": 62,
-      "name": "Al-Jumua",
+      "name": "Al-Jumu'ah",
+      "nameAlt": "Al-Jumua",
       "arabicName": "الجمعة",
       "ayahs": 11,
       "page": 553,
@@ -498,7 +525,8 @@
     },
     {
       "number": 63,
-      "name": "Al-Munafiqoon",
+      "name": "Al-Munafiqun",
+      "nameAlt": "Al-Munafiqoon",
       "arabicName": "المنافقون",
       "ayahs": 11,
       "page": 554,
@@ -506,7 +534,8 @@
     },
     {
       "number": 64,
-      "name": "At-Taghabun",
+      "name": "At-Tagabun",
+      "nameAlt": "At-Taghabun",
       "arabicName": "التغابن",
       "ayahs": 18,
       "page": 556,
@@ -546,7 +575,8 @@
     },
     {
       "number": 69,
-      "name": "Al-Haaqqa",
+      "name": "Al-Haqqah",
+      "nameAlt": "Al-Haaqqa",
       "arabicName": "الحاقة",
       "ayahs": 52,
       "page": 566,
@@ -554,7 +584,8 @@
     },
     {
       "number": 70,
-      "name": "Al-Maarij",
+      "name": "Al-Ma'arij",
+      "nameAlt": "Al-Maarij",
       "arabicName": "المعارج",
       "ayahs": 44,
       "page": 568,
@@ -562,7 +593,8 @@
     },
     {
       "number": 71,
-      "name": "Nooh",
+      "name": "Nuh",
+      "nameAlt": "Nooh",
       "arabicName": "نوح",
       "ayahs": 28,
       "page": 570,
@@ -586,7 +618,8 @@
     },
     {
       "number": 74,
-      "name": "Al-Muddaththir",
+      "name": "Al-Muddassir",
+      "nameAlt": "Al-Muddaththir",
       "arabicName": "المدثر",
       "ayahs": 56,
       "page": 575,
@@ -594,7 +627,8 @@
     },
     {
       "number": 75,
-      "name": "Al-Qiyama",
+      "name": "Al-Qiyamah",
+      "nameAlt": "Al-Qiyama",
       "arabicName": "القيامة",
       "ayahs": 40,
       "page": 577,
@@ -618,7 +652,8 @@
     },
     {
       "number": 78,
-      "name": "An-Naba",
+      "name": "An-Naba'",
+      "nameAlt": "An-Naba",
       "arabicName": "النبإ",
       "ayahs": 40,
       "page": 582,
@@ -626,7 +661,8 @@
     },
     {
       "number": 79,
-      "name": "An-Naziat",
+      "name": "An-Nazi'at",
+      "nameAlt": "An-Naziat",
       "arabicName": "النازعات",
       "ayahs": 46,
       "page": 583,
@@ -634,7 +670,8 @@
     },
     {
       "number": 80,
-      "name": "Abasa",
+      "name": "'Abasa",
+      "nameAlt": "Abasa",
       "arabicName": "عبس",
       "ayahs": 42,
       "page": 585,
@@ -666,7 +703,8 @@
     },
     {
       "number": 84,
-      "name": "Al-Inshiqaq",
+      "name": "Al-Insyiqaq",
+      "nameAlt": "Al-Inshiqaq",
       "arabicName": "الإنشقاق",
       "ayahs": 25,
       "page": 589,
@@ -674,7 +712,8 @@
     },
     {
       "number": 85,
-      "name": "Al-Burooj",
+      "name": "Al-Buruj",
+      "nameAlt": "Al-Burooj",
       "arabicName": "البروج",
       "ayahs": 22,
       "page": 590,
@@ -690,7 +729,8 @@
     },
     {
       "number": 87,
-      "name": "Al-Ala",
+      "name": "Al-A'la",
+      "nameAlt": "Al-Ala",
       "arabicName": "الأعلى",
       "ayahs": 19,
       "page": 591,
@@ -698,7 +738,8 @@
     },
     {
       "number": 88,
-      "name": "Al-Ghashiya",
+      "name": "Al-Gasyiyah",
+      "nameAlt": "Al-Ghashiya",
       "arabicName": "الغاشية",
       "ayahs": 26,
       "page": 592,
@@ -722,7 +763,8 @@
     },
     {
       "number": 91,
-      "name": "Ash-Shams",
+      "name": "Asy-Syams",
+      "nameAlt": "Ash-Shams",
       "arabicName": "الشمس",
       "ayahs": 15,
       "page": 595,
@@ -738,7 +780,8 @@
     },
     {
       "number": 93,
-      "name": "Ad-Dhuha",
+      "name": "Ad-Duha",
+      "nameAlt": "Ad-Dhuha",
       "arabicName": "الضحى",
       "ayahs": 11,
       "page": 596,
@@ -746,7 +789,8 @@
     },
     {
       "number": 94,
-      "name": "Al-Inshirah",
+      "name": "Asy-Syarh",
+      "nameAlt": "Al-Inshirah",
       "arabicName": "الشرح",
       "ayahs": 8,
       "page": 596,
@@ -762,7 +806,8 @@
     },
     {
       "number": 96,
-      "name": "Al-Alaq",
+      "name": "Al-'Alaq",
+      "nameAlt": "Al-Alaq",
       "arabicName": "العلق",
       "ayahs": 19,
       "page": 597,
@@ -778,7 +823,8 @@
     },
     {
       "number": 98,
-      "name": "Al-Bayyina",
+      "name": "Al-Bayyinah",
+      "nameAlt": "Al-Bayyina",
       "arabicName": "البينة",
       "ayahs": 8,
       "page": 598,
@@ -786,7 +832,8 @@
     },
     {
       "number": 99,
-      "name": "Az-Zalzala",
+      "name": "Az-Zalzalah",
+      "nameAlt": "Az-Zalzala",
       "arabicName": "الزلزلة",
       "ayahs": 8,
       "page": 599,
@@ -794,7 +841,8 @@
     },
     {
       "number": 100,
-      "name": "Al-Adiyat",
+      "name": "Al-'Adiyat",
+      "nameAlt": "Al-Adiyat",
       "arabicName": "العاديات",
       "ayahs": 11,
       "page": 599,
@@ -802,7 +850,8 @@
     },
     {
       "number": 101,
-      "name": "Al-Qaria",
+      "name": "Al-Qari'ah",
+      "nameAlt": "Al-Qaria",
       "arabicName": "القارعة",
       "ayahs": 11,
       "page": 600,
@@ -810,7 +859,8 @@
     },
     {
       "number": 102,
-      "name": "At-Takathur",
+      "name": "At-Takasur",
+      "nameAlt": "At-Takathur",
       "arabicName": "التكاثر",
       "ayahs": 8,
       "page": 600,
@@ -818,7 +868,8 @@
     },
     {
       "number": 103,
-      "name": "Al-Asr",
+      "name": "Al-'Asr",
+      "nameAlt": "Al-Asr",
       "arabicName": "العصر",
       "ayahs": 3,
       "page": 601,
@@ -826,7 +877,8 @@
     },
     {
       "number": 104,
-      "name": "Al-Humaza",
+      "name": "Al-Humazah",
+      "nameAlt": "Al-Humaza",
       "arabicName": "الهمزة",
       "ayahs": 9,
       "page": 601,
@@ -842,7 +894,8 @@
     },
     {
       "number": 106,
-      "name": "Quraysh",
+      "name": "Quraisy",
+      "nameAlt": "Quraysh",
       "arabicName": "قريش",
       "ayahs": 4,
       "page": 602,
@@ -858,7 +911,8 @@
     },
     {
       "number": 108,
-      "name": "Al-Kawthar",
+      "name": "Al-Kausar",
+      "nameAlt": "Al-Kawthar",
       "arabicName": "الكوثر",
       "ayahs": 3,
       "page": 602,
@@ -882,7 +936,8 @@
     },
     {
       "number": 111,
-      "name": "Al-Masadd",
+      "name": "Al-Lahab",
+      "nameAlt": "Al-Masadd",
       "arabicName": "المسد",
       "ayahs": 5,
       "page": 603,
@@ -906,7 +961,8 @@
     },
     {
       "number": 114,
-      "name": "Al-Nas",
+      "name": "An-Nas",
+      "nameAlt": "Al-Nas",
       "arabicName": "الناس",
       "ayahs": 6,
       "page": 604,

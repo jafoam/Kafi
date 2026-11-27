@@ -26,6 +26,8 @@ export interface AudioDockProps {
   onDownloadSurah: () => void;
   onOpenStudy: () => void;
   onOpenTasmi: () => void;
+  /** Told when the playback or reciter menu opens or closes, so other popups can step aside. */
+  onPopupChange?: (open: boolean) => void;
 }
 
 function formatRepeat(repeat: RepeatCount): string {
@@ -54,9 +56,13 @@ export function AudioDock({
   onDownloadSurah,
   onOpenStudy,
   onOpenTasmi,
+  onPopupChange,
 }: AudioDockProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reciterOpen, setReciterOpen] = useState(false);
+  useEffect(() => {
+    onPopupChange?.(menuOpen || reciterOpen);
+  }, [menuOpen, reciterOpen, onPopupChange]);
   useBackClose(menuOpen, () => setMenuOpen(false));
   useBackClose(reciterOpen, () => setReciterOpen(false));
 

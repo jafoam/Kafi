@@ -1,9 +1,12 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import type { AyahKey, HighlightColor } from "../data/types";
+import type { SelectedWord } from "../services/word-translations";
 
 export interface AyahPopoverProps {
   ayah: AyahKey;
   surahName: string;
   anchorRect: DOMRect;
+  word?: SelectedWord | null;
   isBookmarked: boolean;
   highlightColor: HighlightColor | null;
   onClose: () => void;
@@ -25,6 +28,7 @@ export function AyahPopover({
   ayah,
   surahName,
   anchorRect,
+  word,
   isBookmarked,
   highlightColor,
   onClose,
@@ -35,20 +39,35 @@ export function AyahPopover({
   onSetHighlight,
 }: AyahPopoverProps) {
   const ayahNum = ayah.split(":")[1] ?? "";
-  const popoverWidth = 310;
-  const popoverHeight = 148;
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number }>(() => ({
+    w: 310,
+    h: word ? 204 : 148,
+  }));
+
+  useLayoutEffect(() => {
+    const el = popoverRef.current;
+    if (!el || el.offsetWidth === 0 || el.offsetHeight === 0) return;
+    setSize((prev) =>
+      prev.w === el.offsetWidth && prev.h === el.offsetHeight
+        ? prev
+        : { w: el.offsetWidth, h: el.offsetHeight },
+    );
+  }, [ayah, word?.key, highlightColor]);
+
   const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
   const vh = typeof window !== "undefined" ? window.innerHeight : 768;
 
-  const preferredLeft = anchorRect.left + anchorRect.width / 2 - popoverWidth / 2;
-  const left = Math.max(12, Math.min(vw - popoverWidth - 12, preferredLeft));
-  const fitsAbove = anchorRect.top > popoverHeight + 24;
+  const preferredLeft = anchorRect.left + anchorRect.width / 2 - size.w / 2;
+  const left = Math.max(12, Math.min(vw - size.w - 12, preferredLeft));
+  const fitsAbove = anchorRect.top > size.h + 24;
   const top = fitsAbove
-    ? Math.max(12, anchorRect.top - popoverHeight - 10)
-    : Math.min(vh - popoverHeight - 12, anchorRect.bottom + 10);
+    ? Math.max(12, anchorRect.top - size.h - 10)
+    : Math.min(vh - size.h - 12, anchorRect.bottom + 10);
 
   return (
     <div
+      ref={popoverRef}
       className="ayah-popover"
       role="dialog"
       aria-label={`Aksi untuk ${surahName} ayat ${ayahNum}`}
@@ -68,6 +87,15 @@ export function AyahPopover({
           ×
         </button>
       </div>
+
+      {word && (
+        <div className="ayah-popover__word">
+          <span className="ayah-popover__word-translation">{word.translation}</span>
+          {word.transliteration && (
+            <span className="ayah-popover__word-translit">{word.transliteration}</span>
+          )}
+        </div>
+      )}
 
       <div className="ayah-popover__actions">
         <button

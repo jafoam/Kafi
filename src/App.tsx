@@ -19,6 +19,14 @@ import type {
 } from "./data/types";
 import { getPlatform } from "./platform";
 import { createQuranSearch, type RefV2Data } from "./services/arabic-search";
+import { createSilenceAnalyzer } from "./services/audio-trim";
+import type { SelectedWord } from "./services/word-translations";
+import { backupFileName, buildBackup, mergeBackup, saveBackupFile } from "./services/backup";
+import {
+  createWordSegmentLoader,
+  findActiveWordRange,
+  type WordSegment,
+} from "./services/word-segments";
 import {
   compareAyahKeys,
   createAudioController,
@@ -67,6 +75,7 @@ import { FocusExit } from "./components/FocusExit";
 import { TasmiLauncher } from "./components/TasmiLauncher";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
+import { MushafScroll } from "./components/MushafScroll";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
 import { useOfflinePages } from "./state/useOfflinePages";
@@ -78,6 +87,7 @@ import {
 import { StudyDrawer } from "./components/StudyDrawer";
 import { SyncModal } from "./components/SyncModal";
 import { TasmiSheet } from "./components/TasmiSheet";
+import { TasmiGuide } from "./components/TasmiGuide";
 import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
 import { TopBar } from "./components/TopBar";
 
@@ -174,6 +184,7 @@ export function App({
           const folder = reciterById.get(reciterId)?.subfolder ?? reciterId;
           return quranApi.getAudioBlobUrl(folder, surah, ayah, signal);
         },
+        analyzeSilence: createSilenceAnalyzer(),
         resolveRange: (kind, ayah) =>
           kind === "page" ? pageRange(mushafMap, ayah) : juzRange(catalog, ayah),
       }),
@@ -186,11 +197,21 @@ export function App({
     typeof window !== "undefined" ? window.innerWidth : 1280,
   );
   const [pageUrls, setPageUrls] = useState<Record<number, string>>({});
-  const [selected, setSelected] = useState<{ ayah: AyahKey; rect: DOMRect } | null>(null);
+  const [selected, setSelected] = useState<{
+    ayah: AyahKey;
+    rect: DOMRect;
+    word?: SelectedWord;
+  } | null>(null);
   const [lastSelectedAyah, setLastSelectedAyah] = useState<AyahKey | null>(null);
   const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
+  const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
+  const [topMenuOpen, setTopMenuOpen] = useState(false);
+  const [dockPopupOpen, setDockPopupOpen] = useState(false);
+  const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
+  const [surahSegments, setSurahSegments] = useState<Map<AyahKey, WordSegment[]> | null>(null);
+  const [playingWordRange, setPlayingWordRange] = useState<[number, number] | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteTab, setPaletteTab] = useState<PaletteTab>("surah");
   const [revealedSet, setRevealedSet] = useState<Set<AyahKey>>(() => new Set());
@@ -400,7 +421,10 @@ export function App({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const effectiveSpread = resolveEffectiveSpread(userData.settings.spreadMode, viewportWidth);
+  const scrollMode = userData.settings.pageNav !== "swipe";
+  const effectiveSpread = scrollMode
+    ? "single"
+    : resolveEffectiveSpread(userData.settings.spreadMode, viewportWidth);
   const { rightPage, leftPage } = getVisiblePages(currentPage, effectiveSpread);
 
   const rightPageEntry = mushafMap.pages[rightPage - 1];
@@ -488,6 +512,43 @@ export function App({
       navigateToPage(targetPage);
     }
   }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, navigateToPage]);
+
+  // Word timings for the playing surah, so the spoken word lights up on the page.
+  const playingSurahNum = audioState.currentAyah ? parseAyahKey(audioState.currentAyah).surah : null;
+  useEffect(() => {
+    setSurahSegments(null);
+    if (!playingSurahNum) return;
+    let live = true;
+    segmentLoader.load(audioState.reciterId, playingSurahNum).then(
+      (map) => {
+        if (live) setSurahSegments(map);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [segmentLoader, audioState.reciterId, playingSurahNum]);
+
+  useEffect(() => {
+    const ayah = audioState.currentAyah;
+    const segments =
+      audioState.isPlaying && !audioState.isBismillah && ayah ? surahSegments?.get(ayah) : null;
+    if (!segments || segments.length === 0) {
+      setPlayingWordRange(null);
+      return;
+    }
+    let rafId = 0;
+    const tick = () => {
+      const next = findActiveWordRange(segments, audioController.getCurrentTimeMs());
+      setPlayingWordRange((prev) =>
+        prev?.[0] === next?.[0] && prev?.[1] === next?.[1] ? prev : next,
+      );
+      rafId = window.requestAnimationFrame(tick);
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [audioState.isPlaying, audioState.isBismillah, audioState.currentAyah, surahSegments, audioController]);
 
   // Sync open StudyDrawer only when active playing ayah actually changes
   useEffect(() => {
@@ -1410,9 +1471,12 @@ export function App({
   ]);
 
   const handleSelectAyah = useCallback(
-    (ayah: AyahKey, anchorRect: DOMRect) => {
+    (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => {
       setLastSelectedAyah(ayah);
-      setSelected((prev) => (prev?.ayah === ayah ? null : { ayah, rect: anchorRect }));
+      // Tapping the same word again closes the popover; another word of the ayah moves it there.
+      setSelected((prev) =>
+        prev?.ayah === ayah && prev.word?.key === word?.key ? null : { ayah, rect: anchorRect, word },
+      );
       if (studyOpen) {
         setStudyAyah(ayah);
       }
@@ -1440,7 +1504,25 @@ export function App({
   useBackClose(selected !== null, () => setSelected(null));
   useBackClose(focusMode, () => setFocusMode(false));
 
-  const tasmiLauncherVisible = !focusMode && !tasmiActive && !studyOpen && !paletteOpen;
+  // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
+  // hides the Tasmi' card and button.
+  const overlayOpen =
+    paletteOpen ||
+    tasmiSheetOpen ||
+    summaryModal.open ||
+    syncOpen ||
+    downloadsOpen ||
+    tasmiGuideOpen ||
+    topMenuOpen ||
+    dockPopupOpen;
+
+  useEffect(() => {
+    if (overlayOpen) setSelected(null);
+  }, [overlayOpen]);
+
+  /** The page leaves room for the Tasmi' button; stays put while popups come and go so the page never jumps. */
+  const tasmiLauncherSpace = !focusMode && !tasmiActive && !studyOpen;
+  const tasmiLauncherVisible = tasmiLauncherSpace && !overlayOpen && selected === null;
 
   const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
 
@@ -1554,13 +1636,16 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherVisible ? "app-shell--fab" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherSpace ? "app-shell--fab" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
         juzNumber={juzNumber}
         pageLabel={pageLabel}
         spreadMode={userData.settings.spreadMode}
+        pageNav={userData.settings.pageNav}
+        onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
+        onOpenTasmiGuide={() => setTasmiGuideOpen(true)}
         hifzBlur={
           tasmiActive && tasmiState?.mode === "memorization"
             ? tasmiBlurEnabled
@@ -1595,6 +1680,7 @@ export function App({
           setSyncOpen(true);
         }}
         syncConnected={syncConfig !== null}
+        onMenuOpenChange={setTopMenuOpen}
       />
 
       {downloadsOpen && (
@@ -1625,47 +1711,82 @@ export function App({
 
       <TasmiLauncher
         visible={tasmiLauncherVisible}
-        showHint={tasmiHint}
+        showHint={tasmiHint && !overlayOpen && selected === null}
         onStart={() => handleOpenTasmi(tasmiContextAyah)}
         onDismissHint={dismissTasmiHint}
+        onOpenGuide={() => setTasmiGuideOpen(true)}
       />
 
-      <MushafSpread
-        rightPageEntry={rightPageEntry}
-        leftPageEntry={leftPageEntry}
-        pageUrls={pageUrls}
-        selectedAyah={selected?.ayah ?? null}
-        playingAyah={effectivePlayingAyah}
-        highlights={userData.highlights}
-        bookmarks={bookmarkSet}
-        blurSet={blurSet}
-        blurLevel={userData.settings.hifzBlurLevel}
-        revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
-        mistakeAyahs={effectiveMistakeAyahs}
-        wordTranslation={userData.settings.wordTranslation}
-        canGoPrev={canGoPrev}
-        canGoNext={canGoNext}
-        isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
-        getPageImageUrl={getPageImageUrl}
-        glyphLoader={glyphLoader}
-        onRetryPage={handleRetryPage}
-        onTurnPage={handleTurnPage}
-        onSelectAyah={handleSelectAyah}
-        onPeekAyah={handlePeekAyah}
-        onClearSelection={() => setSelected(null)}
-        onToggleFocus={() => setFocusMode((prev) => !prev)}
-        onTogglePalette={() => {
-          if (tasmiSheetOpen || summaryModal.open) return;
-          setPaletteTab("search");
-          setPaletteOpen((prev) => !prev);
-        }}
-      />
+      {scrollMode ? (
+        <MushafScroll
+          snap={userData.settings.pageNav === "scroll-page"}
+          pages={mushafMap.pages}
+          currentPage={currentPage}
+          selectedAyah={selected?.ayah ?? null}
+          playingAyah={effectivePlayingAyah}
+          playingWordRange={tasmiActive ? null : playingWordRange}
+          highlights={userData.highlights}
+          bookmarks={bookmarkSet}
+          blurSet={blurSet}
+          blurLevel={userData.settings.hifzBlurLevel}
+          revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
+          mistakeAyahs={effectiveMistakeAyahs}
+          wordTranslation={userData.settings.wordTranslation}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          getPageImageUrl={getPageImageUrl}
+          glyphLoader={glyphLoader}
+          onRetryPage={handleRetryPage}
+          onPageChange={navigateToPage}
+          onSelectAyah={handleSelectAyah}
+          onPeekAyah={handlePeekAyah}
+          onClearSelection={() => setSelected(null)}
+          onToggleFocus={() => setFocusMode((prev) => !prev)}
+          onTogglePalette={() => {
+            if (tasmiSheetOpen || summaryModal.open) return;
+            setPaletteTab("search");
+            setPaletteOpen((prev) => !prev);
+          }}
+        />
+      ) : (
+        <MushafSpread
+          rightPageEntry={rightPageEntry}
+          leftPageEntry={leftPageEntry}
+          pageUrls={pageUrls}
+          selectedAyah={selected?.ayah ?? null}
+          playingAyah={effectivePlayingAyah}
+          playingWordRange={tasmiActive ? null : playingWordRange}
+          highlights={userData.highlights}
+          bookmarks={bookmarkSet}
+          blurSet={blurSet}
+          blurLevel={userData.settings.hifzBlurLevel}
+          revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
+          mistakeAyahs={effectiveMistakeAyahs}
+          wordTranslation={userData.settings.wordTranslation}
+          canGoPrev={canGoPrev}
+          canGoNext={canGoNext}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          getPageImageUrl={getPageImageUrl}
+          glyphLoader={glyphLoader}
+          onRetryPage={handleRetryPage}
+          onTurnPage={handleTurnPage}
+          onSelectAyah={handleSelectAyah}
+          onPeekAyah={handlePeekAyah}
+          onClearSelection={() => setSelected(null)}
+          onToggleFocus={() => setFocusMode((prev) => !prev)}
+          onTogglePalette={() => {
+            if (tasmiSheetOpen || summaryModal.open) return;
+            setPaletteTab("search");
+            setPaletteOpen((prev) => !prev);
+          }}
+        />
+      )}
 
       {selected && (
         <AyahPopover
           ayah={selected.ayah}
           surahName={selectedSurahName}
           anchorRect={selected.rect}
+          word={selected.word}
           isBookmarked={bookmarkSet.has(selected.ayah)}
           highlightColor={userData.highlights[selected.ayah] ?? null}
           onClose={() => setSelected(null)}
@@ -1687,6 +1808,7 @@ export function App({
       )}
 
       <AudioDock
+        onPopupChange={setDockPopupOpen}
         audioState={audioState}
         activeAyah={activeAyah}
         surahs={catalog.surahs}
@@ -1838,6 +1960,16 @@ export function App({
         onOpenHistory={handleOpenTasmiHistory}
       />
 
+      {tasmiGuideOpen && (
+        <TasmiGuide
+          onClose={() => setTasmiGuideOpen(false)}
+          onStart={() => {
+            setTasmiGuideOpen(false);
+            if (!tasmiSheetOpen) handleOpenTasmi(tasmiContextAyah);
+          }}
+        />
+      )}
+
       <TasmiSummaryModal
         open={summaryModal.open}
         initialTab={summaryModal.tab}
@@ -1891,6 +2023,15 @@ export function App({
           setSyncError(null);
           void platform.kvSet(SYNC_CONFIG_KEY, "").catch(() => undefined);
           showToast("Sync antar perangkat diputus");
+        }}
+        onExportBackup={async () => {
+          const now = new Date();
+          await saveBackupFile(buildBackup(userDataRef.current, now), backupFileName(now));
+        }}
+        onImportBackup={async (data) => {
+          const saved = await userStore.replaceAll(mergeBackup(userDataRef.current, data));
+          if (mountedRef.current) setUserData(saved);
+          showToast("Cadangan digabungkan");
         }}
       />
 

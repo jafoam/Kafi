@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
-import type { HifzBlurLevel, SpreadMode, ThemeMode } from "../data/types";
+import type { HifzBlurLevel, PageNavMode, SpreadMode, ThemeMode } from "../data/types";
 
 export interface TopBarProps {
   surahLabel: string;
   juzNumber: number;
   pageLabel: string;
   spreadMode: SpreadMode;
+  pageNav: PageNavMode;
   hifzBlur: boolean;
   hifzBlurLevel?: HifzBlurLevel;
   focusMode: boolean;
@@ -14,21 +15,31 @@ export interface TopBarProps {
   theme: ThemeMode;
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
+  onChangePageNav: (mode: PageNavMode) => void;
   onToggleHifzBlur: () => void;
   onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
   onToggleWordTranslation: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
+  onOpenTasmiGuide: () => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
   syncConnected?: boolean;
+  /** Told when the ☰ menu opens or closes, so other popups can step aside. */
+  onMenuOpenChange?: (open: boolean) => void;
 }
 
 const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
   { value: "auto", label: "Otomatis" },
   { value: "single", label: "1 Halaman" },
   { value: "double", label: "2 Halaman" },
+];
+
+const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
+  { value: "swipe", label: "Geser" },
+  { value: "scroll", label: "Gulir" },
+  { value: "scroll-page", label: "Per halaman" },
 ];
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -42,6 +53,7 @@ export function TopBar({
   juzNumber,
   pageLabel,
   spreadMode,
+  pageNav,
   hifzBlur,
   hifzBlurLevel = "full",
   focusMode,
@@ -49,17 +61,23 @@ export function TopBar({
   theme,
   onOpenPalette,
   onChangeSpreadMode,
+  onChangePageNav,
   onToggleHifzBlur,
   onChangeHifzBlurLevel,
   onToggleFocusMode,
   onToggleWordTranslation,
   onChangeTheme,
   onOpenTasmi,
+  onOpenTasmiGuide,
   onOpenDownloads,
   onOpenSync,
   syncConnected = false,
+  onMenuOpenChange,
 }: TopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    onMenuOpenChange?.(menuOpen);
+  }, [menuOpen, onMenuOpenChange]);
   useBackClose(menuOpen, () => setMenuOpen(false));
   return (
     <div className="topbar-zone">
@@ -157,12 +175,15 @@ export function TopBar({
       {menuOpen && (
         <AppMenu
           spreadMode={spreadMode}
+          pageNav={pageNav}
           hifzBlur={hifzBlur}
           hifzBlurLevel={hifzBlurLevel}
           focusMode={focusMode}
           wordTranslation={wordTranslation}
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
+          onChangePageNav={onChangePageNav}
+          onOpenTasmiGuide={onOpenTasmiGuide}
           onToggleHifzBlur={onToggleHifzBlur}
           onChangeHifzBlurLevel={onChangeHifzBlurLevel}
           onToggleFocusMode={onToggleFocusMode}
@@ -181,6 +202,9 @@ export function TopBar({
 
 interface AppMenuProps {
   spreadMode: SpreadMode;
+  pageNav: PageNavMode;
+  onChangePageNav: (mode: PageNavMode) => void;
+  onOpenTasmiGuide: () => void;
   hifzBlur: boolean;
   hifzBlurLevel: HifzBlurLevel;
   focusMode: boolean;
@@ -201,6 +225,9 @@ interface AppMenuProps {
 /** The menu behind the ☰ button: everything the bar has no room for, in big touch-sized rows. */
 function AppMenu({
   spreadMode,
+  pageNav,
+  onChangePageNav,
+  onOpenTasmiGuide,
   hifzBlur,
   hifzBlurLevel,
   focusMode,
@@ -225,147 +252,107 @@ function AppMenu({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const toggleRow = (
+    title: string,
+    sub: string,
+    on: boolean,
+    onClick: () => void,
+  ) => (
+    <button type="button" role="switch" aria-checked={on} className="app-menu__row" onClick={onClick}>
+      <span className="app-menu__text">
+        <span className="app-menu__title">{title}</span>
+        <span className="app-menu__sub">{sub}</span>
+      </span>
+      <span className={`app-menu__switch ${on ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+    </button>
+  );
+
+  const linkRow = (title: string, sub: string, onClick: () => void) => (
+    <button
+      type="button"
+      className="app-menu__row app-menu__row--link"
+      onClick={() => {
+        onClick();
+        onClose();
+      }}
+    >
+      <span className="app-menu__text">
+        <span className="app-menu__title">{title}</span>
+        <span className="app-menu__sub">{sub}</span>
+      </span>
+      <span className="app-menu__chevron" aria-hidden="true">
+        ›
+      </span>
+    </button>
+  );
+
   return (
     <>
       <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
       <div className="app-menu" role="dialog" aria-label="Menu">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={focusMode}
-          className="app-menu__row"
-          onClick={() => {
-            onToggleFocusMode();
-            onClose();
-          }}
-        >
-          <span className="app-menu__text">
-            <span className="app-menu__title">Mode Fokus</span>
-            <span className="app-menu__sub">Sembunyikan bilah agar halaman memenuhi layar</span>
-          </span>
-          <span className={`app-menu__switch ${focusMode ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
-        </button>
+        <span className="app-menu__section">Membaca</span>
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={hifzBlur}
-          className="app-menu__row"
-          onClick={onToggleHifzBlur}
-        >
-          <span className="app-menu__text">
-            <span className="app-menu__title">Sembunyikan Ayat</span>
-            <span className="app-menu__sub">Mode hafalan: ketuk ayat untuk mengintip</span>
-          </span>
-          <span className={`app-menu__switch ${hifzBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
-        </button>
-
+        {toggleRow("Mode Fokus", "Halaman memenuhi layar", focusMode, () => {
+          onToggleFocusMode();
+          onClose();
+        })}
+        {toggleRow("Sembunyikan Ayat", "Mode hafalan, ketuk untuk mengintip", hifzBlur, onToggleHifzBlur)}
         {hifzBlur && onChangeHifzBlurLevel && (
-          <div className="app-menu__group">
-            <span className="app-menu__label">Tingkat Sembunyi</span>
-            <div className="app-menu__choices" role="group" aria-label="Tingkat Sembunyi">
-              {(
-                [
-                  ["full", "Penuh"],
-                  ["first-word", "Kata Pertama"],
-                ] as const
-              ).map(([val, label]) => (
-                <button
-                  key={val}
-                  type="button"
-                  className={`app-menu__choice ${hifzBlurLevel === val ? "app-menu__choice--active" : ""}`}
-                  aria-pressed={hifzBlurLevel === val}
-                  onClick={() => onChangeHifzBlurLevel(val)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="app-menu__inline">
+            <Segmented
+              label="Tingkat sembunyi"
+              value={hifzBlurLevel}
+              options={[
+                { value: "full", label: "Penuh" },
+                { value: "first-word", label: "Kata pertama" },
+              ]}
+              onChange={onChangeHifzBlurLevel}
+            />
           </div>
         )}
+        {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
 
-        <button
-          type="button"
-          role="switch"
-          aria-checked={wordTranslation}
-          className="app-menu__row"
-          onClick={onToggleWordTranslation}
-        >
-          <span className="app-menu__text">
-            <span className="app-menu__title">Terjemah Per Kata</span>
-            <span className="app-menu__sub">Tampilkan arti tiap kata saat disorot atau diketuk</span>
-          </span>
-          <span className={`app-menu__switch ${wordTranslation ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
-        </button>
-
-        <div className="app-menu__group app-menu__group--spread">
-          <span className="app-menu__label">Mode Halaman</span>
-          <div className="app-menu__choices" role="group" aria-label="Mode Halaman">
-            {SPREAD_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`app-menu__choice ${spreadMode === option.value ? "app-menu__choice--active" : ""}`}
-                aria-pressed={spreadMode === option.value}
-                onClick={() => onChangeSpreadMode(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        <div className="app-menu__field">
+          <span className="app-menu__label">Pindah halaman</span>
+          <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
         </div>
 
-        <div className="app-menu__group">
+        <div className="app-menu__field app-menu__group--spread">
+          <span className="app-menu__label">Tampilan halaman</span>
+          <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
+        </div>
+
+        <div className="app-menu__field app-menu__field--row">
           <span className="app-menu__label">Tema</span>
-          <div className="app-menu__choices" role="group" aria-label="Tema Warna">
+          <div className="app-menu__swatches" role="group" aria-label="Tema warna">
             {THEME_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                className={`app-menu__choice ${theme === option.value ? "app-menu__choice--active" : ""}`}
+                className={`app-menu__swatch ${theme === option.value ? "app-menu__swatch--active" : ""}`}
                 aria-pressed={theme === option.value}
+                aria-label={option.label}
+                title={THEME_SHORT[option.value]}
                 onClick={() => onChangeTheme(option.value)}
               >
                 <span className={`theme-dot theme-dot--${option.value}`} aria-hidden="true" />
-                {THEME_SHORT[option.value]}
+                <span className="app-menu__swatch-name">{THEME_SHORT[option.value]}</span>
               </button>
             ))}
           </div>
         </div>
 
-        <button
-          type="button"
-          className="app-menu__row"
-          onClick={() => {
-            onOpenDownloads();
-            onClose();
-          }}
-        >
-          <span className="app-menu__text">
-            <span className="app-menu__title">Unduh Offline</span>
-            <span className="app-menu__sub">Kelola unduhan murottal, terjemahan, tafsir, mushaf &amp; AI Tasmi&apos;</span>
-          </span>
-        </button>
+        <span className="app-menu__divider" aria-hidden="true" />
+        <span className="app-menu__section">Lainnya</span>
 
-        {onOpenSync && (
-          <button
-            type="button"
-            className="app-menu__row"
-            onClick={() => {
-              onOpenSync();
-              onClose();
-            }}
-          >
-            <span className="app-menu__text">
-              <span className="app-menu__title">
-                Sync Antar Perangkat{syncConnected ? " · Aktif" : ""}
-              </span>
-              <span className="app-menu__sub">
-                Sinkronisasi tanpa login memakai kode terenkripsi
-              </span>
-            </span>
-          </button>
-        )}
+        {linkRow("Panduan Tasmi'", "Setor hafalan dalam 4 langkah", onOpenTasmiGuide)}
+        {linkRow("Unduh Offline", "Murottal, terjemahan, tafsir, mushaf", onOpenDownloads)}
+        {onOpenSync &&
+          linkRow(
+            `Sync Antar Perangkat${syncConnected ? " · Aktif" : ""}`,
+            "Tanpa login, kode terenkripsi",
+            onOpenSync,
+          )}
       </div>
     </>
   );
@@ -376,3 +363,32 @@ const THEME_SHORT: Record<ThemeMode, string> = {
   sepia: "Sepia",
   dark: "Gelap",
 };
+
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="app-menu__segmented" role="radiogroup" aria-label={label}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          className={`app-menu__seg ${value === option.value ? "app-menu__seg--active" : ""}`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}

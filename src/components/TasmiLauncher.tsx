@@ -5,6 +5,7 @@ export interface TasmiLauncherProps {
   showHint: boolean;
   onStart: () => void;
   onDismissHint: () => void;
+  onOpenGuide: () => void;
 }
 
 const MIC_PATH =
@@ -14,11 +15,16 @@ const MIC_PATH =
  * Tasmi' (the app's listening feature) made hard to miss: a large floating button on phones, and a
  * one-time card that says what it does.
  */
-export function TasmiLauncher({ visible, showHint, onStart, onDismissHint }: TasmiLauncherProps) {
-  if (!visible) return null;
+export function TasmiLauncher({
+  visible,
+  showHint,
+  onStart,
+  onDismissHint,
+  onOpenGuide,
+}: TasmiLauncherProps) {
   return (
     <>
-      {showHint && (
+      {visible && showHint && (
         <div className="tasmi-hint" role="dialog" aria-label="Kenalan dengan Tasmi'">
           <strong className="tasmi-hint__title">Tasmi&apos;: setor hafalan</strong>
           <p className="tasmi-hint__text">
@@ -30,10 +36,10 @@ export function TasmiLauncher({ visible, showHint, onStart, onDismissHint }: Tas
               className="tasmi-hint__primary"
               onClick={() => {
                 onDismissHint();
-                onStart();
+                onOpenGuide();
               }}
             >
-              Coba Tasmi&apos;
+              Lihat panduan
             </button>
             <button type="button" className="tasmi-hint__later" onClick={onDismissHint}>
               Nanti
@@ -43,7 +49,9 @@ export function TasmiLauncher({ visible, showHint, onStart, onDismissHint }: Tas
       )}
       <button
         type="button"
-        className="tasmi-fab"
+        className={`tasmi-fab ${visible ? "" : "tasmi-fab--hidden"}`}
+        aria-hidden={visible ? undefined : true}
+        tabIndex={visible ? undefined : -1}
         onClick={() => {
           if (showHint) onDismissHint();
           onStart();

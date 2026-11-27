@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData } from "../services/glyph-pages";
-import { createWordTranslationLoader, type PageWords } from "../services/word-translations";
+import {
+  createWordTranslationLoader,
+  type PageWords,
+  type SelectedWord,
+} from "../services/word-translations";
 import { SurahBanner } from "./SurahBanner";
 
 const wordLoader = createWordTranslationLoader();
@@ -13,6 +17,8 @@ export interface GlyphPageBodyProps {
   pageEntry: PageEntry;
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
+  /** 0-based [start, end) word range currently spoken inside `playingAyah`. */
+  playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
@@ -21,7 +27,7 @@ export interface GlyphPageBodyProps {
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
   /** Show the per-word translation tooltip (default on). */
   wordTranslation?: boolean;
-  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
+  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
 }
 
@@ -30,6 +36,7 @@ export function GlyphPageBody({
   pageEntry,
   selectedAyah,
   playingAyah,
+  playingWordRange,
   highlights,
   bookmarks,
   blurSet,
@@ -58,9 +65,17 @@ export function GlyphPageBody({
     };
   }, [data.page, wordTranslation]);
 
+  // The hover tooltip is for mouse users only; once an ayah is selected its popover shows the word.
   useEffect(() => {
-    if (!wordTranslation) setTip(null);
-  }, [wordTranslation]);
+    if (!wordTranslation || selectedAyah) setTip(null);
+  }, [wordTranslation, selectedAyah]);
+
+  const wordFor = (code: string | undefined, wordKey: string | null): SelectedWord | undefined => {
+    const info = wordTranslation && code ? words?.get(code) : undefined;
+    return info && wordKey && info.translation
+      ? { key: `${data.page}:${wordKey}`, translation: info.translation, transliteration: info.transliteration }
+      : undefined;
+  };
 
   const showTip = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return setTip(null);
@@ -112,7 +127,7 @@ export function GlyphPageBody({
       onPointerOver={(event) => {
         setHoveredAyah(resolveAyah(event.target));
         setHoveredWord(resolveWord(event.target));
-        if (event.pointerType === "mouse") showTip(event.target);
+        if (event.pointerType === "mouse" && !selectedAyah) showTip(event.target);
       }}
       onPointerLeave={() => {
         setHoveredAyah(null);
@@ -120,8 +135,9 @@ export function GlyphPageBody({
         setTip(null);
       }}
       onClick={(event) => {
-        showTip(event.target);
-        setPickedWord(resolveWord(event.target));
+        setTip(null);
+        const wordKey = resolveWord(event.target);
+        setPickedWord(wordKey);
         const ayah = resolveAyah(event.target);
         if (!ayah) return;
         event.stopPropagation();
@@ -133,7 +149,11 @@ export function GlyphPageBody({
           return;
         }
         const el = (event.target as HTMLElement).closest<HTMLElement>("[data-ayah]");
-        onSelectAyah(ayah, (el ?? event.currentTarget).getBoundingClientRect());
+        onSelectAyah(
+          ayah,
+          (el ?? event.currentTarget).getBoundingClientRect(),
+          wordFor(el?.dataset.code, wordKey),
+        );
       }}
     >
       {rows.map((row) => {
@@ -187,6 +207,13 @@ export function GlyphPageBody({
                   ? "glyph-word--selected"
                   : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
+                playingAyah === ayah &&
+                playingWordRange &&
+                typeof word.wordIndex === "number" &&
+                word.wordIndex >= playingWordRange[0] &&
+                word.wordIndex < playingWordRange[1]
+                  ? "glyph-word--playing-word"
+                  : "",
                 mistake ? "glyph-word--mistake" : "",
                 wordBlurred ? "glyph-word--blurred" : "",
               ]
@@ -214,7 +241,9 @@ export function GlyphPageBody({
                     if (!isFirst || (event.key !== "Enter" && event.key !== " ")) return;
                     event.preventDefault();
                     event.stopPropagation();
-                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect());
+                    setTip(null);
+                    setPickedWord(wordKey);
+                    onSelectAyah(ayah, event.currentTarget.getBoundingClientRect(), wordFor(word.code, wordKey));
                   }}
                 >
                   {word.code}

@@ -1,4 +1,5 @@
 import type { AyahKey, SurahInfo } from "../data/types";
+import type { SilenceBounds } from "./audio-trim";
 
 export type RepeatCount = 1 | 2 | 3 | 5 | number;
 
@@ -52,6 +53,7 @@ export interface AudioElementLike {
   duration?: number;
   onended: ((...args: never[]) => unknown) | null;
   onerror?: ((...args: never[]) => unknown) | null;
+  ontimeupdate?: ((...args: never[]) => unknown) | null;
   load?: () => void;
   play(): Promise<void>;
   pause(): void;
@@ -69,6 +71,11 @@ export interface AudioControllerDeps {
   /** Bounds of the page or juz that contains an ayah (the surah is worked out from `surahs`). */
   resolveRange?: (kind: "page" | "juz", ayah: AyahKey) => AyahRange | null;
   createElement?: () => AudioElementLike;
+  /**
+   * Where the recitation starts and ends inside an audio file. When given, playback skips the
+   * file's lead-in silence and moves on as soon as the recitation ends instead of on `ended`.
+   */
+  analyzeSilence?: (url: string, signal?: AbortSignal) => Promise<SilenceBounds | null>;
 }
 
 export interface AudioController {
@@ -83,6 +90,8 @@ export interface AudioController {
   setScope(scope: PlaybackScope): void;
   setSpeed(rate: number): void;
   setTalaqqi(enabled: boolean): void;
+  /** Current playback position in milliseconds, for word-level highlighting. */
+  getCurrentTimeMs(): number;
   subscribe(fn: (s: AudioState) => void): () => void;
   dispose(): void;
 }
@@ -166,12 +175,81 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   let currentAbort: AbortController | null = null;
   let prefetchAbort: AbortController | null = null;
   let talaqqiTimer: ReturnType<typeof setTimeout> | null = null;
+  let endTimer: ReturnType<typeof setTimeout> | null = null;
   let disposed = false;
+  const bounds = new Map<string, SilenceBounds>();
+
+  function clearEndTimer(): void {
+    if (endTimer !== null) {
+      clearTimeout(endTimer);
+      endTimer = null;
+    }
+  }
+
+  function boundsOf(deck: AudioElementLike): SilenceBounds | undefined {
+    return deck.src ? bounds.get(deck.src) : undefined;
+  }
+
+  async function learnBounds(url: string, signal?: AbortSignal): Promise<SilenceBounds | null> {
+    if (!deps.analyzeSilence) return null;
+    const known = bounds.get(url);
+    if (known) return known;
+    const found = await deps.analyzeSilence(url, signal).catch(() => null);
+    if (found) {
+      bounds.set(url, found);
+      if (bounds.size > 64) {
+        const oldest = bounds.keys().next().value;
+        if (oldest !== undefined) bounds.delete(oldest);
+      }
+    }
+    return found;
+  }
+
+  /** Moves a deck past its file's lead-in silence. */
+  function skipLeadIn(deck: AudioElementLike): void {
+    const b = boundsOf(deck);
+    if (!b || b.start <= 0 || typeof deck.currentTime !== "number") return;
+    if (deck.currentTime < b.start - 0.02) deck.currentTime = b.start;
+  }
+
+  /**
+   * Runs `onEnd` once, when the recitation in `deck` finishes: at the end of the audible part
+   * when its silence bounds are known (so the next ayah starts without the trailing gap), or on
+   * `ended` otherwise.
+   */
+  function bindEnd(deck: AudioElementLike, onEnd: () => void): void {
+    clearEndTimer();
+    let fired = false;
+    const fire = () => {
+      if (fired || disposed) return;
+      fired = true;
+      clearEndTimer();
+      deck.ontimeupdate = null;
+      onEnd();
+    };
+    deck.onended = fire;
+    deck.ontimeupdate = () => {
+      if (fired || endTimer !== null || deck.paused || deck !== audio) return;
+      const b = boundsOf(deck);
+      if (!b || b.end >= b.duration - 0.05 || typeof deck.currentTime !== "number") return;
+      const remaining = (b.end - deck.currentTime) / (state.speed || 1);
+      // timeupdate fires every ~250ms, so arm a precise timer once the end is close.
+      if (remaining > 0.4) return;
+      endTimer = setTimeout(
+        () => {
+          endTimer = null;
+          if (!deck.paused && deck === audio) fire();
+        },
+        Math.max(0, remaining * 1000 - 10),
+      );
+    };
+  }
 
   function clearStandby(): void {
     standbyReady = null;
     if (standby) {
       standby.onended = null;
+      standby.ontimeupdate = null;
       standby.pause();
     }
   }
@@ -222,12 +300,14 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
     void deps
       .getAudioBlobUrl(reciterId, audioSurah, audioAyah, controller.signal)
-      .then(({ url, fromCache }) => {
+      .then(async ({ url, fromCache }) => {
+        await learnBounds(url, controller.signal);
         if (disposed || controller.signal.aborted || !standby) return;
         standby.preload = "auto";
         standby.src = url;
         standby.playbackRate = state.speed;
         standby.load?.();
+        skipLeadIn(standby);
         standbyReady = {
           key: firstKey,
           surah: firstTarget.surah,
@@ -322,8 +402,9 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         remainingRepeats -= 1;
       }
       if (typeof audio.currentTime === "number") {
-        audio.currentTime = 0;
+        audio.currentTime = boundsOf(audio)?.start ?? 0;
       }
+      bindEnd(audio, () => void handleEnded(seq, surah, ayah));
       audio.playbackRate = state.speed;
       try {
         await audio.play();
@@ -343,6 +424,8 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     if (next) {
       await advanceTo(next.surah, next.ayah, next.bismillah);
     } else {
+      clearEndTimer();
+      audio.pause();
       state = { ...state, isPlaying: false };
       emit();
     }
@@ -366,9 +449,11 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
       const prev = audio;
       prev.onended = null;
+      prev.ontimeupdate = null;
       prev.pause();
       audio = standby;
       standby = prev;
+      skipLeadIn(audio);
 
       remainingRepeats = withBismillah
         ? 0
@@ -377,10 +462,10 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
           : Math.max(0, state.repeatCount - 1);
 
       audio.playbackRate = state.speed;
-      audio.onended = () => {
+      bindEnd(audio, () => {
         if (withBismillah) void handleBismillahEnded(seq, surah, ayah);
         else void handleEnded(seq, surah, ayah);
-      };
+      });
 
       const playPromise = audio.play();
       loadedKey = `${state.reciterId}:${surah}:${ayah}`;
@@ -424,6 +509,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
     const seq = ++requestSeq;
     clearTalaqqiTimer();
+    clearEndTimer();
     abortInFlight();
 
     const abort = new AbortController();
@@ -463,12 +549,20 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
         return;
       }
 
+      if (deps.analyzeSilence) {
+        await learnBounds(url, abort.signal);
+        if (disposed || seq !== requestSeq || abort.signal.aborted) {
+          return;
+        }
+      }
+
       audio.src = url;
       audio.playbackRate = state.speed;
-      audio.onended = () => {
+      skipLeadIn(audio);
+      bindEnd(audio, () => {
         if (withBismillah) void handleBismillahEnded(seq, surah, ayah);
         else void handleEnded(seq, surah, ayah);
-      };
+      });
 
       await audio.play();
 
@@ -504,6 +598,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
 
   function pause(): void {
     clearTalaqqiTimer();
+    clearEndTimer();
     if (state.isLoading || state.isTalaqqiPause) {
       requestSeq += 1;
       abortInFlight();
@@ -595,6 +690,7 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
   }
 
   function setSpeed(rate: number): void {
+    clearEndTimer();
     state = { ...state, speed: rate };
     audio.playbackRate = rate;
     if (standby) standby.playbackRate = rate;
@@ -623,9 +719,11 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     requestSeq += 1;
     loadedKey = null;
     clearTalaqqiTimer();
+    clearEndTimer();
     clearStandby();
     abortInFlight();
     audio.onended = null;
+    audio.ontimeupdate = null;
     audio.pause();
     audio.src = "";
     if (standby) standby.src = "";
@@ -645,6 +743,11 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     setScope,
     setSpeed,
     setTalaqqi,
+    getCurrentTimeMs() {
+      return typeof audio.currentTime === "number" && Number.isFinite(audio.currentTime)
+        ? audio.currentTime * 1000
+        : 0;
+    },
     subscribe,
     dispose,
   };

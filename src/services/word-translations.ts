@@ -7,6 +7,12 @@ export interface WordInfo {
   position: number;
 }
 
+export interface SelectedWord {
+  key: string;
+  translation: string;
+  transliteration: string;
+}
+
 export type PageWords = Map<string, WordInfo>;
 
 interface ApiWord {

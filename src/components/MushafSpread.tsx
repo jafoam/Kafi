@@ -2,6 +2,7 @@ import { useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
 import type { GlyphPageLoader } from "../services/glyph-pages";
+import type { SelectedWord } from "../services/word-translations";
 import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
 
 export interface MushafSpreadProps {
@@ -10,6 +11,7 @@ export interface MushafSpreadProps {
   pageUrls: Record<number, string>;
   selectedAyah: AyahKey | null;
   playingAyah: AyahKey | null;
+  playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
   bookmarks: Set<AyahKey>;
   blurSet?: Set<AyahKey>;
@@ -24,7 +26,7 @@ export interface MushafSpreadProps {
   glyphLoader?: GlyphPageLoader;
   onRetryPage?: (page: number) => void;
   onTurnPage: (direction: "next" | "prev") => void;
-  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect) => void;
+  onSelectAyah: (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => void;
   onPeekAyah?: (ayah: AyahKey) => void;
   onClearSelection: () => void;
   onToggleFocus: () => void;
@@ -43,6 +45,7 @@ export function MushafSpread({
   pageUrls,
   selectedAyah,
   playingAyah,
+  playingWordRange,
   highlights,
   bookmarks,
   blurSet,
@@ -189,6 +192,7 @@ export function MushafSpread({
             side="left"
             selectedAyah={selectedAyah}
             playingAyah={playingAyah}
+            playingWordRange={playingWordRange}
             highlights={highlights}
             bookmarks={bookmarks}
             blurSet={blurSet}
@@ -209,6 +213,7 @@ export function MushafSpread({
           side={isDouble ? "right" : "single"}
           selectedAyah={selectedAyah}
           playingAyah={playingAyah}
+            playingWordRange={playingWordRange}
           highlights={highlights}
           bookmarks={bookmarks}
           blurSet={blurSet}
