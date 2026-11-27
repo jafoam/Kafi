@@ -345,8 +345,7 @@ export function TasmiSummaryModal({
                               {formatErrorClass(m.errorClass)}
                             </span>
                             <span className="tasmi-summary__mistake-loc">
-                              {/* The header already names the session's surah. */}
-                              {m.surah === activeRecord.surah ? `Ayat ${m.ayah}` : `${surahName} : ${m.ayah}`}
+                              {surahName} : {m.ayah}
                               {m.word ? ` (kata ${m.word})` : ""}
                             </span>
                           </div>

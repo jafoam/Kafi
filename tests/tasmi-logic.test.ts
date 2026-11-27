@@ -177,6 +177,51 @@ describe("tasmi-logic", () => {
     });
   });
 
+  it("stays in the declared passage when the engine locks onto another surah, and counts the jump", () => {
+    const words = () => ["a", "b", "c", "d"];
+    const locked = (surah: number, ayah: number, word: number, timeMs: number) =>
+      ({
+        v: 1,
+        type: "position",
+        timeMs,
+        referenceVersion: "ref-v2",
+        state: "locked",
+        observed: [
+          {
+            word: { surah, ayah, word },
+            span: { start: { surah, ayah, word }, end: { surah, ayah, word } },
+            confidence: 0.9,
+            cost: 0.1,
+            per: 0.05,
+          },
+        ],
+        expected: { surah, ayah, word: word + 1 },
+      }) as any;
+
+    let st = createTasmiState("memorization", { surah: 89, fromAyah: 1, toAyah: 30 });
+    st = reduceTilawaEvent(st, locked(89, 3, 2, 100), words);
+    expect(st.activeAyah).toBe("89:3");
+
+    // Drifted into Ibrahim: the position stays on Al-Fajr and 89:3 is marked wrong, once.
+    st = reduceTilawaEvent(st, locked(14, 7, 1, 200), words);
+    st = reduceTilawaEvent(st, locked(14, 7, 2, 300), words);
+    expect(st.activeAyah).toBe("89:3");
+    expect(st.trackerState).toBe("lost");
+    expect(st.confirmedMistakes).toHaveLength(1);
+    expect(st.confirmedMistakes[0]).toMatchObject({ errorClass: "wrong_passage", surah: 89, ayah: 3 });
+    expect(st.revealedAyahs.has("89:3")).toBe(true);
+
+    // Back in the passage: tracking resumes.
+    st = reduceTilawaEvent(st, locked(89, 4, 1, 400), words);
+    expect(st.activeAyah).toBe("89:4");
+
+    // Free recitation has no passage and follows the engine anywhere.
+    let free = createTasmiState("free", null);
+    free = reduceTilawaEvent(free, locked(14, 7, 1, 100), words);
+    expect(free.activeAyah).toBe("14:7");
+    expect(free.confirmedMistakes).toHaveLength(0);
+  });
+
   it("handles blur mask modes off, all, and tasmi with revealed and peeked ayahs", () => {
     const p1 = map.pages[0]; // Al-Fatihah 1:1..1:7
     expect(computeBlurMask(p1, "off", null, new Set(), null).size).toBe(0);

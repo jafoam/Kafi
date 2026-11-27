@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBackClose } from "./state/useBackClose";
+import { useKeepAwake } from "./state/useKeepAwake";
 import type { EngineEvent, LoadProgress } from "@tilawa/core";
 import catalogJson from "./data/catalog.json";
 import mushafMapJson from "./data/mushaf-map.json";
@@ -1728,6 +1729,17 @@ export function App({
         (_, i) => Number(activeJuzRange.from.split(":")[0]) + i,
       )
     : [activeSurahNum];
+  // Listening, talaqqi and Tasmi' all run without touching the screen; keep it from turning off.
+  useKeepAwake(
+    audioState.isPlaying ||
+      audioState.isLoading ||
+      audioState.isTalaqqiPause ||
+      tasmiActive ||
+      tasmiStarting ||
+      errorDrill !== null ||
+      randomPrompt !== null,
+  );
+
   const hideAudioDock =
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 

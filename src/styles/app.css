@@ -762,6 +762,8 @@ textarea:focus-visible {
   border-radius: var(--radius-pill);
   background: var(--mistake-badge);
   color: #ffffff;
+  /* Inside a glyph page the word's mushaf font would draw "!" as a Quran word. */
+  font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
   line-height: 16px;

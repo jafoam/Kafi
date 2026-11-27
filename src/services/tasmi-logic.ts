@@ -64,7 +64,19 @@ export const ERROR_CLASS_LABELS: Record<string, string> = {
   added_word: "Kata berlebih",
   skipped_passage: "Ayat terloncat",
   peeked: "Mengintip ayat",
+  wrong_passage: "Salah ingat ayat",
 };
+
+/** How many ayahs past either end of the declared passage still count as nearby (not a jump). */
+const NEARBY_AYAHS = 2;
+
+function inPassage(word: WordRef, passage: DeclaredPassage, margin = 0): boolean {
+  return (
+    word.surah === passage.surah &&
+    word.ayah >= passage.fromAyah - margin &&
+    word.ayah <= passage.toAyah + margin
+  );
+}
 
 export function formatErrorClass(errorClass: string): string {
   return ERROR_CLASS_LABELS[errorClass] ?? errorClass;
@@ -243,6 +255,46 @@ export function reduceTilawaEvent(
 
   if (event.type === "position") {
     const top = event.observed[0];
+
+    // Tasmi' checks one declared passage. If the engine locks onto a place outside it (the reciter
+    // drifted into another surah, say), the reading position stays put instead of following it there,
+    // and a far jump counts as a mistake on the ayah that should have been recited.
+    if (top && event.state === "locked" && state.mode === "memorization" && state.passage) {
+      const passage = state.passage;
+      if (!inPassage(top.word, passage)) {
+        if (inPassage(top.word, passage, NEARBY_AYAHS)) {
+          return { ...state, trackerState: "ambiguous" };
+        }
+        const target =
+          (state.expectedWord && inPassage(state.expectedWord, passage) && state.expectedWord) ||
+          (state.activeWord && inPassage(state.activeWord, passage) && state.activeWord) || {
+            surah: passage.surah,
+            ayah: passage.fromAyah,
+            word: 1,
+          };
+        const targetAyah: AyahKey = `${target.surah}:${target.ayah}`;
+        const id = `wrong-passage-${targetAyah}`;
+        if (state.mistakesById.has(id)) return { ...state, trackerState: "lost" };
+        const nextMap = new Map(state.mistakesById);
+        nextMap.set(id, {
+          id,
+          errorClass: "wrong_passage",
+          surah: target.surah,
+          ayah: target.ayah,
+        });
+        const nextRevealed = new Set(state.revealedAyahs);
+        nextRevealed.add(targetAyah);
+        return {
+          ...state,
+          trackerState: "lost",
+          revealedAyahs: nextRevealed,
+          mistakesById: nextMap,
+          confirmedMistakes: Array.from(nextMap.values()),
+          lastErrorAt: event.timeMs,
+        };
+      }
+    }
+
     let activeWord = state.activeWord;
     let activeAyah = state.activeAyah;
     let revealedAyahs = state.revealedAyahs;
