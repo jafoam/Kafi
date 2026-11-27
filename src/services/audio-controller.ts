@@ -251,9 +251,12 @@ export function createAudioController(deps: AudioControllerDeps): AudioControlle
     const arm = () => {
       if (fired || deck.paused || deck !== audio) return;
       const b = boundsOf(deck);
-      if (!b || b.end >= b.duration - 0.05 || typeof deck.currentTime !== "number") return;
+      if (!b || typeof deck.currentTime !== "number") return;
       // Only lead into the next ayah; a repeat or talaqqi pause replays from this same deck.
       const lead = remainingRepeats === 0 && !state.talaqqi ? handoverLead : 0;
+      // Files recorded with room tone up to the last sample (Ash-Shatri, for one) have no tail
+      // to skip, but still need the lead, or the next deck's start-up latency is heard as a gap.
+      if (lead === 0 && b.end >= b.duration - 0.05) return;
       const remaining = (b.end - lead - deck.currentTime) / (state.speed || 1);
       if (remaining > 2) return;
       clearEndTimer();
