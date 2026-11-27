@@ -26,6 +26,8 @@ export interface AudioDownloadsPanelProps {
   activeTafsirId: string;
   textDownloads: TextDownloads;
   offlinePages: OfflinePages;
+  /** The colored tajweed page fonts, saved on the device for offline use. */
+  tajweedPages: OfflinePages;
   isDesktop: boolean;
   tilawaStorage: TilawaModelStorage;
   onDownloadTilawa: (onProgress: (p: LoadProgress) => void, signal: AbortSignal) => Promise<void>;
@@ -52,6 +54,7 @@ export function AudioDownloadsPanel({
   activeTafsirId,
   textDownloads,
   offlinePages,
+  tajweedPages,
   isDesktop,
   tilawaStorage,
   onDownloadTilawa,
@@ -409,6 +412,49 @@ export function AudioDownloadsPanel({
                           : offlinePages.status === "error"
                             ? "Coba lagi"
                             : "Unduh"}
+                      </button>
+                    </div>
+                  )}
+                </li>
+
+                <li className="dl-item">
+                  <div className="dl-item__main">
+                    <div className="dl-item__name">
+                      <span>604 Halaman Tajwid Berwarna</span>
+                      {tajweedPages.status === "done" && <span className="dl-item__badge">Siap offline</span>}
+                    </div>
+                    <div className="dl-item__sub">
+                      {tajweedPages.status === "running"
+                        ? `Mengunduh ${tajweedPages.done}/${tajweedPages.total} halaman…`
+                        : tajweedPages.status === "done"
+                          ? `Semua ${tajweedPages.total} halaman tajwid tersimpan offline.`
+                          : tajweedPages.status === "error"
+                            ? `Sebagian gagal (${tajweedPages.done}/${tajweedPages.total}). Coba lagi.`
+                            : tajweedPages.done > 0
+                              ? `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±60 MB total) untuk mode Tajwid berwarna tanpa internet.`
+                              : "Mushaf cetakan 1441 dengan warna hukum tajwid (±60 MB), untuk mode Tajwid berwarna tanpa internet."}
+                    </div>
+                    <div className="dl-bar dl-bar--thin" aria-hidden="true">
+                      <div
+                        className={`dl-bar__fill ${tajweedPages.status === "done" ? "dl-bar__fill--done" : ""}`}
+                        style={{ width: `${Math.min(100, (tajweedPages.done / tajweedPages.total) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  {tajweedPages.status !== "done" && (
+                    <div className="dl-item__actions">
+                      <button
+                        type="button"
+                        className={`dl-btn dl-btn--small ${tajweedPages.status === "running" ? "dl-btn--ghost" : ""}`}
+                        onClick={tajweedPages.toggle}
+                      >
+                        {tajweedPages.status === "running"
+                          ? "Batal"
+                          : tajweedPages.status === "error"
+                            ? "Coba lagi"
+                            : tajweedPages.done > 0
+                              ? "Lanjutkan"
+                              : "Unduh"}
                       </button>
                     </div>
                   )}

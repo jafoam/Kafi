@@ -1,11 +1,12 @@
 import type { AyahKey } from "../data/types";
 import type { PlatformAdapter } from "../platform/types";
 import quranPagesUrl from "../data/quran-pages.json?url";
+import { TAJWEED_RULES } from "../data/tajweed-rules";
 import quranPagesV2Url from "../data/quran-pages-v2.json?url";
 
 const REMOTE_QCF_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v1/woff2";
 /** COLRv1 fonts with the tajweed colors built in; they draw QCF v2 glyph codes (1441 layout). */
-const REMOTE_TAJWEED_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v4/colrv1/woff2";
+export const REMOTE_TAJWEED_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v4/colrv1/woff2";
 
 /**
  * `v1`: the 1405 Madinah print in plain QCF v1 fonts (bundled or cached).
@@ -324,34 +325,22 @@ export function createGlyphPageLoader(
 
 /**
  * The v4 fonts carry Quran.com's saturated tajweed colors (CPAL palette 0 light, 1 dark) and draw each
- * ayah number in a pink and teal ring. These overrides keep every rule but in calmer tones, close to
- * Tarteel's, and draw the ayah numbers in plain ink. CPAL entries, checked against known words:
- * 1, 2, 15 letters not pronounced; 3, 4, 5, 9 the madd lengths (9: muttasil); 6 ghunnah; 7 heavy letters
- * (tafkhim, e.g. the kha of khatama); 8 qalqalah; 10, 11 ayah-number rings; 12 ayah-number fill, which
- * must be the page color (the theme's --bg-surface in tokens.css) because a solid ink shape sits under it.
+ * ayah number in a pink and teal ring. The overrides draw every rule in the colors of the tajweed guide
+ * (data/tajweed-rules.ts) and the ayah numbers in plain ink: 10, 11 ayah-number rings; 12 ayah-number
+ * fill, which must be the page color (the theme's --bg-surface) because a solid ink shape sits under it.
  */
+function tajweedOverrides(theme: "light" | "sepia" | "dark"): Record<number, string> {
+  const ring = { light: "#555555", sepia: "#5a5248", dark: "#b5b5b5" }[theme];
+  const page = { light: "#ffffff", sepia: "#f7f0e2", dark: "#14181b" }[theme];
+  const colors: Record<number, string> = { 10: ring, 11: ring, 12: page };
+  for (const rule of TAJWEED_RULES) for (const index of rule.cpal) colors[index] = rule.colors[theme];
+  return colors;
+}
+
 const TAJWEED_PALETTE_OVERRIDES = {
-  light: {
-    1: "#a3a3a3", 2: "#a3a3a3", 15: "#a3a3a3",
-    3: "#b8336f", 9: "#c94a86",
-    4: "#d97b3a", 5: "#bf9a3e",
-    6: "#3f9a5c", 7: "#2f6a99", 8: "#3a92bd",
-    10: "#555555", 11: "#555555", 12: "#ffffff",
-  },
-  sepia: {
-    1: "#a39a8c", 2: "#a39a8c", 15: "#a39a8c",
-    3: "#b8336f", 9: "#c94a86",
-    4: "#d97b3a", 5: "#b8923a",
-    6: "#3f9a5c", 7: "#2f6a99", 8: "#3a92bd",
-    10: "#5a5248", 11: "#5a5248", 12: "#f7f0e2",
-  },
-  dark: {
-    1: "#7d7d7d", 2: "#7d7d7d", 15: "#7d7d7d",
-    3: "#e07aa5", 9: "#e892ba",
-    4: "#eda26d", 5: "#d9be70",
-    6: "#6cc287", 7: "#7eaedb", 8: "#6cc3e3",
-    10: "#b5b5b5", 11: "#b5b5b5", 12: "#14181b",
-  },
+  light: tajweedOverrides("light"),
+  sepia: tajweedOverrides("sepia"),
+  dark: tajweedOverrides("dark"),
 } as const;
 
 /** `font-palette` values for the tajweed fonts in each theme. */
