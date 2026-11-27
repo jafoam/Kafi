@@ -1630,6 +1630,13 @@ export function App({
     if (overlayOpen) setSelected(null);
   }, [overlayOpen]);
 
+  // On phones the study panel is a bottom sheet under the same screen, so the menu or any other
+  // popup replaces it instead of stacking on top of it. On wide screens it stays as a side panel.
+  useEffect(() => {
+    if (!overlayOpen || !studyOpen) return;
+    if (window.matchMedia?.("(max-width: 900px)").matches) setStudyOpen(false);
+  }, [overlayOpen, studyOpen]);
+
   const tasmiLauncherVisible =
     !focusMode && !tasmiActive && !studyOpen && !overlayOpen && selected === null;
 
