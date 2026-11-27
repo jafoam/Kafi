@@ -11,6 +11,61 @@ const REQUIRED_PERMISSIONS = [
   "android.permission.MODIFY_AUDIO_SETTINGS",
 ];
 
+const MARKER = "KafiAndroid";
+
+/**
+ * Rewrites the generated MainActivity so the page can keep the screen on (window.KafiAndroid.setKeepAwake)
+ * while murottal, talaqqi or Tasmi' runs. Keeps the generated package line; idempotent.
+ */
+export function patchMainActivity(kotlin) {
+  if (kotlin.includes(MARKER)) return kotlin;
+  const pkg = kotlin.match(/^package\s+[\w.]+/m);
+  if (!pkg) throw new Error("Invalid MainActivity.kt: missing package line");
+  return `${pkg[0]}
+
+import android.os.Bundle
+import android.view.WindowManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import androidx.activity.enableEdgeToEdge
+
+class MainActivity : TauriActivity() {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    enableEdgeToEdge()
+    super.onCreate(savedInstanceState)
+  }
+
+  override fun onWebViewCreate(webView: WebView) {
+    webView.addJavascriptInterface(KeepAwakeBridge(), "${MARKER}")
+  }
+
+  inner class KeepAwakeBridge {
+    @JavascriptInterface
+    fun setKeepAwake(on: Boolean) {
+      runOnUiThread {
+        if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      }
+    }
+  }
+}
+`;
+}
+
+function findMainActivity(dir) {
+  if (!fs.existsSync(dir)) return null;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const found = findMainActivity(full);
+      if (found) return found;
+    } else if (entry.name === "MainActivity.kt") {
+      return full;
+    }
+  }
+  return null;
+}
+
 /** Idempotently ensures microphone permissions exist in the generated AndroidManifest.xml. */
 export function patchAndroidManifest(xml) {
   const missing = REQUIRED_PERMISSIONS.filter((perm) => !xml.includes(perm));
@@ -35,5 +90,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log(`Patched microphone permissions in ${manifestPath}`);
   } else {
     console.log(`Microphone permissions already present in ${manifestPath}`);
+  }
+
+  const activityPath = findMainActivity(path.join(path.dirname(manifestPath), "java"));
+  if (!activityPath) throw new Error("MainActivity.kt not found next to the manifest");
+  const activity = fs.readFileSync(activityPath, "utf8");
+  const patched = patchMainActivity(activity);
+  if (patched !== activity) {
+    fs.writeFileSync(activityPath, patched, "utf8");
+    console.log(`Added the keep-awake bridge to ${activityPath}`);
   }
 }
