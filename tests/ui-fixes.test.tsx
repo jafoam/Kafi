@@ -562,6 +562,49 @@ describe("Gradual blur and recent pages in search", () => {
     expect(words[2].classList.contains("glyph-word--blurred")).toBe(true);
   });
 
+  it("shows a word's meaning on hover only while its ayah is visible", async () => {
+    vi.resetModules();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ "1": { "\uFB51": ["dengan nama", "bismi"] } }))),
+    );
+    const { GlyphPageBody: FreshGlyphPageBody } = await import("../src/components/GlyphPageBody");
+    const render = (blurSet?: Set<string>) =>
+      mount(
+        <FreshGlyphPageBody
+          data={{
+            page: 1,
+            fontFamily: "QCFv1-p1",
+            lines: [],
+            rows: [{ kind: "text", line: 2, words: [{ code: "\uFB51", ayah: "1:1" }] }],
+          }}
+          pageEntry={mushafMap.pages[0]}
+          selectedAyah={null}
+          playingAyah={null}
+          highlights={{}}
+          bookmarks={new Set()}
+          blurSet={blurSet as Set<`${number}:${number}`> | undefined}
+          onSelectAyah={() => {}}
+        />,
+      );
+    const hover = async (el: HTMLElement) => {
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+      });
+      const word = el.querySelector(".glyph-word") as HTMLElement;
+      act(() => {
+        const over = new MouseEvent("pointerover", { bubbles: true });
+        Object.defineProperty(over, "pointerType", { value: "mouse" });
+        word.dispatchEvent(over);
+      });
+      return el.querySelector(".word-tip");
+    };
+
+    expect(await hover(render())).not.toBeNull();
+    expect(await hover(render(new Set(["1:1"])))).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
   it("shows recent pages in the search tab when query is empty", () => {
     const onJumpToPage = vi.fn();
     const el = mount(
