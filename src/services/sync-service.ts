@@ -174,6 +174,24 @@ function mergeHiddenAyahs(local: UserData, remote: UserData): Record<AyahKey, Bo
   return merged;
 }
 
+/** Per Tasmi' session, the later archive or restore wins (dropping deleted IDs). */
+function mergeArchivedTasmi(
+  local: UserData,
+  remote: UserData,
+  deletedIds: Set<string>,
+): Record<string, BookmarkEvent> {
+  const merged: Record<string, BookmarkEvent> = {};
+  for (const [key, event] of Object.entries(local.archivedTasmi ?? {})) {
+    if (!deletedIds.has(key)) merged[key] = event;
+  }
+  for (const [key, event] of Object.entries(remote.archivedTasmi ?? {})) {
+    if (deletedIds.has(key)) continue;
+    const mine = merged[key];
+    if (!mine || (Date.parse(event.at) || 0) > (Date.parse(mine.at) || 0)) merged[key] = event;
+  }
+  return merged;
+}
+
 /** Lossless merge of two UserData snapshots across devices. */
 export function mergeUserData(local: UserData, remote: UserData): UserData {
   const localTs = Date.parse(local.updatedAt ?? "") || 0;
@@ -196,8 +214,14 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     ? { ...local.notes, ...remote.notes }
     : { ...remote.notes, ...local.notes };
 
+  const deletedTasmiIds = Array.from(
+    new Set([...(local.deletedTasmiIds ?? []), ...(remote.deletedTasmiIds ?? [])]),
+  );
+  const deletedTasmiSet = new Set(deletedTasmiIds);
+
   const historyMap = new Map<string, TasmiSessionRecord>();
   for (const item of [...remote.tasmiHistory, ...local.tasmiHistory]) {
+    if (deletedTasmiSet.has(item.id)) continue;
     if (!historyMap.has(item.id)) historyMap.set(item.id, item);
   }
   const tasmiHistory = Array.from(historyMap.values()).sort(
@@ -222,6 +246,8 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     new Set([...(remoteNewer ? remote.recentPages ?? [] : local.recentPages ?? []), ...(remoteNewer ? local.recentPages ?? [] : remote.recentPages ?? [])]),
   ).slice(0, 5);
 
+  const archivedTasmi = mergeArchivedTasmi(local, remote, deletedTasmiSet);
+
   return {
     lastPage: remoteNewer ? remote.lastPage : local.lastPage,
     recentPages,
@@ -235,6 +261,8 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
       : { ...remote.settings, ...local.settings },
     settingsUpdatedAt: remoteSettingsNewer ? remote.settingsUpdatedAt : local.settingsUpdatedAt,
     tasmiHistory,
+    ...(deletedTasmiIds.length > 0 ? { deletedTasmiIds } : {}),
+    ...(Object.keys(archivedTasmi).length > 0 ? { archivedTasmi } : {}),
     murajaahCards: Array.from(cardMap.values()),
     updatedAt: new Date(Math.max(localTs, remoteTs, Date.now())).toISOString(),
   };

@@ -225,7 +225,9 @@ export function StudyDrawer({
               aria-label="Baca layar penuh, geser per ayat"
               title="Baca layar penuh"
             >
-              ⤢
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+              </svg>
             </button>
           )}
           <button
@@ -235,7 +237,9 @@ export function StudyDrawer({
             aria-label="Putar ayat ini"
             title="Putar ayat ini"
           >
-            ▶
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M7 5.2v13.6a1 1 0 0 0 1.5.86l11.2-6.8a1 1 0 0 0 0-1.72L8.5 4.34A1 1 0 0 0 7 5.2z" />
+            </svg>
           </button>
           <button
             type="button"
@@ -247,7 +251,9 @@ export function StudyDrawer({
             aria-label="Tutup panel"
             title="Tutup"
           >
-            ×
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
       </div>
@@ -292,23 +298,31 @@ export function StudyDrawer({
                   </option>
                 ))}
               </select>
-              {translationState.status === "ready" && (
-                <span
-                  className={`study-drawer__badge ${translationState.fromCache ? "study-drawer__badge--offline" : ""}`}
-                >
-                  {translationState.fromCache ? "Tersimpan offline" : "Online"}
-                </span>
-              )}
-              {onOpenDownloads && (
-                <button
-                  type="button"
-                  className="study-drawer__dl-btn"
-                  onClick={() => onOpenDownloads("translation")}
-                  title="Unduh seluruh terjemahan untuk offline"
-                >
-                  Unduh
-                </button>
-              )}
+              <div className="study-drawer__toolbar-meta">
+                {translationState.status === "ready" ? (
+                  <span
+                    className={`study-drawer__badge ${translationState.fromCache ? "study-drawer__badge--offline" : ""}`}
+                  >
+                    {translationState.fromCache ? "Tersimpan offline" : "Online"}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                {onOpenDownloads && (
+                  <button
+                    type="button"
+                    className="study-drawer__dl-btn"
+                    onClick={() => onOpenDownloads("translation")}
+                    title="Kelola unduhan terjemahan offline"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 3v12m0 0-4-4m4 4 4-4" />
+                      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                    <span>Unduh offline</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {translationState.status === "loading" && (
@@ -359,23 +373,31 @@ export function StudyDrawer({
                   </option>
                 ))}
               </select>
-              {tafsirState.status === "ready" && (
-                <span
-                  className={`study-drawer__badge ${tafsirState.fromCache ? "study-drawer__badge--offline" : ""}`}
-                >
-                  {tafsirState.fromCache ? "Tersimpan offline" : "Online"}
-                </span>
-              )}
-              {onOpenDownloads && (
-                <button
-                  type="button"
-                  className="study-drawer__dl-btn"
-                  onClick={() => onOpenDownloads("tafsir")}
-                  title="Unduh seluruh tafsir untuk offline"
-                >
-                  Unduh
-                </button>
-              )}
+              <div className="study-drawer__toolbar-meta">
+                {tafsirState.status === "ready" ? (
+                  <span
+                    className={`study-drawer__badge ${tafsirState.fromCache ? "study-drawer__badge--offline" : ""}`}
+                  >
+                    {tafsirState.fromCache ? "Tersimpan offline" : "Online"}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                {onOpenDownloads && (
+                  <button
+                    type="button"
+                    className="study-drawer__dl-btn"
+                    onClick={() => onOpenDownloads("tafsir")}
+                    title="Kelola unduhan tafsir offline"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 3v12m0 0-4-4m4 4 4-4" />
+                      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                    <span>Unduh offline</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {tafsirState.status === "loading" && (

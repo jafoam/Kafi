@@ -10,33 +10,37 @@ import {
   type TextResourceStatus,
 } from "../services/text-downloads";
 
-export interface TextDownloadState {
-  phase: "idle" | "running" | "error";
-  kind: TextResourceKind | null;
-  resourceId: string | null;
+export interface TextDownloadJob {
+  phase: "running" | "error";
+  kind: TextResourceKind;
+  resourceId: string;
   done: number;
   total: number;
   failed: number[];
 }
 
+export interface TextDownloadCompleted {
+  kind: TextResourceKind;
+  resourceId: string;
+  seq: number;
+}
+
 export interface TextDownloads {
-  state: TextDownloadState;
+  /** Active or errored download jobs keyed by `${kind}:${resourceId}`. */
+  jobs: Record<string, TextDownloadJob>;
+  lastCompleted: TextDownloadCompleted | null;
   translations: Map<string, TextResourceStatus> | null;
   tafsirs: Map<string, TextResourceStatus> | null;
   start: (kind: TextResourceKind, resourceId: string) => void;
-  cancel: () => void;
+  cancel: (kind: TextResourceKind, resourceId: string) => void;
+  dismissError: (kind: TextResourceKind, resourceId: string) => void;
   remove: (kind: TextResourceKind, resourceId: string) => Promise<void>;
   refresh: () => void;
 }
 
-const IDLE: TextDownloadState = {
-  phase: "idle",
-  kind: null,
-  resourceId: null,
-  done: 0,
-  total: 0,
-  failed: [],
-};
+export function textJobKey(kind: TextResourceKind, resourceId: string): string {
+  return `${kind}:${resourceId}`;
+}
 
 interface Options {
   platform: PlatformAdapter;
@@ -46,12 +50,13 @@ interface Options {
 }
 
 export function useTextDownloads({ platform, api, translations, tafsirs }: Options): TextDownloads {
-  const [state, setState] = useState<TextDownloadState>(IDLE);
+  const [jobs, setJobs] = useState<Record<string, TextDownloadJob>>({});
+  const [lastCompleted, setLastCompleted] = useState<TextDownloadCompleted | null>(null);
   const [translationStatus, setTranslationStatus] = useState<Map<string, TextResourceStatus> | null>(null);
   const [tafsirStatus, setTafsirStatus] = useState<Map<string, TextResourceStatus> | null>(null);
 
-  const abortRef = useRef<AbortController | null>(null);
-  const runningRef = useRef(false);
+  const controllersRef = useRef<Map<string, AbortController>>(new Map());
+  const seqRef = useRef(0);
 
   const translationIds = useMemo(() => translations.map((t) => String(t.id)), [translations]);
   const tafsirIds = useMemo(() => tafsirs.map((t) => t.id), [tafsirs]);
@@ -70,19 +75,24 @@ export function useTextDownloads({ platform, api, translations, tafsirs }: Optio
   }, [refresh]);
 
   useEffect(() => {
+    const map = controllersRef.current;
     return () => {
-      abortRef.current?.abort();
+      for (const controller of map.values()) controller.abort();
+      map.clear();
     };
   }, []);
 
   const start = useCallback(
     (kind: TextResourceKind, resourceId: string) => {
-      if (runningRef.current) return;
-      runningRef.current = true;
+      const key = textJobKey(kind, resourceId);
+      if (controllersRef.current.has(key)) return;
       const controller = new AbortController();
-      abortRef.current = controller;
+      controllersRef.current.set(key, controller);
 
-      setState({ phase: "running", kind, resourceId, done: 0, total: 114, failed: [] });
+      setJobs((prev) => ({
+        ...prev,
+        [key]: { phase: "running", kind, resourceId, done: 0, total: 114, failed: [] },
+      }));
 
       void (async () => {
         const endBg = await platform
@@ -96,28 +106,52 @@ export function useTextDownloads({ platform, api, translations, tafsirs }: Optio
                 : api.downloadSurahTafsir(resourceId, surah, signal),
             onProgress: (done, total) => {
               if (!controller.signal.aborted) {
-                setState((prev) => ({ ...prev, done, total }));
+                setJobs((prev) => {
+                  const cur = prev[key];
+                  if (!cur || cur.phase !== "running") return prev;
+                  return { ...prev, [key]: { ...cur, done, total } };
+                });
               }
             },
             signal: controller.signal,
           });
           if (!controller.signal.aborted) {
-            setState({
-              phase: failed.length > 0 ? "error" : "idle",
-              kind,
-              resourceId,
-              done: 114,
-              total: 114,
-              failed,
-            });
+            if (failed.length > 0) {
+              setJobs((prev) => ({
+                ...prev,
+                [key]: { phase: "error", kind, resourceId, done: 114, total: 114, failed },
+              }));
+            } else {
+              setJobs((prev) => {
+                const next = { ...prev };
+                delete next[key];
+                return next;
+              });
+              seqRef.current += 1;
+              setLastCompleted({ kind, resourceId, seq: seqRef.current });
+            }
           }
         } catch {
           if (!controller.signal.aborted) {
-            setState((prev) => ({ ...prev, phase: "error" }));
+            setJobs((prev) => {
+              const cur = prev[key];
+              return {
+                ...prev,
+                [key]: {
+                  phase: "error",
+                  kind,
+                  resourceId,
+                  done: cur?.done ?? 0,
+                  total: cur?.total ?? 114,
+                  failed: cur?.failed ?? [],
+                },
+              };
+            });
           }
         } finally {
-          runningRef.current = false;
-          if (abortRef.current === controller) abortRef.current = null;
+          if (controllersRef.current.get(key) === controller) {
+            controllersRef.current.delete(key);
+          }
           refresh();
           await endBg?.().catch(() => undefined);
         }
@@ -126,14 +160,47 @@ export function useTextDownloads({ platform, api, translations, tafsirs }: Optio
     [platform, api, refresh],
   );
 
-  const cancel = useCallback(() => {
-    abortRef.current?.abort();
-    setState(IDLE);
-    refresh();
-  }, [refresh]);
+  const cancel = useCallback(
+    (kind: TextResourceKind, resourceId: string) => {
+      const key = textJobKey(kind, resourceId);
+      const controller = controllersRef.current.get(key);
+      controller?.abort();
+      controllersRef.current.delete(key);
+      setJobs((prev) => {
+        if (!(key in prev)) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      refresh();
+    },
+    [refresh],
+  );
+
+  const dismissError = useCallback((kind: TextResourceKind, resourceId: string) => {
+    const key = textJobKey(kind, resourceId);
+    setJobs((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
   const remove = useCallback(
     async (kind: TextResourceKind, resourceId: string) => {
+      const key = textJobKey(kind, resourceId);
+      const controller = controllersRef.current.get(key);
+      if (controller) {
+        controller.abort();
+        controllersRef.current.delete(key);
+      }
+      setJobs((prev) => {
+        if (!(key in prev)) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
       await deleteTextResource(platform, kind, resourceId);
       refresh();
     },
@@ -141,11 +208,13 @@ export function useTextDownloads({ platform, api, translations, tafsirs }: Optio
   );
 
   return {
-    state,
+    jobs,
+    lastCompleted,
     translations: translationStatus,
     tafsirs: tafsirStatus,
     start,
     cancel,
+    dismissError,
     remove,
     refresh,
   };

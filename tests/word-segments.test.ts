@@ -1,5 +1,11 @@
-import { describe, it, expect } from "vitest";
-import { parseSurahSegments, findActiveWordRange } from "../src/services/word-segments";
+import { describe, it, expect, vi } from "vitest";
+import {
+  deleteReciterSegments,
+  downloadAllReciterSegments,
+  parseSurahSegments,
+  findActiveWordRange,
+  readSegmentDownloadStatus,
+} from "../src/services/word-segments";
 import { buildAyahPagesIndex, parsePage } from "../src/services/glyph-pages";
 
 describe("word-segments", () => {
@@ -24,6 +30,53 @@ describe("word-segments", () => {
     expect(findActiveWordRange(segs, 60)).toEqual([0, 1]);
     expect(findActiveWordRange(segs, 900)).toEqual([1, 2]);
     expect(findActiveWordRange(segs, 2450)).toBeNull();
+  });
+
+  it("downloads, counts, and deletes offline word segments for a reciter", async () => {
+    const store = new Map<string, Uint8Array>();
+    const platform = {
+      cacheHas: async (b: string, k: string) => store.has(`${b}:${k}`),
+      cachePut: async (b: string, k: string, v: Uint8Array) => {
+        store.set(`${b}:${k}`, v);
+      },
+      cacheDelete: async (b: string, k: string) => {
+        store.delete(`${b}:${k}`);
+      },
+      cacheList: async (b: string) => {
+        const prefix = `${b}:`;
+        return Array.from(store.entries())
+          .filter(([k]) => k.startsWith(prefix))
+          .map(([k, v]) => ({ key: k.slice(prefix.length), size: v.byteLength }));
+      },
+    };
+    const mockFetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            audio_files: [{ verse_key: "1:1", segments: [[0, 1, 10, 500]] }],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const { failed } = await downloadAllReciterSegments({
+      platform,
+      reciterId: "Alafasy_128kbps",
+      totalSurahs: 3,
+      onProgress: () => {},
+      fetcher: mockFetch as unknown as typeof fetch,
+    });
+    expect(failed).toEqual([]);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+
+    const status = await readSegmentDownloadStatus(platform, "Alafasy_128kbps", 3);
+    expect(status.supported).toBe(true);
+    expect(status.cachedSurahs).toBe(3);
+    expect(status.bytes).toBeGreaterThan(0);
+
+    await deleteReciterSegments(platform, "Alafasy_128kbps", 3);
+    const afterDelete = await readSegmentDownloadStatus(platform, "Alafasy_128kbps", 3);
+    expect(afterDelete.cachedSurahs).toBe(0);
   });
 });
 

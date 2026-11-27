@@ -122,7 +122,7 @@ export function TasmiSheet({
       const match = candidates.find((c) => c.surah === s && a >= c.fromAyah && a <= c.toAyah);
       const info = surahByNum.get(s);
       if (match) {
-        setSelectedOptionId(match.id);
+        setSelectedOptionId(a === match.fromAyah ? match.id : "custom");
         setSelectedSurah(match.surah);
         setFromAyah(a);
         setToAyah(match.toAyah);

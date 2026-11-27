@@ -30,6 +30,7 @@ export const DEFAULT_USER_DATA: UserData = {
     hifzBlur: false,
     hifzBlurLevel: "full",
     wordTranslation: true,
+    wordAudioHighlight: true,
     tajweed: false,
     letterStyle: "1405",
     mistakeSound: false,
@@ -96,6 +97,10 @@ export function normalizeUserData(raw: unknown): UserData {
       : defaults.hifzBlurLevel,
     wordTranslation:
       typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
+    wordAudioHighlight:
+      typeof rawSettings.wordAudioHighlight === "boolean"
+        ? rawSettings.wordAudioHighlight
+        : defaults.wordAudioHighlight,
     tajweed: typeof rawSettings.tajweed === "boolean" ? rawSettings.tajweed : defaults.tajweed,
     // Saved before letter styles existed: tajweed on meant the 1441 letters.
     letterStyle:
@@ -154,11 +159,32 @@ export function normalizeUserData(raw: unknown): UserData {
     }
   }
 
+  const deletedTasmiIds = Array.isArray(raw.deletedTasmiIds)
+    ? Array.from(new Set(raw.deletedTasmiIds.filter((id): id is string => typeof id === "string" && id.length > 0)))
+    : [];
+  const deletedTasmiSet = new Set(deletedTasmiIds);
+
+  const archivedTasmi: Record<string, BookmarkEvent> = {};
+  if (isPlainObject(raw.archivedTasmi)) {
+    for (const [key, val] of Object.entries(raw.archivedTasmi)) {
+      if (
+        key.length > 0 &&
+        !deletedTasmiSet.has(key) &&
+        isPlainObject(val) &&
+        typeof val.on === "boolean" &&
+        typeof val.at === "string"
+      ) {
+        archivedTasmi[key] = { on: val.on, at: val.at };
+      }
+    }
+  }
+
   const tasmiHistory = Array.isArray(raw.tasmiHistory)
     ? raw.tasmiHistory.filter(
         (item): item is TasmiSessionRecord =>
           isPlainObject(item) &&
           typeof item.id === "string" &&
+          !deletedTasmiSet.has(item.id) &&
           typeof item.startedAt === "string" &&
           typeof item.durationSec === "number" &&
           typeof item.surah === "number" &&
@@ -206,6 +232,8 @@ export function normalizeUserData(raw: unknown): UserData {
     notes,
     settings,
     tasmiHistory,
+    ...(deletedTasmiIds.length > 0 ? { deletedTasmiIds } : {}),
+    ...(Object.keys(archivedTasmi).length > 0 ? { archivedTasmi } : {}),
     murajaahCards,
     updatedAt,
     settingsUpdatedAt,
@@ -221,6 +249,8 @@ export interface UserStore {
   updateSettings(patch: Partial<AppSettings>): Promise<UserData>;
   setLastPage(page: number): Promise<UserData>;
   addTasmiHistory(record: TasmiSessionRecord): Promise<UserData>;
+  deleteTasmiHistory(id: string): Promise<UserData>;
+  setTasmiArchived(id: string, archived: boolean): Promise<UserData>;
   replaceAll(next: UserData): Promise<UserData>;
   /** Replace with a value built from the latest stored data, inside the write queue. */
   replaceWith(build: (current: UserData) => UserData): Promise<UserData>;
@@ -330,6 +360,28 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
         ...current,
         tasmiHistory: [record, ...current.tasmiHistory],
         murajaahCards: applySessionToMurajaah(current.murajaahCards ?? [], record),
+      }));
+    },
+    deleteTasmiHistory(id: string) {
+      return mutate((current) => {
+        const deletedTasmiIds = Array.from(new Set([...(current.deletedTasmiIds ?? []), id]));
+        const archivedTasmi = { ...(current.archivedTasmi ?? {}) };
+        delete archivedTasmi[id];
+        return {
+          ...current,
+          tasmiHistory: current.tasmiHistory.filter((item) => item.id !== id),
+          deletedTasmiIds,
+          ...(Object.keys(archivedTasmi).length > 0 ? { archivedTasmi } : { archivedTasmi: undefined }),
+        };
+      });
+    },
+    setTasmiArchived(id: string, archived: boolean) {
+      return mutate((current) => ({
+        ...current,
+        archivedTasmi: {
+          ...(current.archivedTasmi ?? {}),
+          [id]: { on: archived, at: new Date().toISOString() },
+        },
       }));
     },
     replaceAll(nextData: UserData) {

@@ -8,6 +8,7 @@ export interface PlaybackMenuProps {
   repeatCount: RepeatCount;
   speed: number;
   talaqqi: boolean;
+  wordAudioHighlight?: boolean;
   surahs?: SurahInfo[];
   surahNumber: number;
   surahName: string;
@@ -18,6 +19,7 @@ export interface PlaybackMenuProps {
   onCycleRepeat: () => void;
   onCycleSpeed: () => void;
   onToggleTalaqqi: (enabled: boolean) => void;
+  onToggleWordAudioHighlight?: (enabled: boolean) => void;
   onClose: () => void;
 }
 
@@ -64,6 +66,7 @@ export function PlaybackMenu({
   repeatCount,
   speed,
   talaqqi,
+  wordAudioHighlight = true,
   surahs,
   surahNumber,
   surahName,
@@ -73,6 +76,7 @@ export function PlaybackMenu({
   onCycleRepeat,
   onCycleSpeed,
   onToggleTalaqqi,
+  onToggleWordAudioHighlight,
   onClose,
 }: PlaybackMenuProps) {
   const activeNumber = Number(activeAyah.split(":")[1]) || 1;
@@ -216,6 +220,17 @@ export function PlaybackMenu({
           />
           <span>Mode Talaqqi (jeda setelah ayat untuk menirukan)</span>
         </label>
+
+        {onToggleWordAudioHighlight && (
+          <label className="playback-menu__loop">
+            <input
+              type="checkbox"
+              checked={wordAudioHighlight}
+              onChange={(e) => onToggleWordAudioHighlight(e.target.checked)}
+            />
+            <span>Sorot per kata saat murottal diputar</span>
+          </label>
+        )}
 
         <p className="playback-menu__hint">{describe(scope, surahName)}</p>
       </div>

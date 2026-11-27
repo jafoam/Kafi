@@ -223,6 +223,66 @@ describe("tasmi-logic", () => {
     expect(free.confirmedMistakes).toHaveLength(0);
   });
 
+  it("detects and reveals Al-Fatihah 1:1 (Bismillah) during acquiring and when locking on 1:2", () => {
+    const words = (surah: number, ayah: number) =>
+      surah === 1 && ayah === 1 ? ["بِسْمِ", "ٱللَّهِ", "ٱلرَّحْمَـٰنِ", "ٱلرَّحِيمِ"] : ["a", "b", "c", "d"];
+
+    // Case 1: @tilawa/core holds off locking on basmala phrase (state="acquiring" with 1:1 in observed[0])
+    let st = createTasmiState("memorization", { surah: 1, fromAyah: 1, toAyah: 7 });
+    st = reduceTilawaEvent(
+      st,
+      {
+        v: 1,
+        type: "position",
+        timeMs: 300,
+        referenceVersion: "ref-v2",
+        state: "acquiring",
+        observed: [
+          {
+            word: { surah: 1, ayah: 1, word: 4 },
+            span: { start: { surah: 1, ayah: 1, word: 1 }, end: { surah: 1, ayah: 1, word: 4 } },
+            confidence: 0.8,
+            cost: 0.1,
+            per: 0.05,
+          },
+        ],
+        expected: null,
+      } as any,
+      words,
+    );
+    expect(st.activeAyah).toBe("1:1");
+    expect(st.revealedAyahs.has("1:1")).toBe(true);
+    expect(st.recitedWords.has("1:1:1")).toBe(true);
+    expect(st.recitedWords.has("1:1:4")).toBe(true);
+
+    // Case 2: @tilawa/core cut the basmala phrase before locking directly on 1:2
+    let st2 = createTasmiState("memorization", { surah: 1, fromAyah: 1, toAyah: 7 });
+    st2 = reduceTilawaEvent(
+      st2,
+      {
+        v: 1,
+        type: "position",
+        timeMs: 800,
+        referenceVersion: "ref-v2",
+        state: "locked",
+        observed: [
+          {
+            word: { surah: 1, ayah: 2, word: 4 },
+            span: { start: { surah: 1, ayah: 2, word: 1 }, end: { surah: 1, ayah: 2, word: 4 } },
+            confidence: 0.92,
+            cost: 0.1,
+            per: 0.04,
+          },
+        ],
+        expected: { surah: 1, ayah: 3, word: 1 },
+      } as any,
+      words,
+    );
+    expect(st2.revealedAyahs.has("1:1")).toBe(true);
+    expect(st2.recitedWords.has("1:1:1")).toBe(true);
+    expect(st2.recitedWords.has("1:1:4")).toBe(true);
+  });
+
   it("handles blur mask modes off, all, and tasmi with revealed and peeked ayahs", () => {
     const p1 = map.pages[0]; // Al-Fatihah 1:1..1:7
     expect(computeBlurMask(p1, "off", null, new Set(), null).size).toBe(0);

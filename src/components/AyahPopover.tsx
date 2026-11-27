@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { AyahKey, HighlightColor } from "../data/types";
+import type { AyahKey, HighlightColor, TasmiMistakeRecord } from "../data/types";
 import type { QuranApi } from "../services/quran-api";
+import { formatErrorClass } from "../services/tasmi-logic";
 
 export interface AyahPopoverProps {
   ayah: AyahKey;
@@ -12,6 +13,8 @@ export interface AyahPopoverProps {
   getArabicText: (ayah: AyahKey) => Promise<string>;
   isBookmarked: boolean;
   highlightColor: HighlightColor | null;
+  /** Tasmi' mistakes recorded on this ayah (active or most recent session). */
+  tasmiMistakes?: TasmiMistakeRecord[];
   onClose: () => void;
   onPlayAyah?: (ayah: AyahKey) => void;
   onOpenStudy?: (ayah: AyahKey) => void;
@@ -48,6 +51,7 @@ export function AyahPopover({
   getArabicText,
   isBookmarked,
   highlightColor,
+  tasmiMistakes,
   onClose,
   onPlayAyah,
   onOpenStudy,
@@ -114,23 +118,43 @@ export function AyahPopover({
 
   useLayoutEffect(() => {
     const el = popoverRef.current;
-    if (!el || el.offsetWidth === 0 || el.offsetHeight === 0) return;
-    setSize((prev) =>
-      prev.w === el.offsetWidth && prev.h === el.offsetHeight
-        ? prev
-        : { w: el.offsetWidth, h: el.offsetHeight },
-    );
-  }, [ayah, translation, highlightColor]);
+    if (!el) return;
+    const measure = () => {
+      if (el.offsetWidth === 0 || el.offsetHeight === 0) return;
+      setSize((prev) =>
+        prev.w === el.offsetWidth && prev.h === el.offsetHeight
+          ? prev
+          : { w: el.offsetWidth, h: el.offsetHeight },
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ayah, translation, highlightColor, isHidden, onToggleHidden, tasmiMistakes]);
 
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 768;
+  const vw =
+    typeof window !== "undefined"
+      ? Math.min(window.innerWidth, window.visualViewport?.width ?? window.innerWidth)
+      : 1024;
+  const vh =
+    typeof window !== "undefined"
+      ? Math.min(window.innerHeight, window.visualViewport?.height ?? window.innerHeight)
+      : 768;
 
+  const edgePad = 12;
+  const gap = 10;
+  const maxHeight = Math.max(180, vh - edgePad * 2);
+  const effectiveH = Math.min(size.h, maxHeight);
   const preferredLeft = anchorRect.left + anchorRect.width / 2 - size.w / 2;
-  const left = Math.max(12, Math.min(vw - size.w - 12, preferredLeft));
-  const fitsAbove = anchorRect.top > size.h + 24;
-  const top = fitsAbove
-    ? Math.max(12, anchorRect.top - size.h - 10)
-    : Math.min(vh - size.h - 12, anchorRect.bottom + 10);
+  const left = Math.max(edgePad, Math.min(vw - size.w - edgePad, preferredLeft));
+  const spaceAbove = anchorRect.top - edgePad - gap;
+  const spaceBelow = vh - anchorRect.bottom - edgePad - gap;
+  const placeAbove =
+    effectiveH <= spaceAbove || (effectiveH > spaceBelow && spaceAbove >= spaceBelow);
+  const rawTop = placeAbove ? anchorRect.top - effectiveH - gap : anchorRect.bottom + gap;
+  const top = Math.max(edgePad, Math.min(vh - effectiveH - edgePad, rawTop));
 
   return (
     <div
@@ -138,7 +162,7 @@ export function AyahPopover({
       className="ayah-popover"
       role="dialog"
       aria-label={`Aksi untuk ${surahName} ayat ${ayahNum}`}
-      style={{ left, top }}
+      style={{ left, top, maxHeight }}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="ayah-popover__header">
@@ -149,6 +173,31 @@ export function AyahPopover({
           ×
         </button>
       </div>
+
+      {tasmiMistakes && tasmiMistakes.length > 0 && (
+        <div className="ayah-popover__mistakes" aria-label="Catatan kesalahan Tasmi'">
+          <div className="ayah-popover__mistakes-title">
+            Catatan Tasmi&apos; ({tasmiMistakes.length})
+          </div>
+          <ul className="ayah-popover__mistakes-list">
+            {tasmiMistakes.map((m) => (
+              <li key={m.id} className="ayah-popover__mistake-row">
+                <span className="ayah-popover__mistake-badge">
+                  {formatErrorClass(m.errorClass)}
+                </span>
+                {m.wordText && (
+                  <span className="ayah-popover__mistake-word" dir="rtl" lang="ar">
+                    {m.wordText}
+                  </span>
+                )}
+                {typeof m.word === "number" && m.word > 0 && (
+                  <span className="ayah-popover__mistake-pos">kata {m.word}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="ayah-popover__translation" aria-live="polite">
         {translation.status === "loading" && (

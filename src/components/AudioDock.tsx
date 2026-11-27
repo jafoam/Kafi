@@ -23,6 +23,8 @@ export interface AudioDockProps {
   onCycleSpeed: () => void;
   onChangeScope: (scope: PlaybackScope) => void;
   onToggleTalaqqi?: (enabled: boolean) => void;
+  wordAudioHighlight?: boolean;
+  onToggleWordAudioHighlight?: (enabled: boolean) => void;
   onDownloadSurah: () => void;
   onOpenStudy: () => void;
   onOpenTasmi: () => void;
@@ -53,6 +55,8 @@ export function AudioDock({
   onCycleSpeed,
   onChangeScope,
   onToggleTalaqqi,
+  wordAudioHighlight = true,
+  onToggleWordAudioHighlight,
   onDownloadSurah,
   onOpenStudy,
   onOpenTasmi,
@@ -325,6 +329,8 @@ export function AudioDock({
           onCycleRepeat={onCycleRepeat}
           onCycleSpeed={onCycleSpeed}
           onToggleTalaqqi={(enabled) => onToggleTalaqqi?.(enabled)}
+          wordAudioHighlight={wordAudioHighlight}
+          onToggleWordAudioHighlight={onToggleWordAudioHighlight}
           onClose={() => setMenuOpen(false)}
         />
       )}

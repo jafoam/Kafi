@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { AyahKey, MurajaahCard, SurahInfo, TasmiSessionRecord } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/murajaah-srs";
@@ -9,6 +9,7 @@ export interface TasmiSummaryModalProps {
   initialTab: "summary" | "history" | "schedule";
   record: TasmiSessionRecord | null;
   history: TasmiSessionRecord[];
+  archivedIds?: Set<string>;
   murajaahCards?: MurajaahCard[];
   surahs: SurahInfo[];
   getAyahWords: (surah: number, ayah: number) => string[];
@@ -19,6 +20,8 @@ export interface TasmiSummaryModalProps {
   onJumpToAyah: (ayah: AyahKey) => void;
   onStartDrill?: (ayahs: AyahKey[]) => void;
   onStartMurajaahCard?: (card: MurajaahCard) => void;
+  onDeleteHistory?: (id: string) => void;
+  onToggleArchiveHistory?: (id: string, archived: boolean) => void;
 }
 
 interface QcfGlyph {
@@ -106,6 +109,7 @@ export function TasmiSummaryModal({
   initialTab,
   record,
   history,
+  archivedIds,
   murajaahCards = [],
   surahs,
   getAyahWords,
@@ -116,10 +120,29 @@ export function TasmiSummaryModal({
   onJumpToAyah,
   onStartDrill,
   onStartMurajaahCard,
+  onDeleteHistory,
+  onToggleArchiveHistory,
 }: TasmiSummaryModalProps) {
   const [tab, setTab] = useState<"summary" | "history" | "schedule">(initialTab);
+  const [historyFilter, setHistoryFilter] = useState<"active" | "archived">("active");
   const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
   const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
+
+  const activeHistory = useMemo(
+    () => (archivedIds && archivedIds.size > 0 ? history.filter((item) => !archivedIds.has(item.id)) : history),
+    [history, archivedIds],
+  );
+  const archivedHistory = useMemo(
+    () => (archivedIds && archivedIds.size > 0 ? history.filter((item) => archivedIds.has(item.id)) : []),
+    [history, archivedIds],
+  );
+  const visibleHistory = historyFilter === "archived" && archivedHistory.length > 0 ? archivedHistory : activeHistory;
+
+  useEffect(() => {
+    if (historyFilter === "archived" && archivedHistory.length === 0) {
+      setHistoryFilter("active");
+    }
+  }, [historyFilter, archivedHistory.length]);
 
   const surahByNum = useMemo(() => {
     const map = new Map<number, SurahInfo>();
@@ -261,7 +284,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("history")}
           >
-            Riwayat ({history.length})
+            Riwayat ({activeHistory.length})
           </button>
           <button
             type="button"
@@ -411,38 +434,78 @@ export function TasmiSummaryModal({
               </div>
             ) : (
               <div className="tasmi-summary__history-list">
-                {history.map((item) => {
-                  const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
-                  return (
+                {archivedHistory.length > 0 && (
+                  <div className="app-menu__segmented tasmi-summary__history-filter" role="tablist" aria-label="Filter riwayat Tasmi'">
                     <button
-                      key={item.id}
                       type="button"
-                      className="tasmi-summary__history-item"
-                      onClick={() => {
-                        setSelectedRecord(item);
-                        setTab("summary");
-                      }}
+                      role="tab"
+                      aria-selected={historyFilter === "active"}
+                      className={`app-menu__seg ${historyFilter === "active" ? "app-menu__seg--active" : ""}`}
+                      onClick={() => setHistoryFilter("active")}
                     >
-                      <div>
-                        <div className="tasmi-summary__history-title">
-                          {sName} · Ayat {item.fromAyah}–{item.toAyah}
-                        </div>
-                        <div className="tasmi-summary__history-sub">
-                          {formatDate(item.startedAt)} · {formatDuration(item.durationSec)}
-                        </div>
-                      </div>
-                      <span
-                        className={`tasmi-summary__score ${
-                          item.mistakes.length === 0
-                            ? "tasmi-summary__score--clean"
-                            : "tasmi-summary__score--warn"
-                        }`}
-                      >
-                        {item.mistakes.length === 0 ? "Lancar" : `${item.mistakes.length} catatan`}
-                      </span>
+                      Aktif ({activeHistory.length})
                     </button>
-                  );
-                })}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={historyFilter === "archived"}
+                      className={`app-menu__seg ${historyFilter === "archived" ? "app-menu__seg--active" : ""}`}
+                      onClick={() => setHistoryFilter("archived")}
+                    >
+                      Arsip ({archivedHistory.length})
+                    </button>
+                  </div>
+                )}
+
+                {(onDeleteHistory || onToggleArchiveHistory) && visibleHistory.length > 0 && (
+                  <p className="tasmi-summary__history-hint">
+                    Geser ke kiri atau ketuk ikon untuk arsipkan atau hapus riwayat.
+                  </p>
+                )}
+
+                {visibleHistory.length === 0 ? (
+                  <div className="tasmi-summary__empty">
+                    Semua riwayat saat ini berada di Arsip.
+                  </div>
+                ) : (
+                  visibleHistory.map((item) => {
+                    const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
+                    const isArchived = Boolean(archivedIds?.has(item.id));
+                    return (
+                      <SwipeableHistoryRow
+                        key={item.id}
+                        title={`${sName} · Ayat ${item.fromAyah}–${item.toAyah}`}
+                        sub={`${formatDate(item.startedAt)} · ${formatDuration(item.durationSec)}`}
+                        scoreLabel={
+                          item.mistakes.length === 0
+                            ? "Lancar"
+                            : `${item.mistakes.length} catatan`
+                        }
+                        scoreTone={item.mistakes.length === 0 ? "clean" : "warn"}
+                        archived={isArchived}
+                        onSelect={() => {
+                          setSelectedRecord(item);
+                          setTab("summary");
+                        }}
+                        onToggleArchive={
+                          onToggleArchiveHistory
+                            ? () => onToggleArchiveHistory(item.id, !isArchived)
+                            : undefined
+                        }
+                        onDelete={
+                          onDeleteHistory
+                            ? () => {
+                                if (selectedRecord?.id === item.id) {
+                                  setSelectedRecord(null);
+                                }
+                                onDeleteHistory(item.id);
+                              }
+                            : undefined
+                        }
+                      />
+                    );
+                  })
+                )}
               </div>
             )
           ) : sortedCards.length === 0 ? (
@@ -484,6 +547,217 @@ export function TasmiSummaryModal({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+const SWIPE_ACTION_PX = 76;
+
+interface SwipeableHistoryRowProps {
+  title: string;
+  sub: string;
+  scoreLabel: string;
+  scoreTone: "clean" | "warn";
+  archived?: boolean;
+  onSelect: () => void;
+  onToggleArchive?: () => void;
+  onDelete?: () => void;
+}
+
+function SwipeableHistoryRow({
+  title,
+  sub,
+  scoreLabel,
+  scoreTone,
+  archived = false,
+  onSelect,
+  onToggleArchive,
+  onDelete,
+}: SwipeableHistoryRowProps) {
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const justDraggedRef = useRef(false);
+  const dragRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    baseOffset: number;
+    axis: "pending" | "x" | "y";
+    moved: boolean;
+  } | null>(null);
+
+  const actionCount = (onToggleArchive ? 1 : 0) + (onDelete ? 1 : 0);
+  const revealWidth = actionCount * SWIPE_ACTION_PX;
+  const fullDeleteThreshold = revealWidth + 72;
+
+  const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (actionCount === 0 || e.button > 0) return;
+    if ((e.target as HTMLElement).closest(".tasmi-history-swipe__btns")) return;
+    dragRef.current = {
+      id: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseOffset: offset,
+      axis: "pending",
+      moved: false,
+    };
+  };
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (drag.axis === "pending") {
+      if (Math.hypot(dx, dy) < 8) return;
+      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
+        drag.axis = "x";
+        drag.moved = true;
+        setDragging(true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } else {
+        drag.axis = "y";
+        return;
+      }
+    }
+    if (drag.axis !== "x") return;
+    const maxPull = onDelete ? fullDeleteThreshold + 20 : revealWidth + 16;
+    const next = Math.max(-maxPull, Math.min(0, drag.baseOffset + dx));
+    setOffset(next);
+  };
+
+  const finishDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.id !== e.pointerId) return;
+    dragRef.current = null;
+    if (drag.axis !== "x") return;
+    justDraggedRef.current = drag.moved;
+    setDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    if (onDelete && offset <= -fullDeleteThreshold) {
+      onDelete();
+      return;
+    }
+    setOffset(offset <= -revealWidth / 2 ? -revealWidth : 0);
+  };
+
+  const archiveLabel = archived ? "Pulihkan" : "Arsipkan";
+
+  return (
+    <div className="tasmi-history-swipe">
+      {actionCount > 0 && (
+        <div className="tasmi-history-swipe__tray" style={{ width: revealWidth }}>
+          {onToggleArchive && (
+            <button
+              type="button"
+              className="tasmi-history-swipe__action tasmi-history-swipe__action--archive"
+              onClick={() => {
+                setOffset(0);
+                onToggleArchive();
+              }}
+              aria-label={`${archiveLabel} riwayat ${title}`}
+              tabIndex={offset < 0 ? 0 : -1}
+            >
+              {archiveLabel}
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="tasmi-history-swipe__action tasmi-history-swipe__action--delete"
+              onClick={onDelete}
+              aria-label={`Hapus riwayat ${title}`}
+              tabIndex={offset < 0 ? 0 : -1}
+            >
+              Hapus
+            </button>
+          )}
+        </div>
+      )}
+      <div
+        className={`tasmi-summary__history-item tasmi-history-swipe__card ${
+          dragging ? "tasmi-history-swipe__card--dragging" : ""
+        }`}
+        style={offset !== 0 ? { transform: `translateX(${offset}px)` } : undefined}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+      >
+        <button
+          type="button"
+          className="tasmi-history-swipe__main"
+          onClick={() => {
+            if (justDraggedRef.current) {
+              justDraggedRef.current = false;
+              return;
+            }
+            if (offset < 0) {
+              setOffset(0);
+              return;
+            }
+            onSelect();
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === "Delete" || e.key === "Backspace") && onDelete) {
+              e.preventDefault();
+              onDelete();
+            }
+          }}
+        >
+          <div className="tasmi-history-swipe__text">
+            <div className="tasmi-summary__history-title">{title}</div>
+            <div className="tasmi-summary__history-sub">{sub}</div>
+          </div>
+          <span className={`tasmi-summary__score tasmi-summary__score--${scoreTone}`}>
+            {scoreLabel}
+          </span>
+        </button>
+
+        {actionCount > 0 && (
+          <div className="tasmi-history-swipe__btns">
+            {onToggleArchive && (
+              <button
+                type="button"
+                className="tasmi-history-swipe__icon-btn"
+                onClick={onToggleArchive}
+                aria-label={`${archiveLabel} riwayat ${title}`}
+                title={archiveLabel}
+              >
+                {archived ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect width="20" height="5" x="2" y="3" rx="1" />
+                    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                    <path d="M10 12h4" />
+                  </svg>
+                )}
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="tasmi-history-swipe__icon-btn tasmi-history-swipe__icon-btn--danger"
+                onClick={onDelete}
+                aria-label={`Hapus riwayat ${title}`}
+                title="Hapus"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

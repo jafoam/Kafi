@@ -17,8 +17,135 @@ export const RECITER_SEGMENT_IDS: Record<string, number> = {
 };
 
 const CACHE_BUCKET = "segments";
+const TOTAL_SURAHS = 114;
+const SEGMENT_CONCURRENCY = 4;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+export function hasWordSegments(reciterId: string): boolean {
+  return Boolean(RECITER_SEGMENT_IDS[reciterId]);
+}
+
+export function segmentCacheKey(reciterId: string, surah: number): string | null {
+  const recId = RECITER_SEGMENT_IDS[reciterId];
+  return recId ? `${recId}_${surah}` : null;
+}
+
+export interface SegmentDownloadStatus {
+  supported: boolean;
+  cachedSurahs: number;
+  totalSurahs: number;
+  bytes: number;
+}
+
+export async function readSegmentDownloadStatus(
+  platform: Pick<PlatformAdapter, "cacheList">,
+  reciterId: string,
+  totalSurahs = TOTAL_SURAHS,
+): Promise<SegmentDownloadStatus> {
+  const recId = RECITER_SEGMENT_IDS[reciterId];
+  if (!recId) {
+    return { supported: false, cachedSurahs: 0, totalSurahs, bytes: 0 };
+  }
+  const known = new Set<string>();
+  for (let s = 1; s <= totalSurahs; s += 1) {
+    known.add(`${recId}_${s}`);
+  }
+  let cachedSurahs = 0;
+  let bytes = 0;
+  for (const { key, size } of await platform.cacheList(CACHE_BUCKET)) {
+    if (!known.has(key)) continue;
+    cachedSurahs += 1;
+    bytes += size;
+  }
+  return { supported: true, cachedSurahs, totalSurahs, bytes };
+}
+
+export async function downloadSurahSegments(
+  platform: Pick<PlatformAdapter, "cacheHas" | "cachePut">,
+  reciterId: string,
+  surah: number,
+  signal?: AbortSignal,
+  fetcher: typeof fetch = globalThis.fetch.bind(globalThis),
+): Promise<void> {
+  const recId = RECITER_SEGMENT_IDS[reciterId];
+  if (!recId) return;
+  const cacheKey = `${recId}_${surah}`;
+  if (await platform.cacheHas(CACHE_BUCKET, cacheKey)) return;
+
+  const url = `https://api.quran.com/api/v4/recitations/${recId}/by_chapter/${surah}?fields=segments&per_page=300`;
+  const res = await fetcher(url, { signal });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const raw: unknown = await res.json();
+  const parsed = parseSurahSegments(raw);
+  if (parsed.size === 0) {
+    throw new Error("Empty segments");
+  }
+  await platform.cachePut(CACHE_BUCKET, cacheKey, encoder.encode(JSON.stringify(raw)));
+}
+
+export async function deleteReciterSegments(
+  platform: Pick<PlatformAdapter, "cacheDelete">,
+  reciterId: string,
+  totalSurahs = TOTAL_SURAHS,
+): Promise<void> {
+  const recId = RECITER_SEGMENT_IDS[reciterId];
+  if (!recId) return;
+  for (let s = 1; s <= totalSurahs; s += 1) {
+    await platform.cacheDelete(CACHE_BUCKET, `${recId}_${s}`);
+  }
+}
+
+export async function downloadAllReciterSegments(options: {
+  platform: Pick<PlatformAdapter, "cacheHas" | "cachePut">;
+  reciterId: string;
+  totalSurahs?: number;
+  onProgress: (done: number, total: number) => void;
+  signal?: AbortSignal;
+  fetcher?: typeof fetch;
+}): Promise<{ failed: number[] }> {
+  const totalSurahs = options.totalSurahs ?? TOTAL_SURAHS;
+  if (!hasWordSegments(options.reciterId) || totalSurahs <= 0) {
+    return { failed: [] };
+  }
+
+  let nextSurah = 1;
+  let done = 0;
+  const failed: number[] = [];
+
+  const worker = async (): Promise<void> => {
+    while (true) {
+      if (options.signal?.aborted) {
+        throw options.signal.reason ?? new DOMException("Aborted", "AbortError");
+      }
+      const surah = nextSurah++;
+      if (surah > totalSurahs) return;
+      try {
+        await downloadSurahSegments(
+          options.platform,
+          options.reciterId,
+          surah,
+          options.signal,
+          options.fetcher,
+        );
+      } catch (err) {
+        if ((err instanceof DOMException && err.name === "AbortError") || options.signal?.aborted) {
+          throw err;
+        }
+        failed.push(surah);
+      }
+      done += 1;
+      options.onProgress(done, totalSurahs);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(SEGMENT_CONCURRENCY, totalSurahs) }, () => worker()),
+  );
+  return { failed };
+}
 
 export function parseSurahSegments(raw: unknown): Map<AyahKey, WordSegment[]> {
   const out = new Map<AyahKey, WordSegment[]>();

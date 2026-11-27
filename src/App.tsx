@@ -13,6 +13,7 @@ import type {
   MushafMap,
   SpreadMode,
   SyncConfig,
+  TasmiMistakeRecord,
   TasmiSessionKind,
   TasmiSessionRecord,
   ThemeMode,
@@ -35,6 +36,7 @@ import {
 import { isSurahComplete } from "./services/audio-downloads";
 import { juzRange, pageRange } from "./services/playback-ranges";
 import { useAudioDownloads } from "./state/useAudioDownloads";
+import { useSegmentDownloads } from "./state/useSegmentDownloads";
 import { useTextDownloads } from "./state/useTextDownloads";
 import { createQuranApi } from "./services/quran-api";
 import {
@@ -262,6 +264,7 @@ export function App({
   const [tasmiInitialAyah, setTasmiInitialAyah] = useState<AyahKey | null>(null);
   const [tasmiActive, setTasmiActive] = useState(false);
   const [tasmiState, setTasmiState] = useState<TasmiLiveState | null>(null);
+  const [lastTasmiMistakes, setLastTasmiMistakes] = useState<TasmiMistakeRecord[]>([]);
   const [tasmiBlurEnabled, setTasmiBlurEnabled] = useState(true);
   const [randomPool, setRandomPool] = useState<RandomPool | null>(null);
   const [randomPrompt, setRandomPrompt] = useState<RandomPromptInfo | null>(null);
@@ -573,9 +576,10 @@ export function App({
   }, [tasmiActive, tasmiState?.activeAyah, rightPage, leftPage, getPagesForAyah, navigateToPage]);
 
   // Load word-level audio timing segments for the currently playing surah & reciter
+  const wordAudioHighlight = userData.settings.wordAudioHighlight;
   const playingSurahNum = audioState.currentAyah ? parseAyahKey(audioState.currentAyah).surah : null;
   useEffect(() => {
-    if (!playingSurahNum) {
+    if (!playingSurahNum || !wordAudioHighlight) {
       setSurahSegments(null);
       return;
     }
@@ -590,13 +594,15 @@ export function App({
     return () => {
       live = false;
     };
-  }, [segmentLoader, audioState.reciterId, playingSurahNum]);
+  }, [segmentLoader, audioState.reciterId, playingSurahNum, wordAudioHighlight]);
 
   // Sync per-glyph highlight with audio.currentTime while playing
   useEffect(() => {
     const ayah = audioState.currentAyah;
     const segments =
-      audioState.isPlaying && !audioState.isBismillah && ayah ? surahSegments?.get(ayah) : null;
+      wordAudioHighlight && audioState.isPlaying && !audioState.isBismillah && ayah
+        ? surahSegments?.get(ayah)
+        : null;
     if (!segments || segments.length === 0) {
       setPlayingWordRange(null);
       return;
@@ -612,7 +618,14 @@ export function App({
     };
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [audioState.isPlaying, audioState.isBismillah, audioState.currentAyah, surahSegments, audioController]);
+  }, [
+    wordAudioHighlight,
+    audioState.isPlaying,
+    audioState.isBismillah,
+    audioState.currentAyah,
+    surahSegments,
+    audioController,
+  ]);
 
 
   // Sync open StudyDrawer only when active playing ayah actually changes
@@ -684,11 +697,6 @@ export function App({
     (audioState.isPlaying || audioState.isLoading || audioState.isTalaqqiPause
       ? (audioState.currentAyah ?? playTargetAyah)
       : playTargetAyah);
-  const isAudioRelevant = Boolean(
-    audioState.currentAyah && (audioState.isPlaying || isAudioOnVisiblePage),
-  );
-  const tasmiContextAyah: AyahKey | null =
-    playingAyah ?? (isAudioRelevant ? audioState.currentAyah! : (selected?.ayah ?? null));
   const activeSurahNum = parseAyahKey(activeAyah).surah;
   const activeSurah = surahByNumber.get(activeSurahNum);
 
@@ -830,6 +838,11 @@ export function App({
     folder: reciterById.get(audioState.reciterId)?.subfolder ?? audioState.reciterId,
   });
 
+  const segmentDownloads = useSegmentDownloads({
+    platform,
+    reciterId: audioState.reciterId,
+  });
+
   const textDownloads = useTextDownloads({
     platform,
     api: quranApi,
@@ -856,14 +869,14 @@ export function App({
   }, [activeSurah, downloads, openDownloads]);
 
   // Tell the reader when a text download finishes.
-  const prevTextPhaseRef = useRef(textDownloads.state.phase);
+  const prevTextSeqRef = useRef(0);
   useEffect(() => {
-    const was = prevTextPhaseRef.current;
-    prevTextPhaseRef.current = textDownloads.state.phase;
-    if (was !== "running" || textDownloads.state.phase !== "idle") return;
-    const label = textDownloads.state.kind === "tafsir" ? "Tafsir" : "Terjemahan";
+    const done = textDownloads.lastCompleted;
+    if (!done || done.seq === prevTextSeqRef.current) return;
+    prevTextSeqRef.current = done.seq;
+    const label = done.kind === "tafsir" ? "Tafsir" : "Terjemahan";
     showToast(`${label} tersimpan offline`);
-  }, [textDownloads.state.phase, textDownloads.state.kind, showToast]);
+  }, [textDownloads.lastCompleted, showToast]);
 
   // Tell the reader when a download finishes.
   const previousPhaseRef = useRef(downloads.state.phase);
@@ -1058,6 +1071,7 @@ export function App({
       const initial = createTasmiState(mode, passage);
       tasmiStateRef.current = initial;
       tasmiStartedAtRef.current = Date.now();
+      setLastTasmiMistakes([]);
       setTasmiState(initial);
       setTasmiBlurEnabled(mode === "memorization" ? enableBlur : false);
       setPeekedAyah(null);
@@ -1159,6 +1173,7 @@ export function App({
         const initial = createTasmiState("memorization", challenge.passage);
         tasmiStateRef.current = initial;
         tasmiStartedAtRef.current = Date.now();
+        setLastTasmiMistakes([]);
         setRandomPool(pool);
         setRandomPrompt({ ayah: challenge.promptAyah, playing: true });
         setTasmiState(initial);
@@ -1301,6 +1316,7 @@ export function App({
         const initial = createTasmiState("memorization", passage);
         tasmiStateRef.current = initial;
         tasmiStartedAtRef.current = Date.now();
+        setLastTasmiMistakes([]);
         setTasmiState(initial);
         setPeekedAyah(null);
         setTasmiActive(true);
@@ -1430,6 +1446,7 @@ export function App({
     const finalState = tasmiStateRef.current;
     tasmiStateRef.current = null;
     setTasmiState(null);
+    setLastTasmiMistakes(finalState?.confirmedMistakes ?? []);
 
     if (wasDrill) {
       showToast("Latih Kesalahan selesai");
@@ -1525,7 +1542,7 @@ export function App({
           void handleStopTasmi();
         } else {
           setTasmiError(null);
-          setTasmiInitialAyah(tasmiContextAyah);
+          setTasmiInitialAyah(null);
           setTasmiSheetOpen((prev) => !prev);
         }
         return;
@@ -1557,7 +1574,6 @@ export function App({
     tasmiSheetOpen,
     tasmiActive,
     tasmiState?.mode,
-    tasmiContextAyah,
     handleStopTasmi,
     handleToggleHifzBlur,
     handleTogglePlay,
@@ -1767,13 +1783,40 @@ export function App({
     [blurSet, hiddenAyahSet, userStore, persistUser],
   );
 
+  const activeMistakes = useMemo(
+    () =>
+      tasmiState && tasmiState.confirmedMistakes.length > 0
+        ? tasmiState.confirmedMistakes
+        : lastTasmiMistakes,
+    [tasmiState, lastTasmiMistakes],
+  );
+
   const effectiveMistakeAyahs = useMemo(() => {
     if (mistakeAyahs) return mistakeAyahs;
-    if (tasmiState && tasmiState.confirmedMistakes.length > 0) {
-      return buildMistakeBadges(tasmiState.confirmedMistakes);
+    if (activeMistakes.length > 0) {
+      return buildMistakeBadges(activeMistakes);
     }
     return undefined;
-  }, [mistakeAyahs, tasmiState]);
+  }, [mistakeAyahs, activeMistakes]);
+
+  const archivedTasmiIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const [id, ev] of Object.entries(userData.archivedTasmi ?? {})) {
+      if (ev.on) set.add(id);
+    }
+    return set;
+  }, [userData.archivedTasmi]);
+
+  const activeTasmiHistoryCount = useMemo(
+    () => userData.tasmiHistory.filter((item) => !archivedTasmiIds.has(item.id)).length,
+    [userData.tasmiHistory, archivedTasmiIds],
+  );
+
+  const selectedTasmiMistakes = useMemo(() => {
+    if (!selected || activeMistakes.length === 0) return undefined;
+    const list = activeMistakes.filter((m) => `${m.surah}:${m.ayah}` === selected.ayah);
+    return list.length > 0 ? list : undefined;
+  }, [selected, activeMistakes]);
 
   const surahLabel = useMemo(() => {
     const ids = new Set<number>();
@@ -1909,7 +1952,7 @@ export function App({
           )
         }
         onChangeTheme={handleChangeTheme}
-        onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
+        onOpenTasmi={() => handleOpenTasmi(null)}
         onOpenDownloads={() => openDownloads("audio")}
         onOpenSync={() => {
           setSyncError(null);
@@ -1931,6 +1974,7 @@ export function App({
           juzNumber={juzNumber}
           juzSurahs={activeJuzSurahs}
           downloads={downloads}
+          segmentDownloads={segmentDownloads}
           translations={catalog.translations}
           tafsirs={catalog.tafsirs}
           activeTranslationId={userData.settings.translationId}
@@ -2036,6 +2080,7 @@ export function App({
           getArabicText={getAyahArabicText}
           isBookmarked={bookmarkSet.has(selected.ayah)}
           highlightColor={userData.highlights[selected.ayah] ?? null}
+          tasmiMistakes={selectedTasmiMistakes}
           onClose={() => setSelected(null)}
           onPlayAyah={(ayah) => {
             handlePlayAyah(ayah);
@@ -2080,9 +2125,13 @@ export function App({
         onCycleSpeed={handleCycleSpeed}
         onChangeScope={handleChangeScope}
         onToggleTalaqqi={handleToggleTalaqqi}
+        wordAudioHighlight={wordAudioHighlight}
+        onToggleWordAudioHighlight={(enabled) =>
+          persistUser(userStore.updateSettings({ wordAudioHighlight: enabled }))
+        }
         onDownloadSurah={handleDockDownload}
         onOpenStudy={() => handleOpenStudy(activeAyah)}
-        onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
+        onOpenTasmi={() => handleOpenTasmi(null)}
       />
 
       <StudyDrawer
@@ -2222,7 +2271,7 @@ export function App({
         surahs={catalog.surahs}
         currentJuz={juzNumber}
         initialAyah={tasmiInitialAyah}
-        historyCount={userData.tasmiHistory.length}
+        historyCount={activeTasmiHistoryCount}
         murajaahCards={userData.murajaahCards}
         loadingProgress={modelLoading}
         isStarting={tasmiStarting}
@@ -2255,7 +2304,7 @@ export function App({
           onClose={() => setTasmiGuideOpen(false)}
           onStart={() => {
             setTasmiGuideOpen(false);
-            if (!tasmiSheetOpen) handleOpenTasmi(tasmiContextAyah);
+            if (!tasmiSheetOpen) handleOpenTasmi(null);
           }}
         />
       )}
@@ -2265,6 +2314,7 @@ export function App({
         initialTab={summaryModal.tab}
         record={summaryModal.record}
         history={userData.tasmiHistory}
+        archivedIds={archivedTasmiIds}
         murajaahCards={userData.murajaahCards}
         surahs={catalog.surahs}
         getAyahWords={wordLookup}
@@ -2291,6 +2341,13 @@ export function App({
             true,
             card.kind,
           );
+        }}
+        onDeleteHistory={(id) => {
+          persistUser(userStore.deleteTasmiHistory(id));
+        }}
+        onToggleArchiveHistory={(id, archived) => {
+          persistUser(userStore.setTasmiArchived(id, archived));
+          showToast(archived ? "Riwayat diarsipkan" : "Riwayat dipulihkan");
         }}
       />
 

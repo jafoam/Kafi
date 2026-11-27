@@ -330,6 +330,40 @@ export function reduceTilawaEvent(
     let revealedAyahs = state.revealedAyahs;
     let recitedWords = state.recitedWords;
 
+    const markFatihahBasmalah = (wordsSet: Set<string>, revealedSet: Set<AyahKey>, upToWord?: number) => {
+      const basmalahCount = getAyahWords(1, 1).length;
+      const limit = upToWord !== undefined ? Math.min(upToWord, basmalahCount || upToWord) : basmalahCount;
+      for (let w = 1; w <= limit; w += 1) {
+        wordsSet.add(`1:1:${w}`);
+      }
+      if (upToWord === undefined || (basmalahCount > 0 && upToWord >= basmalahCount)) {
+        revealedSet.add("1:1");
+      }
+    };
+
+    // @tilawa/core treats the basmala as a skippable phrase and holds off locking while it is
+    // being recited (emitting state="acquiring" with 1:1 in observed[0]), then cuts it before 1:2.
+    // Recognize Al-Fatihah 1:1 during acquiring so Bismillah highlights and opens live.
+    if (
+      top &&
+      event.state === "acquiring" &&
+      top.word.surah === 1 &&
+      top.word.ayah === 1 &&
+      (state.mode === "free" || (state.passage !== null && inPassage(top.word, state.passage)))
+    ) {
+      activeWord = top.word;
+      activeAyah = "1:1";
+      const nextWords = new Set(state.recitedWords);
+      const nextRevealed = new Set(state.revealedAyahs);
+      const endWord =
+        top.span.end.surah === 1 && top.span.end.ayah === 1
+          ? Math.max(top.word.word, top.span.end.word)
+          : top.word.word;
+      markFatihahBasmalah(nextWords, nextRevealed, endWord);
+      recitedWords = nextWords;
+      revealedAyahs = nextRevealed;
+    }
+
     if (top && event.state === "locked") {
       const prevAyah = state.activeAyah;
       activeWord = top.word;
@@ -356,6 +390,23 @@ export function reduceTilawaEvent(
           }
           if (a < end.ayah) nextRevealed.add(`${start.surah}:${a}`);
         }
+      }
+
+      // If @tilawa/core cut the basmala phrase before locking onto Al-Fatihah 1:2, 1:1 won't appear
+      // in top.span even though the reciter just said it. Credit and open 1:1 when starting Al-Fatihah.
+      const hasFatihah1Mistake = state.confirmedMistakes.some((m) => m.surah === 1 && m.ayah === 1);
+      const fatihahStartsAt1 =
+        state.mode === "memorization"
+          ? state.passage?.surah === 1 && state.passage.fromAyah === 1
+          : prevAyah === null || prevAyah === "1:1";
+      if (
+        !hasFatihah1Mistake &&
+        fatihahStartsAt1 &&
+        start.surah === 1 &&
+        start.ayah === 2 &&
+        !nextRevealed.has("1:1")
+      ) {
+        markFatihahBasmalah(nextWords, nextRevealed);
       }
       recitedWords = nextWords;
 

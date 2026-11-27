@@ -105,6 +105,8 @@ export interface AppSettings {
   hifzBlurLevel: HifzBlurLevel;
   /** Show the word-by-word translation tooltip on mushaf words. */
   wordTranslation: boolean;
+  /** Highlight each word in sync with murottal audio playback. */
+  wordAudioHighlight: boolean;
   /** Color the letters by tajweed rule; only the 1441 letters carry the colors, so it implies them. */
   tajweed: boolean;
   letterStyle: LetterStyle;
@@ -188,6 +190,10 @@ export interface UserData {
   notes: Record<AyahKey, string>;
   settings: AppSettings;
   tasmiHistory: TasmiSessionRecord[];
+  /** Deleted Tasmi' session IDs so removals survive cross-device sync. */
+  deletedTasmiIds?: string[];
+  /** Tasmi' sessions archived or restored, with timestamp so state survives sync. */
+  archivedTasmi?: Record<string, BookmarkEvent>;
   murajaahCards?: MurajaahCard[];
   updatedAt?: string;
   /** When settings last changed; settings merge by this, not by updatedAt. */
