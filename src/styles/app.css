@@ -4419,3 +4419,10 @@ textarea:focus-visible {
 .sync-advanced[open] summary {
   margin-bottom: 8px;
 }
+
+/* Phones get the floating Tasmi' button, so the dock does not repeat it. */
+@media (max-width: 900px) {
+  .audio-dock .audio-dock__tasmi-btn {
+    display: none;
+  }
+}
