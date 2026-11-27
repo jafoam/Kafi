@@ -114,6 +114,8 @@ export function GlyphPageBody({
     if (!(target instanceof HTMLElement)) return setTip(null);
     const el = target.closest<HTMLElement>("[data-code]");
     if (!el || !words?.has(el.dataset.code!)) return setTip(null);
+    // A hidden word's meaning would give the ayah away.
+    if (el.classList.contains("glyph-word--blurred")) return setTip(null);
     setTip({ code: el.dataset.code!, rect: el.getBoundingClientRect() });
   };
   const tipInfo = tip ? words?.get(tip.code) : undefined;
