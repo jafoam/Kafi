@@ -198,8 +198,8 @@ export function TasmiSheet({
       <div className="tasmi-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Tasmi&apos; &amp; Baca Bebas</h2>
-            <p className="tasmi-sheet__subtitle">Audio diproses 100% di perangkat</p>
+            <h2 className="tasmi-sheet__title">Tasmi&apos;</h2>
+            <p className="tasmi-sheet__subtitle">Suaramu diproses di perangkat</p>
           </div>
           <div className="tasmi-sheet__header-actions">
             <button
@@ -234,7 +234,7 @@ export function TasmiSheet({
             disabled={isBusy}
             onClick={() => setMode("memorization")}
           >
-            Tasmi&apos; Hafalan
+            Hafalan
           </button>
           <button
             type="button"
@@ -298,33 +298,33 @@ export function TasmiSheet({
                 </button>
               )}
 
-              <div className="tasmi-sheet__section">
+              <div className="tasmi-sheet__inline">
                 <span className="tasmi-sheet__label">Jenis setoran</span>
-                <div className="tasmi-sheet__blur-level" role="group" aria-label="Jenis setoran">
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    className={`app-menu__choice ${sessionKind === "murajaah" ? "app-menu__choice--active" : ""}`}
-                    aria-pressed={sessionKind === "murajaah"}
-                    onClick={() => setSessionKind("murajaah")}
-                  >
-                    Muraja&apos;ah
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isBusy}
-                    className={`app-menu__choice ${sessionKind === "ziyadah" ? "app-menu__choice--active" : ""}`}
-                    aria-pressed={sessionKind === "ziyadah"}
-                    onClick={() => setSessionKind("ziyadah")}
-                  >
-                    Ziyadah (Baru)
-                  </button>
+                <div className="app-menu__segmented" role="radiogroup" aria-label="Jenis setoran">
+                  {(
+                    [
+                      ["murajaah", "Muraja'ah"],
+                      ["ziyadah", "Ziyadah (baru)"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      disabled={isBusy}
+                      aria-checked={sessionKind === value}
+                      className={`app-menu__seg ${sessionKind === value ? "app-menu__seg--active" : ""}`}
+                      onClick={() => setSessionKind(value)}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Pilih cakupan di halaman ini</span>
-                <div className="tasmi-sheet__options">
+                <span className="tasmi-sheet__label">Cakupan</span>
+                <div className="tasmi-sheet__options tasmi-sheet__options--compact">
                   {candidates.map((opt) => (
                     <button
                       key={opt.id}
@@ -360,19 +360,13 @@ export function TasmiSheet({
                         setToAyah(activeSurahInfo.ayahs);
                       }}
                     >
-                      <span className="tasmi-sheet__option-name">
-                        1 Surah Penuh · {activeSurahInfo.name}
-                      </span>
+                      <span className="tasmi-sheet__option-name">Surah penuh</span>
                       <span className="tasmi-sheet__option-scope">
                         Ayat 1–{activeSurahInfo.ayahs}
                       </span>
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Atau sesuaikan rentang ayat</span>
                 <div className="tasmi-sheet__range-row">
                   <label className="tasmi-sheet__field">
                     <span>Surah</span>
@@ -428,39 +422,40 @@ export function TasmiSheet({
                 </div>
               </div>
 
-              <label className="tasmi-sheet__toggle">
-                <input
-                  type="checkbox"
-                  checked={enableBlur}
-                  disabled={isBusy}
-                  onChange={(e) => setEnableBlur(e.target.checked)}
-                />
-                <span>
-                  <strong>Sembunyikan ayat (Hifz Blur)</strong>
-                  <small>Ayat terbuka otomatis saat dibaca; ketuk ayat untuk mengintip.</small>
-                </span>
-              </label>
-
-              {enableBlur && onChangeHifzBlurLevel && (
-                <div className="tasmi-sheet__blur-level" role="group" aria-label="Tingkat sembunyi">
-                  <button
-                    type="button"
-                    className={`app-menu__choice ${hifzBlurLevel === "full" ? "app-menu__choice--active" : ""}`}
-                    aria-pressed={hifzBlurLevel === "full"}
-                    onClick={() => onChangeHifzBlurLevel("full")}
-                  >
-                    Sembunyi Penuh
-                  </button>
-                  <button
-                    type="button"
-                    className={`app-menu__choice ${hifzBlurLevel === "first-word" ? "app-menu__choice--active" : ""}`}
-                    aria-pressed={hifzBlurLevel === "first-word"}
-                    onClick={() => onChangeHifzBlurLevel("first-word")}
-                  >
-                    Tampilkan Kata Pertama
-                  </button>
+              <div className="tasmi-sheet__inline">
+                <span className="tasmi-sheet__label">Sembunyikan ayat</span>
+                <div className="app-menu__segmented" role="radiogroup" aria-label="Sembunyikan ayat">
+                  {(
+                    [
+                      ["off", "Tidak"],
+                      ["full", "Penuh"],
+                      ["first-word", "Kata awal"],
+                    ] as const
+                  ).map(([value, label]) => {
+                    const active = value === "off" ? !enableBlur : enableBlur && hifzBlurLevel === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        disabled={isBusy}
+                        aria-checked={active}
+                        className={`app-menu__seg ${active ? "app-menu__seg--active" : ""}`}
+                        onClick={() => {
+                          if (value === "off") {
+                            setEnableBlur(false);
+                            return;
+                          }
+                          setEnableBlur(true);
+                          onChangeHifzBlurLevel?.(value);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </>
           ) : mode === "random" ? (
             <>

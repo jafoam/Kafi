@@ -29,14 +29,46 @@ fn header_str<'a>(request: &'a Request<'_>, name: &str) -> Result<&'a str, Strin
 
 #[tauri::command]
 fn cache_put(app: AppHandle, request: Request<'_>) -> Result<(), String> {
-    let bucket = header_str(&request, "x-cache-bucket")?;
-    let key = header_str(&request, "x-cache-key")?;
-    let bytes = match request.body() {
-        InvokeBody::Raw(bytes) => bytes.as_slice(),
-        InvokeBody::Json(_) => return Err("Expected raw binary body for cache_put".to_string()),
-    };
     let base = app_data_dir(&app)?;
-    cache::write_cache_bytes(&base, bucket, key, bytes)
+    match request.body() {
+        InvokeBody::Raw(bytes) => {
+            let bucket = header_str(&request, "x-cache-bucket")?;
+            let key = header_str(&request, "x-cache-key")?;
+            cache::write_cache_bytes(&base, bucket, key, bytes.as_slice())
+        }
+        InvokeBody::Json(val) => {
+            if let Some(arr) = val.as_array() {
+                let bucket = header_str(&request, "x-cache-bucket")?;
+                let key = header_str(&request, "x-cache-key")?;
+                let mut bytes = Vec::with_capacity(arr.len());
+                for item in arr {
+                    let n = item
+                        .as_u64()
+                        .and_then(|v| u8::try_from(v).ok())
+                        .ok_or_else(|| "Invalid byte in cache_put JSON array".to_string())?;
+                    bytes.push(n);
+                }
+                cache::write_cache_bytes(&base, bucket, key, &bytes)
+            } else if let Some(obj) = val.as_object() {
+                let bucket = obj
+                    .get("bucket")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| "Missing bucket in cache_put payload".to_string())?;
+                let key = obj
+                    .get("key")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| "Missing key in cache_put payload".to_string())?;
+                let data_b64 = obj
+                    .get("dataB64")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| "Missing dataB64 in cache_put payload".to_string())?;
+                let bytes = cache::decode_base64(data_b64)?;
+                cache::write_cache_bytes(&base, bucket, key, &bytes)
+            } else {
+                Err("Expected raw binary or JSON payload for cache_put".to_string())
+            }
+        }
+    }
 }
 
 #[tauri::command]

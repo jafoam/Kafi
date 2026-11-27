@@ -59,6 +59,10 @@ function copyOrtAssetsPlugin() {
       if (process.env.TAURI_ENV_PLATFORM || process.env.VITE_MUSHAF_BASE_URL || process.env.CF_PAGES) {
         fs.rmSync(path.resolve(process.cwd(), "dist/mushaf"), { recursive: true, force: true });
       }
+      // Keep Android APKs lightweight (~20 MB): QCF page fonts load on demand and cache on disk.
+      if (process.env.TAURI_ENV_PLATFORM === "android") {
+        fs.rmSync(path.resolve(process.cwd(), "dist/fonts/qcf-v1"), { recursive: true, force: true });
+      }
     },
   };
 }

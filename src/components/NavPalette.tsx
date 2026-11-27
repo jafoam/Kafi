@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AyahKey, Catalog, MushafMap } from "../data/types";
-import { createQuranSearch, type QuranSearch, type RefV2Data } from "../services/arabic-search";
+import {
+  createQuranSearch,
+  matchesSurahName,
+  type QuranSearch,
+  type RefV2Data,
+} from "../services/arabic-search";
 import { clampPage, MAX_PAGE, MIN_PAGE } from "../state/reader-logic";
 
 export type PaletteTab = "surah" | "juz" | "page" | "search" | "bookmarks";
@@ -133,6 +138,7 @@ export function NavPalette({
     return catalog.surahs.filter(
       (s) =>
         s.name.toLowerCase().includes(q) ||
+        matchesSurahName(s, q) ||
         s.arabicName.includes(query.trim()) ||
         String(s.number) === q,
     );

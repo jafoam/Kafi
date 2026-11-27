@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import type { SyncConfig } from "../data/types";
+import { useEffect, useRef, useState } from "react";
+import type { SyncConfig, UserData } from "../data/types";
+import { parseBackup, type BackupSummary } from "../services/backup";
 import {
   DEFAULT_SYNC_WORKER_URL,
   generateSyncCode,
@@ -15,6 +16,9 @@ export interface SyncModalProps {
   onConnect: (code: string, workerUrl: string) => Promise<void>;
   onSyncNow: () => Promise<void>;
   onDisconnect: () => void;
+  onExportBackup: () => Promise<void>;
+  /** Merges a parsed backup into this device's data. */
+  onImportBackup: (data: UserData) => Promise<void>;
 }
 
 function formatSyncTime(iso?: string): string {
@@ -40,11 +44,19 @@ export function SyncModal({
   onConnect,
   onSyncNow,
   onDisconnect,
+  onExportBackup,
+  onImportBackup,
 }: SyncModalProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pendingImport, setPendingImport] = useState<{ data: UserData; summary: BackupSummary } | null>(
+    null,
+  );
+  const [backupBusy, setBackupBusy] = useState(false);
   const [codeInput, setCodeInput] = useState("");
   const [workerUrl, setWorkerUrl] = useState(config?.workerUrl || DEFAULT_SYNC_WORKER_URL);
   const [copied, setCopied] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [pending, setPending] = useState<"create" | "join" | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +64,7 @@ export function SyncModal({
     setCodeInput(config?.code ?? "");
     setLocalError(null);
     setCopied(false);
+    setPendingImport(null);
   }, [open, config]);
 
   useEffect(() => {
@@ -78,6 +91,7 @@ export function SyncModal({
   };
 
   const handleCreateNew = async () => {
+    setPending("create");
     setLocalError(null);
     const trimmedUrl = workerUrl.trim();
     if (!trimmedUrl) {
@@ -90,6 +104,7 @@ export function SyncModal({
   };
 
   const handleJoin = async () => {
+    setPending("join");
     setLocalError(null);
     const normalized = normalizeSyncCode(codeInput);
     if (!normalized) {
@@ -172,7 +187,7 @@ export function SyncModal({
                 </button>
                 <button
                   type="button"
-                  className="tasmi-sheet__cancel-btn"
+                  className="sync-secondary-btn"
                   disabled={syncing}
                   onClick={onDisconnect}
                 >
@@ -183,7 +198,8 @@ export function SyncModal({
           ) : (
             <>
               {!DEFAULT_SYNC_WORKER_URL && (
-                <div className="tasmi-sheet__section">
+                <details className="sync-advanced" open={!workerUrl.trim()}>
+                  <summary>Server sync sendiri (lanjutan)</summary>
                   <label className="tasmi-sheet__field">
                     <span>URL Cloudflare Worker Sync</span>
                     <input
@@ -194,8 +210,27 @@ export function SyncModal({
                       onChange={(e) => setWorkerUrl(e.target.value)}
                     />
                   </label>
-                </div>
+                </details>
               )}
+
+              <div className="tasmi-sheet__section">
+                <span className="tasmi-sheet__label">Baru pertama kali?</span>
+                <button
+                  type="button"
+                  className="tasmi-sheet__start-btn"
+                  disabled={syncing}
+                  onClick={() => void handleCreateNew()}
+                >
+                  {syncing && pending === "create" ? "Membuat kode…" : "Buat Kode Baru"}
+                </button>
+                <span className="tasmi-sheet__option-scope">
+                  Lalu masukkan kode itu di perangkat lainmu.
+                </span>
+              </div>
+
+              <div className="sync-divider" role="separator">
+                <span>atau</span>
+              </div>
 
               <div className="tasmi-sheet__section">
                 <label className="tasmi-sheet__field">
@@ -208,28 +243,108 @@ export function SyncModal({
                     onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   />
                 </label>
-                <div className="sync-actions-row">
-                  <button
-                    type="button"
-                    className="tasmi-sheet__start-btn"
-                    disabled={syncing || codeInput.trim().length < 8}
-                    onClick={() => void handleJoin()}
-                  >
-                    {syncing ? "Menghubungkan…" : "Sambungkan Kode"}
-                  </button>
-                  <button
-                    type="button"
-                    className="tasmi-sheet__history-btn"
-                    style={{ height: 40 }}
-                    disabled={syncing}
-                    onClick={() => void handleCreateNew()}
-                  >
-                    Buat Kode Baru
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="sync-join-btn"
+                  disabled={syncing || codeInput.trim().length < 8}
+                  onClick={() => void handleJoin()}
+                >
+                  {syncing && pending === "join" ? "Menghubungkan…" : "Sambungkan Kode"}
+                </button>
               </div>
             </>
           )}
+
+          <div className="sync-divider" role="separator">
+            <span>Cadangan manual</span>
+          </div>
+
+          {pendingImport ? (
+            <div className="sync-import-confirm" role="alert">
+              <p>
+                File berisi {pendingImport.summary.bookmarks} bookmark, {pendingImport.summary.highlights}{" "}
+                sorotan, {pendingImport.summary.notes} catatan, dan {pendingImport.summary.tasmi} riwayat
+                Tasmi&apos;. Isinya digabung dengan data di perangkat ini; tidak ada yang dihapus.
+              </p>
+              <div className="sync-actions-row">
+                <button
+                  type="button"
+                  className="tasmi-sheet__start-btn"
+                  disabled={backupBusy}
+                  onClick={async () => {
+                    setBackupBusy(true);
+                    try {
+                      await onImportBackup(pendingImport.data);
+                      setPendingImport(null);
+                    } catch {
+                      setLocalError("Gagal menggabungkan cadangan.");
+                    } finally {
+                      setBackupBusy(false);
+                    }
+                  }}
+                >
+                  Gabungkan
+                </button>
+                <button
+                  type="button"
+                  className="sync-secondary-btn"
+                  disabled={backupBusy}
+                  onClick={() => setPendingImport(null)}
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="sync-actions-row">
+              <button
+                type="button"
+                className="sync-secondary-btn"
+                disabled={backupBusy}
+                onClick={async () => {
+                  setBackupBusy(true);
+                  setLocalError(null);
+                  try {
+                    await onExportBackup();
+                  } catch {
+                    setLocalError("Gagal membuat file cadangan.");
+                  } finally {
+                    setBackupBusy(false);
+                  }
+                }}
+              >
+                Ekspor JSON
+              </button>
+              <button
+                type="button"
+                className="sync-secondary-btn"
+                disabled={backupBusy}
+                onClick={() => fileRef.current?.click()}
+              >
+                Impor JSON
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  setLocalError(null);
+                  try {
+                    setPendingImport(parseBackup(await file.text()));
+                  } catch (err) {
+                    setLocalError(err instanceof Error ? err.message : "File cadangan tidak bisa dibaca.");
+                  }
+                }}
+              />
+            </div>
+          )}
+          <span className="tasmi-sheet__option-scope">
+            File cadangan tidak dienkripsi dan tidak memuat kode sync. Simpan di tempat yang aman.
+          </span>
 
           {displayError && (
             <div className="tasmi-sheet__error" role="alert">

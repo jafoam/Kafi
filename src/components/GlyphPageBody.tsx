@@ -65,6 +65,7 @@ export function GlyphPageBody({
     };
   }, [data.page, wordTranslation]);
 
+  // The hover tooltip is for mouse users only; once an ayah is selected its popover shows the word.
   useEffect(() => {
     if (!wordTranslation || selectedAyah) setTip(null);
   }, [wordTranslation, selectedAyah]);

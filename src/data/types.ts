@@ -26,7 +26,10 @@ export interface MushafMap {
 
 export interface SurahInfo {
   number: number;
+  /** Indonesian Latin name (e.g. "Al-Baqarah"). */
   name: string;
+  /** International spelling (e.g. "Al-Baqara"), still accepted by search. */
+  nameAlt?: string;
   arabicName: string;
   ayahs: number;
   page: number;
@@ -78,6 +81,12 @@ export type SpreadMode = "auto" | "single" | "double";
 
 export type ThemeMode = "light" | "sepia" | "dark";
 
+/**
+ * How the reader moves between pages: sideways swipe, a continuous vertical scroll, or a vertical
+ * scroll that stops on each page.
+ */
+export type PageNavMode = "swipe" | "scroll" | "scroll-page";
+
 export type HifzBlurLevel = "full" | "first-word";
 
 export interface AppSettings {
@@ -91,6 +100,7 @@ export interface AppSettings {
   /** Show the word-by-word translation tooltip on mushaf words. */
   wordTranslation: boolean;
   mistakeSound: boolean;
+  pageNav: PageNavMode;
 }
 
 export interface MistakeBadge {

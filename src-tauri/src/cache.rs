@@ -29,6 +29,39 @@ pub fn safe_cache_path(base: &Path, bucket: &str, key: &str) -> Result<PathBuf, 
     Ok(base.join("cache").join(bucket).join(key))
 }
 
+/// Decodes standard Base64 (used by Android IPC where raw binary request bodies serialize as JSON).
+pub fn decode_base64(input: &str) -> Result<Vec<u8>, String> {
+    fn val(b: u8) -> Result<u8, String> {
+        match b {
+            b'A'..=b'Z' => Ok(b - b'A'),
+            b'a'..=b'z' => Ok(b - b'a' + 26),
+            b'0'..=b'9' => Ok(b - b'0' + 52),
+            b'+' => Ok(62),
+            b'/' => Ok(63),
+            _ => Err(format!("Invalid base64 byte: {b}")),
+        }
+    }
+    let clean: Vec<u8> = input.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    if clean.len() % 4 != 0 {
+        return Err("Invalid base64 length".to_string());
+    }
+    let mut out = Vec::with_capacity((clean.len() / 4) * 3);
+    for chunk in clean.chunks_exact(4) {
+        let a = val(chunk[0])?;
+        let b = val(chunk[1])?;
+        out.push((a << 2) | (b >> 4));
+        if chunk[2] != b'=' {
+            let c = val(chunk[2])?;
+            out.push((b << 4) | (c >> 2));
+            if chunk[3] != b'=' {
+                let d = val(chunk[3])?;
+                out.push((c << 6) | d);
+            }
+        }
+    }
+    Ok(out)
+}
+
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path
         .parent()
@@ -285,5 +318,16 @@ mod tests {
         assert_eq!(read_kv(&base, "theme").unwrap(), Some("dark".to_string()));
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn test_decode_base64() {
+        assert_eq!(decode_base64("").unwrap(), b"");
+        assert_eq!(decode_base64("Zg==").unwrap(), b"f");
+        assert_eq!(decode_base64("Zm8=").unwrap(), b"fo");
+        assert_eq!(decode_base64("Zm9v").unwrap(), b"foo");
+        assert_eq!(decode_base64("AQID/w==").unwrap(), &[1, 2, 3, 255]);
+        assert!(decode_base64("abc").is_err());
+        assert!(decode_base64("ab$d").is_err());
     }
 }

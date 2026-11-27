@@ -62,6 +62,18 @@ function normalizeArabicWithDaggerAlef(text: string): string {
   return normalizeArabic(expanded);
 }
 
+/** Latin surah name folded for matching: "Al-Baqarah", "al baqarah" and "albaqarah" are equal. */
+function foldLatin(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** True when `query` names the surah in its Indonesian or international spelling. */
+export function matchesSurahName(info: SurahInfo, query: string): boolean {
+  const q = foldLatin(query);
+  if (!q) return false;
+  return foldLatin(info.name).includes(q) || (info.nameAlt ? foldLatin(info.nameAlt).includes(q) : false);
+}
+
 export function createQuranSearch(
   refData: RefV2Data,
   surahs: SurahInfo[],
@@ -102,7 +114,7 @@ export function createQuranSearch(
 
     for (const s of surahEntries) {
       if (hits.length >= limit) return hits;
-      const matchesLatin = s.nameLower.includes(qLower);
+      const matchesLatin = s.nameLower.includes(qLower) || matchesSurahName(s.info, trimmed);
       const matchesArabic = qArabic.length > 0 && s.arabicNorm.includes(qArabic);
       const matchesNum = String(s.info.number) === trimmed;
       if (matchesLatin || matchesArabic || matchesNum) {

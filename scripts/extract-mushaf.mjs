@@ -4,6 +4,7 @@ import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import AdmZip from "adm-zip";
+import { SURAH_NAMES_ID } from "./surah-names-id.mjs";
 
 const MUSHAF_WIDTH = 699;
 const MUSHAF_HEIGHT = 1020;
@@ -309,7 +310,8 @@ export function extractMushaf(rootDir = process.cwd()) {
       surahToPage[number] = page;
       return {
         number,
-        name: ch.name,
+        name: SURAH_NAMES_ID[idx],
+        ...(SURAH_NAMES_ID[idx] !== ch.name ? { nameAlt: ch.name } : {}),
         arabicName,
         ayahs,
         page,

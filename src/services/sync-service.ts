@@ -1,8 +1,11 @@
 import type { AyahKey, MurajaahCard, SyncConfig, TasmiSessionRecord, UserData } from "../data/types";
 
 export const SYNC_CONFIG_KEY = "kafi:sync:config";
+/** Kafi's own sync server; a build can point elsewhere with VITE_SYNC_URL. */
+const KAFI_SYNC_WORKER_URL = "https://kafi-sync.jasafotoambon.workers.dev";
+
 export const DEFAULT_SYNC_WORKER_URL: string =
-  (import.meta.env?.VITE_SYNC_URL as string | undefined)?.trim() ?? "";
+  (import.meta.env?.VITE_SYNC_URL as string | undefined)?.trim() || KAFI_SYNC_WORKER_URL;
 
 const CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const PBKDF2_SALT = new TextEncoder().encode("kafi-e2e-sync-v1");

@@ -1,5 +1,8 @@
 import type { AyahKey } from "../data/types";
+import type { PlatformAdapter } from "../platform/types";
 import quranPagesUrl from "../data/quran-pages.json?url";
+
+const REMOTE_QCF_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v1/woff2";
 
 export interface GlyphWord {
   /** Glyph code point(s) from the page's QCF v1 font. */
@@ -135,7 +138,9 @@ function countPriorWords(pages: Record<string, unknown>, page: number): Map<Ayah
  * Loads pages from the text bundled with the app and the page fonts served next to it (cached by
  * the service worker), so nothing is requested from Quran.com while reading.
  */
-export function createGlyphPageLoader(): GlyphPageLoader {
+export function createGlyphPageLoader(
+  platform?: Pick<PlatformAdapter, "cacheGet" | "cachePut">,
+): GlyphPageLoader {
   const pending = new Map<number, Promise<GlyphPageData>>();
   let bundledPages: Promise<Record<string, unknown>> | null = null;
   let ayahPagesIndex: Promise<Map<AyahKey, number[]>> | null = null;
@@ -158,17 +163,49 @@ export function createGlyphPageLoader(): GlyphPageLoader {
     return parsed;
   }
 
+  async function loadFontFromBytes(family: string, bytes: Uint8Array): Promise<void> {
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const face = new FontFace(family, buffer, { display: "block" });
+    await face.load();
+    document.fonts.add(face);
+  }
+
   async function ensureFont(page: number): Promise<void> {
     if (typeof document === "undefined" || typeof FontFace === "undefined") {
       throw new Error("FontFace unavailable");
     }
     const family = glyphFontFamily(page);
     if (hasFont(family)) return;
-    const face = new FontFace(family, `url(${glyphFontUrl(page)}) format("woff2")`, {
-      display: "block",
-    });
-    await face.load();
-    document.fonts.add(face);
+
+    const cacheKey = `p${page}.woff2`;
+    if (platform) {
+      const cached = await platform.cacheGet("font", cacheKey).catch(() => null);
+      if (cached && cached.byteLength > 0) {
+        await loadFontFromBytes(family, cached);
+        return;
+      }
+    }
+
+    try {
+      const face = new FontFace(family, `url(${glyphFontUrl(page)}) format("woff2")`, {
+        display: "block",
+      });
+      await face.load();
+      document.fonts.add(face);
+      return;
+    } catch {
+      // Lightweight mobile APKs omit bundled QCF fonts; fall back to Quran.com CDN and cache on disk.
+    }
+
+    const response = await fetch(`${REMOTE_QCF_FONT_BASE}/${cacheKey}`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} loading font ${cacheKey}`);
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    await loadFontFromBytes(family, bytes);
+    if (platform) {
+      void platform.cachePut("font", cacheKey, bytes).catch(() => undefined);
+    }
   }
 
   function hasFont(family: string): boolean {
