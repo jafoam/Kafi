@@ -11,6 +11,7 @@
     "test": "vitest run",
     "extract:mushaf": "node scripts/extract-mushaf.mjs",
     "fetch:pages": "node scripts/fetch-quran-pages.mjs",
+    "fetch:pages-v2": "node scripts/fetch-quran-pages-v2.mjs",
     "fetch:words": "node scripts/fetch-word-translations.mjs",
     "fetch:fonts": "node scripts/fetch-qcf-fonts.mjs",
     "prepare:desktop": "node scripts/prepare-desktop.mjs",

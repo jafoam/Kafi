@@ -1,12 +1,23 @@
 import type { AyahKey } from "../data/types";
 import type { PlatformAdapter } from "../platform/types";
 import quranPagesUrl from "../data/quran-pages.json?url";
+import quranPagesV2Url from "../data/quran-pages-v2.json?url";
 
 const REMOTE_QCF_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v1/woff2";
+/** COLRv1 fonts with the tajweed colors built in; they draw QCF v2 glyph codes (1441 layout). */
+const REMOTE_TAJWEED_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v4/colrv1/woff2";
+
+/**
+ * `v1`: the 1405 Madinah print in plain QCF v1 fonts (bundled or cached).
+ * `tajweed`: the 1441 print in QCF v4 COLRv1 fonts, which carry the tajweed colors.
+ */
+export type GlyphVariant = "v1" | "tajweed";
 
 export interface GlyphWord {
-  /** Glyph code point(s) from the page's QCF v1 font. */
+  /** Glyph code point(s) from the page's font. */
   code: string;
+  /** The word's QCF v1 code when `code` comes from another font; word translations are keyed by it. */
+  v1Code?: string;
   ayah: AyahKey;
   /** 0-based index of this glyph within its ayah (across page breaks). */
   wordIndex?: number;
@@ -32,6 +43,7 @@ export type GlyphRow =
 export interface GlyphPageData {
   page: number;
   fontFamily: string;
+  variant?: GlyphVariant;
   lines: GlyphLine[];
   rows: GlyphRow[];
 }
@@ -44,8 +56,8 @@ export interface GlyphPageLoader {
   loadAyahPages(): Promise<Map<AyahKey, number[]>>;
 }
 
-export function glyphFontFamily(page: number): string {
-  return `QCFv1-p${page}`;
+export function glyphFontFamily(page: number, variant: GlyphVariant = "v1"): string {
+  return variant === "tajweed" ? `QCFv4T-p${page}` : `QCFv1-p${page}`;
 }
 
 /** Where the page font is served from: scripts/fetch-qcf-fonts.mjs puts them in public/fonts/qcf-v1/. */
@@ -66,6 +78,7 @@ export function parsePage(
   page: number,
   raw: unknown,
   priorWordCounts?: ReadonlyMap<AyahKey, number>,
+  variant: GlyphVariant = "v1",
 ): GlyphPageData | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const rows: GlyphRow[] = [];
@@ -93,7 +106,7 @@ export function parsePage(
     }
   }
   if (lines.length === 0) return null;
-  return { page, fontFamily: glyphFontFamily(page), lines, rows };
+  return { page, fontFamily: glyphFontFamily(page, variant), variant, lines, rows };
 }
 
 /** Builds an AyahKey -> ascending page numbers index directly from bundled QCF page rows. */
@@ -119,6 +132,25 @@ export function buildAyahPagesIndex(pages: Record<string, unknown>): Map<AyahKey
   return index;
 }
 
+/** Maps every AyahKey to its words' QCF v1 codes, in reading order across pages. */
+export function buildAyahCodesIndex(pages: Record<string, unknown>): Map<AyahKey, string[]> {
+  const index = new Map<AyahKey, string[]>();
+  for (let p = 1; pages[String(p)] !== undefined; p++) {
+    const rows = pages[String(p)];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows as PageRow[]) {
+      if (row.t !== "a" || !Array.isArray(row.w)) continue;
+      for (const [ayah, codes] of row.w) {
+        const key = ayah as AyahKey;
+        const list = index.get(key) ?? [];
+        list.push(...codes);
+        index.set(key, list);
+      }
+    }
+  }
+  return index;
+}
+
 function countPriorWords(pages: Record<string, unknown>, page: number): Map<AyahKey, number> {
   const counts = new Map<AyahKey, number>();
   if (page <= 1) return counts;
@@ -136,30 +168,67 @@ function countPriorWords(pages: Record<string, unknown>, page: number): Map<Ayah
 
 /**
  * Loads pages from the text bundled with the app and the page fonts served next to it (cached by
- * the service worker), so nothing is requested from Quran.com while reading.
+ * the service worker), so nothing is requested from Quran.com while reading. The tajweed variant
+ * fetches its color fonts from Quran.com once per page and keeps them in the platform cache.
  */
 export function createGlyphPageLoader(
   platform?: Pick<PlatformAdapter, "cacheGet" | "cachePut">,
+  variant: GlyphVariant = "v1",
 ): GlyphPageLoader {
   const pending = new Map<number, Promise<GlyphPageData>>();
   let bundledPages: Promise<Record<string, unknown>> | null = null;
+  let variantPages: Promise<Record<string, unknown>> | null = null;
   let ayahPagesIndex: Promise<Map<AyahKey, number[]>> | null = null;
+  let ayahCodes: Promise<Map<AyahKey, string[]>> | null = null;
 
-  function loadBundledPages(): Promise<Record<string, unknown>> {
-    bundledPages ??= fetch(quranPagesUrl).then((response) => {
+  function fetchJson(url: string): Promise<Record<string, unknown>> {
+    return fetch(url).then((response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status} loading mushaf pages`);
       return response.json() as Promise<Record<string, unknown>>;
     });
+  }
+
+  function loadBundledPages(): Promise<Record<string, unknown>> {
+    bundledPages ??= fetchJson(quranPagesUrl);
     return bundledPages.catch((err) => {
       bundledPages = null;
       throw err;
     });
   }
 
+  function loadVariantPages(): Promise<Record<string, unknown>> {
+    if (variant === "v1") return loadBundledPages();
+    variantPages ??= fetchJson(quranPagesV2Url);
+    return variantPages.catch((err) => {
+      variantPages = null;
+      throw err;
+    });
+  }
+
+  function loadAyahCodes(): Promise<Map<AyahKey, string[]>> {
+    ayahCodes ??= loadBundledPages().then(buildAyahCodesIndex);
+    return ayahCodes.catch((err) => {
+      ayahCodes = null;
+      throw err;
+    });
+  }
+
   async function loadData(page: number): Promise<GlyphPageData> {
-    const pages = await loadBundledPages();
-    const parsed = parsePage(page, pages[String(page)], countPriorWords(pages, page));
+    const pages = await loadVariantPages();
+    const parsed = parsePage(page, pages[String(page)], countPriorWords(pages, page), variant);
     if (!parsed) throw new Error(`Unusable data for page ${page}`);
+    if (variant !== "v1") {
+      // Both prints split every ayah into the same words, so the v1 code at the same index is this word.
+      const codes = await loadAyahCodes().catch(() => null);
+      if (codes) {
+        for (const line of parsed.lines) {
+          for (const word of line.words) {
+            const v1 = typeof word.wordIndex === "number" ? codes.get(word.ayah)?.[word.wordIndex] : undefined;
+            if (v1) word.v1Code = v1;
+          }
+        }
+      }
+    }
     return parsed;
   }
 
@@ -174,10 +243,11 @@ export function createGlyphPageLoader(
     if (typeof document === "undefined" || typeof FontFace === "undefined") {
       throw new Error("FontFace unavailable");
     }
-    const family = glyphFontFamily(page);
+    const family = glyphFontFamily(page, variant);
     if (hasFont(family)) return;
 
-    const cacheKey = `p${page}.woff2`;
+    const fileName = `p${page}.woff2`;
+    const cacheKey = variant === "tajweed" ? `v4t-${fileName}` : fileName;
     if (platform) {
       const cached = await platform.cacheGet("font", cacheKey).catch(() => null);
       if (cached && cached.byteLength > 0) {
@@ -186,20 +256,23 @@ export function createGlyphPageLoader(
       }
     }
 
-    try {
-      const face = new FontFace(family, `url(${glyphFontUrl(page)}) format("woff2")`, {
-        display: "block",
-      });
-      await face.load();
-      document.fonts.add(face);
-      return;
-    } catch {
-      // Lightweight mobile APKs omit bundled QCF fonts; fall back to Quran.com CDN and cache on disk.
+    if (variant === "v1") {
+      try {
+        const face = new FontFace(family, `url(${glyphFontUrl(page)}) format("woff2")`, {
+          display: "block",
+        });
+        await face.load();
+        document.fonts.add(face);
+        return;
+      } catch {
+        // Lightweight mobile APKs omit bundled QCF fonts; fall back to Quran.com CDN and cache on disk.
+      }
     }
 
-    const response = await fetch(`${REMOTE_QCF_FONT_BASE}/${cacheKey}`);
+    const base = variant === "tajweed" ? REMOTE_TAJWEED_FONT_BASE : REMOTE_QCF_FONT_BASE;
+    const response = await fetch(`${base}/${fileName}`);
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status} loading font ${cacheKey}`);
+      throw new Error(`HTTP ${response.status} loading font ${fileName}`);
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
     await loadFontFromBytes(family, bytes);
@@ -219,7 +292,10 @@ export function createGlyphPageLoader(
     const existing = pending.get(page);
     if (existing) return existing;
     const promise = Promise.all([loadData(page), ensureFont(page)])
-      .then(([data]) => data)
+      .then(([data]) => {
+        if (variant === "tajweed") registerTajweedPalette(data.fontFamily);
+        return data;
+      })
       .catch((err) => {
         pending.delete(page);
         throw err;
@@ -234,6 +310,7 @@ export function createGlyphPageLoader(
       void load(page).catch(() => undefined);
     },
     loadAyahPages() {
+      // Navigation stays on the v1 page index in every variant, matching the page catalog.
       ayahPagesIndex ??= loadBundledPages()
         .then(buildAyahPagesIndex)
         .catch((err) => {
@@ -243,4 +320,65 @@ export function createGlyphPageLoader(
       return ayahPagesIndex;
     },
   };
+}
+
+/**
+ * The v4 fonts carry Quran.com's saturated tajweed colors (CPAL palette 0 light, 1 dark) and draw each
+ * ayah number in a pink and teal ring. These overrides keep every rule but in calmer tones, close to
+ * Tarteel's, and draw the ayah numbers in plain ink. CPAL entries, checked against known words:
+ * 1, 2, 15 letters not pronounced; 3, 4, 5, 9 the madd lengths (9: muttasil); 6 ghunnah; 7 heavy letters
+ * (tafkhim, e.g. the kha of khatama); 8 qalqalah; 10, 11 ayah-number rings; 12 ayah-number fill, which
+ * must be the page color (the theme's --bg-surface in tokens.css) because a solid ink shape sits under it.
+ */
+const TAJWEED_PALETTE_OVERRIDES = {
+  light: {
+    1: "#a3a3a3", 2: "#a3a3a3", 15: "#a3a3a3",
+    3: "#b8336f", 9: "#c94a86",
+    4: "#d97b3a", 5: "#bf9a3e",
+    6: "#3f9a5c", 7: "#2f6a99", 8: "#3a92bd",
+    10: "#555555", 11: "#555555", 12: "#ffffff",
+  },
+  sepia: {
+    1: "#a39a8c", 2: "#a39a8c", 15: "#a39a8c",
+    3: "#b8336f", 9: "#c94a86",
+    4: "#d97b3a", 5: "#b8923a",
+    6: "#3f9a5c", 7: "#2f6a99", 8: "#3a92bd",
+    10: "#5a5248", 11: "#5a5248", 12: "#f7f0e2",
+  },
+  dark: {
+    1: "#7d7d7d", 2: "#7d7d7d", 15: "#7d7d7d",
+    3: "#e07aa5", 9: "#e892ba",
+    4: "#eda26d", 5: "#d9be70",
+    6: "#6cc287", 7: "#7eaedb", 8: "#6cc3e3",
+    10: "#b5b5b5", 11: "#b5b5b5", 12: "#14181b",
+  },
+} as const;
+
+/** `font-palette` values for the tajweed fonts in each theme. */
+export const TAJWEED_PALETTES = {
+  light: "--kafi-tajweed-light",
+  sepia: "--kafi-tajweed-sepia",
+  dark: "--kafi-tajweed-dark",
+} as const;
+const tajweedFamilies = new Set<string>();
+let paletteStyle: HTMLStyleElement | null = null;
+
+function paletteRule(name: string, families: string, base: number, colors: Record<number, string>): string {
+  const overrides = Object.entries(colors)
+    .map(([index, color]) => `${index} ${color}`)
+    .join(", ");
+  return `@font-palette-values ${name} { font-family: ${families}; base-palette: ${base}; override-colors: ${overrides}; }`;
+}
+
+/** Palette rules name their font families, so each loaded tajweed font family joins them. */
+function registerTajweedPalette(family: string): void {
+  if (typeof document === "undefined" || tajweedFamilies.has(family)) return;
+  tajweedFamilies.add(family);
+  paletteStyle ??= document.head.appendChild(document.createElement("style"));
+  const families = [...tajweedFamilies].map((f) => `"${f}"`).join(", ");
+  paletteStyle.textContent = [
+    paletteRule(TAJWEED_PALETTES.light, families, 0, TAJWEED_PALETTE_OVERRIDES.light),
+    paletteRule(TAJWEED_PALETTES.sepia, families, 0, TAJWEED_PALETTE_OVERRIDES.sepia),
+    paletteRule(TAJWEED_PALETTES.dark, families, 1, TAJWEED_PALETTE_OVERRIDES.dark),
+  ].join("\n");
 }

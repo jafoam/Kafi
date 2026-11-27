@@ -77,6 +77,7 @@ describe("platform & user-store", () => {
     expect(reloaded.settings.spreadMode).toBe("single");
     expect(reloaded.settings.theme).toBe("sepia");
     expect(reloaded.settings.reciterId).toBe(DEFAULT_USER_DATA.settings.reciterId);
+    expect(reloaded.settings.tajweed).toBe(false);
     expect(reloaded.lastPage).toBe(42);
     expect(reloaded.tasmiHistory).toHaveLength(1);
 

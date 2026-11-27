@@ -13,6 +13,7 @@ export interface TopBarProps {
   hifzBlurLevel?: HifzBlurLevel;
   focusMode: boolean;
   wordTranslation: boolean;
+  tajweed: boolean;
   theme: ThemeMode;
   /** PWA install control; shown on web when not yet installed to Home Screen. */
   pwaInstall?: PwaInstall;
@@ -23,6 +24,7 @@ export interface TopBarProps {
   onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
   onToggleWordTranslation: () => void;
+  onToggleTajweed: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
   onOpenTasmiGuide: () => void;
@@ -62,6 +64,7 @@ export function TopBar({
   hifzBlurLevel = "full",
   focusMode,
   wordTranslation,
+  tajweed,
   theme,
   pwaInstall,
   onOpenPalette,
@@ -71,6 +74,7 @@ export function TopBar({
   onChangeHifzBlurLevel,
   onToggleFocusMode,
   onToggleWordTranslation,
+  onToggleTajweed,
   onChangeTheme,
   onOpenTasmi,
   onOpenTasmiGuide,
@@ -212,6 +216,7 @@ export function TopBar({
           hifzBlurLevel={hifzBlurLevel}
           focusMode={focusMode}
           wordTranslation={wordTranslation}
+          tajweed={tajweed}
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
           onChangePageNav={onChangePageNav}
@@ -220,6 +225,7 @@ export function TopBar({
           onChangeHifzBlurLevel={onChangeHifzBlurLevel}
           onToggleFocusMode={onToggleFocusMode}
           onToggleWordTranslation={onToggleWordTranslation}
+          onToggleTajweed={onToggleTajweed}
           onChangeTheme={onChangeTheme}
           onOpenDownloads={onOpenDownloads}
           onOpenSync={onOpenSync}
@@ -310,12 +316,14 @@ interface AppMenuProps {
   hifzBlurLevel: HifzBlurLevel;
   focusMode: boolean;
   wordTranslation: boolean;
+  tajweed: boolean;
   theme: ThemeMode;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
   onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
   onToggleWordTranslation: () => void;
+  onToggleTajweed: () => void;
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
@@ -334,12 +342,14 @@ function AppMenu({
   hifzBlurLevel,
   focusMode,
   wordTranslation,
+  tajweed,
   theme,
   onChangeSpreadMode,
   onToggleHifzBlur,
   onChangeHifzBlurLevel,
   onToggleFocusMode,
   onToggleWordTranslation,
+  onToggleTajweed,
   onChangeTheme,
   onOpenDownloads,
   onOpenSync,
@@ -416,6 +426,7 @@ function AppMenu({
           </div>
         )}
         {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
+        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, mushaf cetakan 1441", tajweed, onToggleTajweed)}
 
         <div className="app-menu__field">
           <span className="app-menu__label">Pindah halaman</span>

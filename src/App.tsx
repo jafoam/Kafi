@@ -171,7 +171,8 @@ export function App({
   const quranApi = useMemo(() => createQuranApi(platform), [platform]);
   const tilawaController = useMemo(() => createTilawaController(platform), [platform]);
   const tilawaStorage = useMemo(() => platform.createTilawaStorage(), [platform]);
-  const glyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
+  const v1GlyphLoader = useMemo(() => createGlyphPageLoader(platform), [platform]);
+  const tajweedGlyphLoader = useMemo(() => createGlyphPageLoader(platform, "tajweed"), [platform]);
   const segmentLoader = useMemo(() => createWordSegmentLoader(platform), [platform]);
   const [ayahPages, setAyahPages] = useState<Map<AyahKey, number[]> | null>(null);
   const [surahSegments, setSurahSegments] = useState<Map<AyahKey, WordSegment[]> | null>(null);
@@ -179,7 +180,7 @@ export function App({
 
   useEffect(() => {
     let live = true;
-    glyphLoader.loadAyahPages().then(
+    v1GlyphLoader.loadAyahPages().then(
       (idx) => {
         if (live) setAyahPages(idx);
       },
@@ -188,7 +189,7 @@ export function App({
     return () => {
       live = false;
     };
-  }, [glyphLoader]);
+  }, [v1GlyphLoader]);
 
   const reciterById = useMemo(() => {
     const map = new Map<string, Catalog["reciters"][number]>();
@@ -225,6 +226,7 @@ export function App({
   } | null>(null);
   const [lastSelectedAyah, setLastSelectedAyah] = useState<AyahKey | null>(null);
   const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
+  const glyphLoader = userData.settings.tajweed ? tajweedGlyphLoader : v1GlyphLoader;
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
   const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
@@ -1624,6 +1626,11 @@ export function App({
   const tasmiLauncherSpace = !focusMode && !tasmiActive && !studyOpen;
   const tasmiLauncherVisible = tasmiLauncherSpace && !overlayOpen && selected === null;
 
+  // The tajweed pages follow the 1441 print, which moves a few ayahs across page breaks.
+  useEffect(() => {
+    setGlyphAyahs({});
+  }, [glyphLoader]);
+
   // Which ayahs each glyph page really prints; the scanned-image map can disagree at page breaks.
   useEffect(() => {
     let live = true;
@@ -1768,6 +1775,7 @@ export function App({
         hifzBlurLevel={userData.settings.hifzBlurLevel}
         focusMode={focusMode}
         wordTranslation={userData.settings.wordTranslation && !focusMode}
+        tajweed={userData.settings.tajweed}
         theme={userData.settings.theme}
         pwaInstall={pwaInstall}
         onOpenPalette={(tab = "surah") => {
@@ -1787,6 +1795,7 @@ export function App({
         onToggleWordTranslation={() =>
           persistUser(userStore.updateSettings({ wordTranslation: !userData.settings.wordTranslation }))
         }
+        onToggleTajweed={() => persistUser(userStore.updateSettings({ tajweed: !userData.settings.tajweed }))}
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
         onOpenDownloads={() => openDownloads("audio")}

@@ -29,6 +29,7 @@ export const DEFAULT_USER_DATA: UserData = {
     hifzBlur: false,
     hifzBlurLevel: "full",
     wordTranslation: true,
+    tajweed: false,
     mistakeSound: false,
     pageNav: "swipe",
   },
@@ -93,6 +94,7 @@ export function normalizeUserData(raw: unknown): UserData {
       : defaults.hifzBlurLevel,
     wordTranslation:
       typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
+    tajweed: typeof rawSettings.tajweed === "boolean" ? rawSettings.tajweed : defaults.tajweed,
     mistakeSound:
       typeof rawSettings.mistakeSound === "boolean" ? rawSettings.mistakeSound : defaults.mistakeSound,
     pageNav:

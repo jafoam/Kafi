@@ -11,6 +11,13 @@ import { SurahBanner } from "./SurahBanner";
 
 const wordLoader = createWordTranslationLoader();
 
+/**
+ * Width of a normal full line in em for each print, from the fonts' advance widths: about 90% of all
+ * lines are at most this wide (v1: median 14.2em, v4: median 16.1em). It sets the one letter size used
+ * on every page.
+ */
+const FULL_LINE_EM = { v1: 14.6, tajweed: 16.4 } as const;
+
 /** U+FDFD ARABIC LIGATURE BISMILLAH, drawn as one calligraphic glyph by the AmiriBismillah font. */
 const BISMILLAH = "\uFDFD";
 export interface GlyphPageBodyProps {
@@ -112,21 +119,93 @@ export function GlyphPageBody({
   const totalLines = data.page <= 2 ? 8 : 15;
   const rows = data.rows;
 
-  // Shrink the glyph size just enough that the widest line fits; container-relative units keep it valid on resize.
+  /** Tajweed (1441 print) lines much shorter than a full line, printed centered at their natural width. */
+  const [shortLines, setShortLines] = useState<ReadonlySet<number>>(() => new Set());
+
+  // One letter size for every page of a print: it is set so a normal full line spans the page, so the
+  // letters (and their stroke weight) never change from page to page. Container-relative units keep it
+  // valid on resize. A rare line drawn wider than that is narrowed on its own instead of shrinking the page.
   useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!body) return;
-    body.style.setProperty("--glyph-fit", "1");
-    let widest = 0;
-    for (const line of body.querySelectorAll<HTMLElement>("[data-glyph-line]")) {
-      let natural = 0;
-      for (const child of Array.from(line.children) as HTMLElement[]) natural += child.offsetWidth;
-      widest = Math.max(widest, natural);
+    // Re-fit when the page changes size (rotation, window resize, entering focus mode).
+    let lastSize = "";
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(() => {
+            const size = `${body.clientWidth}x${body.clientHeight}`;
+            if (size !== lastSize) fitPage(body);
+          });
+    observer?.observe(body);
+    fitPage(body);
+    return () => observer?.disconnect();
+
+    function fitPage(body: HTMLDivElement) {
+      lastSize = `${body.clientWidth}x${body.clientHeight}`;
+      const lineEls = Array.from(body.querySelectorAll<HTMLElement>("[data-glyph-line]"));
+      for (const line of lineEls) {
+        delete line.dataset.squeeze;
+        delete line.dataset.tight;
+        line.style.removeProperty("--line-squeeze");
+      }
+      body.style.setProperty("--glyph-fit", "1");
+      // Words stop growing while measured, so each line reports its natural width.
+      body.dataset.measuring = "";
+      const widths = new Map<HTMLElement, number>();
+      let widest = 0;
+      for (const line of lineEls) {
+        let natural = 0;
+        for (const child of Array.from(line.children) as HTMLElement[]) natural += child.offsetWidth;
+        widths.set(line, natural);
+        widest = Math.max(widest, natural);
+      }
+      delete body.dataset.measuring;
+      const width = body.clientWidth;
+      const fontSize = parseFloat(getComputedStyle(body).fontSize);
+      if (width <= 0 || fontSize <= 0 || widest <= 0) return;
+
+      let fit = 1;
+      if (data.page > 2) {
+        const lineEm = FULL_LINE_EM[data.variant ?? "v1"];
+        const rowHeight = body.clientHeight / totalLines;
+        // Never so tall that neighbouring lines collide.
+        const maxFit = Math.max(1, rowHeight / (fontSize * 1.35));
+        fit = Math.min(width / (lineEm * fontSize), maxFit);
+      } else if (widest > width) {
+        fit = width / widest;
+      }
+      body.style.setProperty("--glyph-fit", String(fit));
+      for (const [line, measured] of widths) {
+        let natural = measured;
+        if (natural * fit <= width) continue;
+        if (line.classList.contains("glyph-line--center")) {
+          // A centered line first gives up the air between its words (0.16em a side, see app.css).
+          line.dataset.tight = "";
+          natural -= line.children.length * 0.32 * fontSize;
+          if (natural * fit <= width) continue;
+        }
+        line.dataset.squeeze = "";
+        line.style.setProperty("--line-squeeze", String((width / (natural * fit)) * 0.998));
+      }
+
+      // The v4 glyphs are drawn so a full line fills the measure by itself; anything well short of that is
+      // a surah's closing line, which the print centers instead of spreading.
+      const short = new Set<number>();
+      if (data.variant === "tajweed" && data.page > 2) {
+        const shortPx = FULL_LINE_EM.tajweed * fontSize * 0.8;
+        for (const [line, measured] of widths) {
+          // Ignore the centered lines' padding so the answer cannot flip once a line is centered.
+          const padding = line.classList.contains("glyph-line--center") ? line.children.length * 0.32 * fontSize : 0;
+          if (measured - padding < shortPx) short.add(Number(line.dataset.glyphLine));
+        }
+      }
+      setShortLines((prev) =>
+        prev.size === short.size && [...short].every((line) => prev.has(line)) ? prev : short,
+      );
     }
-    if (widest > body.clientWidth && body.clientWidth > 0) {
-      body.style.setProperty("--glyph-fit", String(body.clientWidth / widest));
-    }
-  }, [data]);
+    // shortLines: centering changes a line's padding, so the fit is measured again once it settles.
+  }, [data, shortLines]);
 
   const isLeadingSplit = (ayah: AyahKey) => pageEntry.leadingSplitAyah === ayah;
 
@@ -165,7 +244,7 @@ export function GlyphPageBody({
   return (
     <div
       ref={bodyRef}
-      className="glyph-page"
+      className={`glyph-page${data.variant === "tajweed" ? " glyph-page--tajweed" : ""}`}
       data-lines={totalLines}
       style={{ fontFamily: `"${data.fontFamily}"` }}
       onPointerDown={(event) => {
@@ -243,7 +322,7 @@ export function GlyphPageBody({
         }
         // The two opening pages, and the short surah-ending lines flagged in the data, print centered at
         // the normal letter size instead of being stretched to the page.
-        const centered = data.page <= 2 || row.centered === true;
+        const centered = data.page <= 2 || row.centered === true || shortLines.has(row.line);
         return (
           <div
             key={row.line}
@@ -291,12 +370,13 @@ export function GlyphPageBody({
                 .filter(Boolean)
                 .join(" ");
               const [surah, ayahNo] = ayah.split(":");
+              const lookupCode = word.v1Code ?? word.code;
               return (
                 <span
                   key={`${row.line}-${index}`}
                   className={classes}
                   data-ayah={ayah}
-                  data-code={word.code}
+                  data-code={lookupCode}
                   data-word={wordKey}
                   role={isFirst ? "button" : undefined}
                   tabIndex={isFirst ? 0 : undefined}
@@ -314,7 +394,7 @@ export function GlyphPageBody({
                     event.stopPropagation();
                     setTip(null);
                     setPickedWord(wordKey);
-                    const info = wordTranslation ? words?.get(word.code) : undefined;
+                    const info = wordTranslation ? words?.get(lookupCode) : undefined;
                     const selectedWord: SelectedWord | undefined =
                       info && info.translation
                         ? {

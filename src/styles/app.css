@@ -366,6 +366,8 @@ textarea:focus-visible {
   z-index: 5;
   display: grid;
   grid-template-rows: repeat(15, 1fr);
+  /* The column is the page width, so one over-wide line can never stretch the others. */
+  grid-template-columns: minmax(0, 1fr);
   direction: rtl;
   color: var(--text-primary);
   font-size: calc(5.35cqw * var(--glyph-fit));
@@ -524,6 +526,21 @@ textarea:focus-visible {
   padding-inline: 0.16em;
 }
 
+.glyph-line--center[data-tight] .glyph-word {
+  padding-inline: 0;
+}
+
+.glyph-page[data-measuring] .glyph-word {
+  flex: 0 0 auto;
+}
+
+/* A line drawn wider than the page is narrowed on its own; its letters keep their height and weight. */
+.glyph-line[data-squeeze] {
+  width: calc(100% / var(--line-squeeze));
+  margin-inline: calc((100% - 100% / var(--line-squeeze)) / 2);
+  transform: scaleX(var(--line-squeeze));
+}
+
 .glyph-word--run-start {
   border-start-start-radius: 4px;
   border-end-start-radius: 4px;
@@ -550,6 +567,24 @@ textarea:focus-visible {
 }
 .glyph-word--blurred {
   filter: blur(7px);
+}
+
+/* Tajweed fonts paint their own colors (COLRv1), so `color` cannot mark the spoken word: underline it instead. */
+.glyph-page--tajweed .glyph-word--playing-word {
+  box-shadow: inset 0 -0.09em 0 var(--playing-word-color);
+}
+
+/* Calmer tajweed colors and plain ayah numbers: palettes registered in services/glyph-pages.ts. */
+.glyph-page--tajweed {
+  font-palette: --kafi-tajweed-light;
+}
+
+:root[data-theme="sepia"] .glyph-page--tajweed {
+  font-palette: --kafi-tajweed-sepia;
+}
+
+:root[data-theme="dark"] .glyph-page--tajweed {
+  font-palette: --kafi-tajweed-dark;
 }
 
 .mushaf-page__img {
@@ -4296,36 +4331,63 @@ textarea:focus-visible {
   .reader-stage {
     align-items: flex-start;
     padding-top: calc(56px + env(safe-area-inset-top, 0px));
-    padding-left: 6px;
-    padding-right: 6px;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .app-shell--focus .reader-stage {
     padding-top: calc(8px + env(safe-area-inset-top, 0px));
-    padding-left: 6px;
-    padding-right: 6px;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .app-shell--tasmi .reader-stage {
     padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Phones show the page edge to edge on the app background, like phone mushaf apps, with no card. */
   .mushaf-spread {
     width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
   }
 
   .mushaf-page {
     width: 100%;
     height: min(100cqh, calc(100cqw * 1020 / 699));
+    background: transparent;
   }
 
   .reader-scroll__slot {
     width: 100%;
   }
 
+  /* Lines run to a thin margin at the screen edges; the font is then scaled so a full line fills it. */
   .glyph-page {
-    inset: 2.4% 2.8% 3.6%;
+    inset: 2.4% 1.6% 3.6%;
     font-size: calc(5.7cqw * var(--glyph-fit));
+  }
+
+  /* Scrolling keeps each page on its own card so the page breaks stay visible. */
+  .reader-stage.reader-scroll,
+  .app-shell--focus .reader-stage.reader-scroll {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  .reader-scroll .mushaf-spread {
+    border-radius: var(--radius-md);
+    box-shadow: var(--mushaf-shadow);
+    background: var(--bg-surface);
+  }
+
+  .reader-scroll .mushaf-page {
+    background: var(--bg-surface);
+  }
+
+  .reader-scroll .glyph-page {
+    inset-inline: 2.8%;
   }
 }
 
@@ -4664,6 +4726,6 @@ textarea:focus-visible {
   }
 
   .app-shell--focus .reader-stage:not(.reader-scroll) .glyph-page {
-    inset: 1.5% 2.8% 4%;
+    inset: 1.5% 1.6% 4%;
   }
 }

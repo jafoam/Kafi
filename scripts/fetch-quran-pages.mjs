@@ -34,6 +34,29 @@ export const NATURAL_WIDTH_LINES = [
   [604, 15],
 ];
 
+/**
+ * Words the API puts on the wrong line, as [page, line]: the last word of that line is printed at the start of
+ * the next one. Page 443: "wa-sadaqa" (36:52) opens line 13, which leaves line 12 a normal full line.
+ */
+export const LINE_FIXES = [[443, 12]];
+
+/** Moves the last word of each [page, line] in `fixes` to the start of the following line. */
+export function applyLineFixes(pages, fixes = LINE_FIXES) {
+  for (const [page, line] of fixes) {
+    const rows = pages[page];
+    const from = rows?.find((r) => r.l === line && r.t === "a");
+    const to = rows?.find((r) => r.l === line + 1 && r.t === "a");
+    if (!from || !to) throw new Error(`page ${page}: no text lines ${line} and ${line + 1} to fix`);
+    const lastRun = from.w[from.w.length - 1];
+    const word = lastRun[1].pop();
+    if (lastRun[1].length === 0) from.w.pop();
+    const firstRun = to.w[0];
+    if (firstRun[0] === lastRun[0]) firstRun[1].unshift(word);
+    else to.w.unshift([lastRun[0], [word]]);
+  }
+  return pages;
+}
+
 /** Rows of a page in print order: the API skips surah banners and bismillahs, so they are inferred. */
 export function buildPage(page, payload) {
   const verses = payload?.verses;
@@ -79,8 +102,9 @@ export function buildPage(page, payload) {
  * Builds every page, then resolves banners printed at the very bottom of a page: the surah's first
  * ayah and bismillah start on the next page, so the API gives that last line no words at all.
  * @param {(page: number) => unknown} payloadOf
+ * @param {[number, number][]} naturalWidthLines extra [page, line] rows kept at natural width
  */
-export function buildAllPages(payloadOf, pageCount = PAGES) {
+export function buildAllPages(payloadOf, pageCount = PAGES, naturalWidthLines = NATURAL_WIDTH_LINES) {
   /** @type {Record<number, ReturnType<typeof buildPage>>} */
   const pages = {};
   for (let page = 1; page <= pageCount; page++) pages[page] = buildPage(page, payloadOf(page));
@@ -99,7 +123,7 @@ export function buildAllPages(payloadOf, pageCount = PAGES) {
       if (row.w.every(([key]) => NATURAL_WIDTH_SURAHS.includes(Number(key.split(":")[0])))) row.c = 1;
     }
   }
-  for (const [page, line] of NATURAL_WIDTH_LINES) {
+  for (const [page, line] of naturalWidthLines) {
     const row = pages[page]?.find((r) => r.l === line);
     if (row?.t === "a") row.c = 1;
   }
@@ -137,7 +161,7 @@ async function main() {
       }
     }),
   );
-  const pages = buildAllPages((page) => payloads[page]);
+  const pages = applyLineFixes(buildAllPages((page) => payloads[page]));
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(pages));
   console.log(`${PAGES} pages -> ${out}`);

@@ -99,6 +99,8 @@ export interface AppSettings {
   hifzBlurLevel: HifzBlurLevel;
   /** Show the word-by-word translation tooltip on mushaf words. */
   wordTranslation: boolean;
+  /** Draw mushaf pages with the colored tajweed fonts (QCF v4, 1441 layout) instead of plain QCF v1. */
+  tajweed: boolean;
   mistakeSound: boolean;
   pageNav: PageNavMode;
 }

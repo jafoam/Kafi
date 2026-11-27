@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 // @ts-expect-error plain .mjs build script, no type declarations
-import { buildPage, buildAllPages } from "../scripts/fetch-quran-pages.mjs";
+import { applyLineFixes, buildPage, buildAllPages } from "../scripts/fetch-quran-pages.mjs";
 
 describe("page building", () => {
   const word = (code: string, line: number) => ({ code_v1: code, line_number: line });
@@ -55,5 +55,17 @@ describe("page building", () => {
     expect(() =>
       buildAllPages(() => ({ verses: [{ verse_key: "2:5", words: [word("ك", 1)] }] }), 1),
     ).toThrow(/line 2 has no text/);
+  });
+
+  it("moves a misplaced last word to the start of the next line", () => {
+    const pages = {
+      443: [
+        { l: 12, t: "a", w: [["36:51", ["x"]], ["36:52", ["a", "b"]]] },
+        { l: 13, t: "a", w: [["36:52", ["c"]], ["36:53", ["d"]]] },
+      ],
+    };
+    applyLineFixes(pages, [[443, 12]]);
+    expect(pages[443][0].w).toEqual([["36:51", ["x"]], ["36:52", ["a"]]]);
+    expect(pages[443][1].w).toEqual([["36:52", ["b", "c"]], ["36:53", ["d"]]]);
   });
 });
