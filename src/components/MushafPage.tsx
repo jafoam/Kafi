@@ -255,14 +255,6 @@ export function MushafPage({
                 {isFirstBox && isBookmarked && (
                   <span className="ayah-box__bookmark" aria-hidden="true" />
                 )}
-                {isFirstBox && mistake && (
-                  <span
-                    className="ayah-box__mistake-badge"
-                    title={mistake.wordText ? `${mistake.errorClass}: ${mistake.wordText}` : mistake.errorClass}
-                  >
-                    {mistake.count > 1 ? mistake.count : "!"}
-                  </span>
-                )}
               </button>
             );
           });
