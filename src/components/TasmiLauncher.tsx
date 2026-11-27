@@ -3,22 +3,14 @@ export interface TasmiLauncherProps {
   visible: boolean;
   /** Show the one-time introduction to Tasmi'. */
   showHint: boolean;
-  onStart: () => void;
   onDismissHint: () => void;
   onOpenGuide: () => void;
 }
 
-const MIC_PATH =
-  "M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z";
-
-/**
- * Tasmi' (the app's listening feature) made hard to miss: a large floating button on phones, and a
- * one-time card that says what it does.
- */
+/** A one-time card above the dock's Tasmi' button that says what Tasmi' does. */
 export function TasmiLauncher({
   visible,
   showHint,
-  onStart,
   onDismissHint,
   onOpenGuide,
 }: TasmiLauncherProps) {
@@ -47,25 +39,6 @@ export function TasmiLauncher({
           </div>
         </div>
       )}
-      <button
-        type="button"
-        className={`tasmi-fab ${visible ? "" : "tasmi-fab--hidden"}`}
-        aria-hidden={visible ? undefined : true}
-        tabIndex={visible ? undefined : -1}
-        onClick={() => {
-          if (showHint) onDismissHint();
-          onStart();
-        }}
-        aria-label="Mulai Tasmi': simak bacaan hafalan"
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d={MIC_PATH} />
-        </svg>
-        <span className="tasmi-fab__text">
-          <span className="tasmi-fab__title">Tasmi&apos;</span>
-          <span className="tasmi-fab__sub">Simak bacaanmu</span>
-        </span>
-      </button>
     </>
   );
 }

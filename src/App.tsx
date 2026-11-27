@@ -1622,9 +1622,8 @@ export function App({
     if (overlayOpen) setSelected(null);
   }, [overlayOpen]);
 
-  /** The page leaves room for the Tasmi' button; stays put while popups come and go so the page never jumps. */
-  const tasmiLauncherSpace = !focusMode && !tasmiActive && !studyOpen;
-  const tasmiLauncherVisible = tasmiLauncherSpace && !overlayOpen && selected === null;
+  const tasmiLauncherVisible =
+    !focusMode && !tasmiActive && !studyOpen && !overlayOpen && selected === null;
 
   // The tajweed pages follow the 1441 print, which moves a few ayahs across page breaks.
   useEffect(() => {
@@ -1757,7 +1756,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${tasmiLauncherSpace ? "app-shell--fab" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${scrollMode ? "" : "app-shell--swipe"} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -1836,10 +1835,16 @@ export function App({
       <TasmiLauncher
         visible={tasmiLauncherVisible}
         showHint={tasmiHint && !overlayOpen && selected === null}
-        onStart={() => handleOpenTasmi(tasmiContextAyah)}
         onDismissHint={dismissTasmiHint}
         onOpenGuide={() => setTasmiGuideOpen(true)}
       />
+
+      {!scrollMode && (
+        <div className="page-chrome" aria-hidden="true">
+          <span>{surahLabel}</span>
+          <span>Juz {juzNumber}</span>
+        </div>
+      )}
 
       {scrollMode ? (
         <MushafScroll
