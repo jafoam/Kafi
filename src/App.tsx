@@ -81,6 +81,7 @@ import {
 } from "./services/word-segments";
 import type { SelectedWord } from "./services/word-translations";
 import { useOfflinePages } from "./state/useOfflinePages";
+import { useTajweedPages } from "./state/useTajweedPages";
 import { usePwaInstall } from "./state/usePwaInstall";
 import {
   RecitationRibbon,
@@ -92,6 +93,7 @@ import { TranslationReader } from "./components/TranslationReader";
 import { SyncModal } from "./components/SyncModal";
 import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiGuide } from "./components/TasmiGuide";
+import { TajweedGuide } from "./components/TajweedGuide";
 import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
 import { TopBar } from "./components/TopBar";
 
@@ -231,6 +233,7 @@ export function App({
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
   const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
+  const [tajweedGuideOpen, setTajweedGuideOpen] = useState(false);
   const [topMenuOpen, setTopMenuOpen] = useState(false);
   const [dockPopupOpen, setDockPopupOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1606,6 +1609,7 @@ export function App({
   useBackClose(summaryModal.open, () => setSummaryModal((prev) => ({ ...prev, open: false })));
   useBackClose(selected !== null, () => setSelected(null));
   useBackClose(focusMode, () => setFocusMode(false));
+  useBackClose(tajweedGuideOpen, () => setTajweedGuideOpen(false));
 
   // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
   // hides the Tasmi' card and button.
@@ -1616,6 +1620,7 @@ export function App({
     syncOpen ||
     downloadsOpen ||
     tasmiGuideOpen ||
+    tajweedGuideOpen ||
     topMenuOpen ||
     dockPopupOpen;
 
@@ -1744,6 +1749,7 @@ export function App({
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
   const offlinePages = useOfflinePages(!platform.isDesktop);
+  const tajweedPages = useTajweedPages(platform);
   const pwaInstall = usePwaInstall(!platform.isDesktop);
 
   const getPageImageUrl = useCallback(
@@ -1778,6 +1784,7 @@ export function App({
         pageNav={userData.settings.pageNav}
         onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
         onOpenTasmiGuide={() => setTasmiGuideOpen(true)}
+        onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
         hifzBlur={
           tasmiActive && tasmiState?.mode === "memorization"
             ? tasmiBlurEnabled
@@ -1836,6 +1843,7 @@ export function App({
           activeTafsirId={userData.settings.tafsirId}
           textDownloads={textDownloads}
           offlinePages={offlinePages}
+          tajweedPages={tajweedPages}
           isDesktop={platform.isDesktop}
           tilawaStorage={tilawaStorage}
           onDownloadTilawa={(onProgress, signal) => tilawaController.ensureReady(onProgress, signal)}
@@ -2139,6 +2147,8 @@ export function App({
         }}
         onOpenHistory={handleOpenTasmiHistory}
       />
+
+      {tajweedGuideOpen && <TajweedGuide onClose={() => setTajweedGuideOpen(false)} />}
 
       {tasmiGuideOpen && (
         <TasmiGuide

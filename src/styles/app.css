@@ -3371,6 +3371,168 @@ textarea:focus-visible {
   color: var(--accent);
 }
 
+/* Tajweed guide: one row per color, each opening to explain its rule */
+.tajweed-guide {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(86dvh, 760px);
+  margin-top: auto;
+  margin-bottom: auto;
+  border-radius: var(--radius-lg);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  overflow: hidden;
+}
+
+.tajweed-guide__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 14px 20px;
+}
+
+.tajweed-guide__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tajweed-guide__intro {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.tajweed-guide__list {
+  margin: 0 14px 16px;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+
+.tajweed-rule {
+  --tj: var(--tj-light);
+}
+
+:root[data-theme="sepia"] .tajweed-rule {
+  --tj: var(--tj-sepia);
+}
+
+:root[data-theme="dark"] .tajweed-rule {
+  --tj: var(--tj-dark);
+}
+
+.tajweed-rule + .tajweed-rule {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tajweed-rule__head,
+.tajweed-rule__body {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.tajweed-rule__head {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The tinted column on the left carries the rule's color down the whole row. */
+.tajweed-rule__swatch {
+  flex: 0 0 52px;
+  display: flex;
+  justify-content: center;
+  padding-top: 18px;
+  background: color-mix(in srgb, var(--tj) 12%, transparent);
+}
+
+.tajweed-rule__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--tj);
+}
+
+.tajweed-rule__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 8px 14px 14px;
+}
+
+.tajweed-rule__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tajweed-rule__subtitle {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.tajweed-rule__chevron {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: 16px;
+  color: var(--text-secondary);
+  transition: transform 160ms ease;
+}
+
+.tajweed-rule__head[aria-expanded="true"] .tajweed-rule__chevron {
+  transform: rotate(180deg);
+}
+
+.tajweed-rule__content {
+  flex: 1;
+  min-width: 0;
+  padding: 0 18px 16px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.tajweed-rule__content p {
+  margin: 0;
+}
+
+.tajweed-rule__cases {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.tajweed-guide__examples {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 16px;
+  margin-top: 6px;
+  font-family: var(--font-arabic);
+  font-size: 22px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
 /* Tasmi' quick-start guide */
 .tasmi-guide {
   width: 100%;

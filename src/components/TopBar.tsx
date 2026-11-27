@@ -28,6 +28,7 @@ export interface TopBarProps {
   onChangeTheme: (theme: ThemeMode) => void;
   onOpenTasmi: () => void;
   onOpenTasmiGuide: () => void;
+  onOpenTajweedGuide: () => void;
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
   onOpenReader?: () => void;
@@ -78,6 +79,7 @@ export function TopBar({
   onChangeTheme,
   onOpenTasmi,
   onOpenTasmiGuide,
+  onOpenTajweedGuide,
   onOpenDownloads,
   onOpenSync,
   onOpenReader,
@@ -221,6 +223,7 @@ export function TopBar({
           onChangeSpreadMode={onChangeSpreadMode}
           onChangePageNav={onChangePageNav}
           onOpenTasmiGuide={onOpenTasmiGuide}
+          onOpenTajweedGuide={onOpenTajweedGuide}
           onToggleHifzBlur={onToggleHifzBlur}
           onChangeHifzBlurLevel={onChangeHifzBlurLevel}
           onToggleFocusMode={onToggleFocusMode}
@@ -312,6 +315,7 @@ interface AppMenuProps {
   pageNav: PageNavMode;
   onChangePageNav: (mode: PageNavMode) => void;
   onOpenTasmiGuide: () => void;
+  onOpenTajweedGuide: () => void;
   hifzBlur: boolean;
   hifzBlurLevel: HifzBlurLevel;
   focusMode: boolean;
@@ -338,6 +342,7 @@ function AppMenu({
   pageNav,
   onChangePageNav,
   onOpenTasmiGuide,
+  onOpenTajweedGuide,
   hifzBlur,
   hifzBlurLevel,
   focusMode,
@@ -427,6 +432,7 @@ function AppMenu({
         )}
         {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
         {toggleRow("Tajwid berwarna", "Warna hukum tajwid, mushaf cetakan 1441", tajweed, onToggleTajweed)}
+        {linkRow("Hukum Tajwid", "Arti tiap warna dan contohnya", onOpenTajweedGuide)}
 
         <div className="app-menu__field">
           <span className="app-menu__label">Pindah halaman</span>
