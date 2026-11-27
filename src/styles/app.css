@@ -790,8 +790,7 @@ textarea:focus-visible {
 .ayah-popover {
   position: fixed;
   z-index: 40;
-  min-width: 280px;
-  max-width: 340px;
+  width: min(352px, calc(100vw - 24px));
   padding: 10px 12px;
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
@@ -902,16 +901,23 @@ textarea:focus-visible {
 
 .ayah-popover__meta-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--border-subtle);
 }
 
+.ayah-popover__pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .ayah-popover__bookmark-btn {
   height: 28px;
-  padding: 0 10px;
+  padding: 0 8px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
   background: transparent;
@@ -930,7 +936,7 @@ textarea:focus-visible {
 .hl-swatches {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .hl-swatch {

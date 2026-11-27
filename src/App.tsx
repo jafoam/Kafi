@@ -123,6 +123,11 @@ function loadWordLookup(): Promise<WordLookupFn> {
   return cachedWordLookupPromise;
 }
 
+function getAyahArabicText(ayah: AyahKey): Promise<string> {
+  const [surah, num] = ayah.split(":").map(Number);
+  return loadWordLookup().then((lookup) => lookup(surah, num).join(" "));
+}
+
 export interface AppProps {
   playingAyah?: AyahKey | null;
   mistakeAyahs?: Map<AyahKey, MistakeBadge>;
@@ -1967,6 +1972,7 @@ export function App({
           anchorRect={selected.rect}
           quranApi={quranApi}
           translationId={userData.settings.translationId}
+          getArabicText={getAyahArabicText}
           isBookmarked={bookmarkSet.has(selected.ayah)}
           highlightColor={userData.highlights[selected.ayah] ?? null}
           onClose={() => setSelected(null)}

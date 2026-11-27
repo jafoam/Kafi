@@ -314,6 +314,7 @@ describe("Full ayah translation inside AyahPopover", () => {
         anchorRect={rect}
         quranApi={quranApi}
         translationId={33}
+        getArabicText={async () => "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"}
         isBookmarked={false}
         highlightColor={null}
         onClose={() => {}}
@@ -328,9 +329,21 @@ describe("Full ayah translation inside AyahPopover", () => {
       "Dengan nama Allah Yang Maha Pengasih",
     );
     expect(el.querySelector(".ayah-popover__word")).toBeNull();
-    expect(el.textContent).toContain("Putar");
-    expect(el.textContent).toContain("Tafsir & Terjemahan");
+    expect(el.textContent).toContain("Putar dari sini");
+    expect(el.textContent).toContain("Tafsir");
+    expect(el.textContent).not.toContain("Tafsir & Terjemahan");
     expect(el.textContent).toContain("Tasmi' dari sini");
+
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const copyBtn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Salin");
+    await act(async () => {
+      copyBtn?.click();
+    });
+    expect(writeText).toHaveBeenCalledWith(
+      "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ\n\nDengan nama Allah Yang Maha Pengasih, Maha Penyayang.\n\nQS. Al-Fatihah: 1",
+    );
+    expect(copyBtn?.textContent).toBe("Tersalin");
   });
 
   it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {
