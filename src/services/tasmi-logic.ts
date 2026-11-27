@@ -199,6 +199,36 @@ export function createTasmiState(
   };
 }
 
+/**
+ * Ayahs recited whole and right: every word from the first to the last was heard, and no confirmed
+ * mistake sits in the ayah. Starting mid-ayah or slipping keeps it closed. A mistake confirmed after
+ * the ayah ended closes it again; one the checker withdraws opens it.
+ */
+export function cleanlyRecitedAyahs(
+  state: TasmiLiveState,
+  getAyahWords: (surah: number, ayah: number) => string[],
+): Set<AyahKey> {
+  const mistaken = new Set<AyahKey>(state.confirmedMistakes.map((m) => `${m.surah}:${m.ayah}` as AyahKey));
+  const touched = new Set<AyahKey>();
+  for (const key of state.recitedWords) {
+    const [s, a] = key.split(":");
+    touched.add(`${s}:${a}` as AyahKey);
+  }
+  const clean = new Set<AyahKey>();
+  for (const ayah of touched) {
+    if (mistaken.has(ayah)) continue;
+    const [s, a] = ayah.split(":").map(Number);
+    const count = getAyahWords(s, a).length;
+    if (count === 0) continue;
+    let whole = true;
+    for (let w = 1; w <= count && whole; w += 1) {
+      whole = state.recitedWords.has(`${ayah}:${w}`);
+    }
+    if (whole) clean.add(ayah);
+  }
+  return clean;
+}
+
 export function countRecitedAyahs(state: TasmiLiveState): number {
   const uniqueAyahs = new Set<AyahKey>();
   for (const wKey of state.recitedWords) {

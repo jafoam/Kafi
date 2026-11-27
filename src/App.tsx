@@ -39,6 +39,7 @@ import { useTextDownloads } from "./state/useTextDownloads";
 import { createQuranApi } from "./services/quran-api";
 import {
   buildMistakeBadges,
+  cleanlyRecitedAyahs,
   computeBlurMask,
   countRecitedAyahs,
   createTasmiState,
@@ -1675,12 +1676,36 @@ export function App({
     };
   }, [visiblePages, glyphLoader]);
 
+  // Baca Bebas under Sembunyikan Ayat: an ayah opens only once it was recited whole and right.
+  const freeRecitedAyahs = useMemo(() => {
+    if (tasmiState?.mode !== "free" || !userData.settings.hifzBlur) return null;
+    return cleanlyRecitedAyahs(tasmiState, wordLookup);
+  }, [tasmiState, userData.settings.hifzBlur, wordLookup]);
+
+  // Keep what the session opened after it ends, like a tapped peek, until the page changes.
+  const freeRecitedRef = useRef<Set<AyahKey> | null>(null);
+  useEffect(() => {
+    if (freeRecitedAyahs) {
+      freeRecitedRef.current = freeRecitedAyahs;
+      return;
+    }
+    const kept = freeRecitedRef.current;
+    freeRecitedRef.current = null;
+    if (kept && kept.size > 0) {
+      setRevealedSet((prev) => new Set([...prev, ...kept]));
+    }
+  }, [freeRecitedAyahs]);
+
   const blurSet = useMemo(() => {
     const mode = isTasmiBlurActive ? "tasmi" : userData.settings.hifzBlur ? "all" : "off";
     if (mode === "off") return undefined;
 
     const passage = isTasmiBlurActive ? (tasmiState?.passage ?? null) : null;
-    const revealed = isTasmiBlurActive ? (tasmiState?.revealedAyahs ?? new Set<AyahKey>()) : revealedSet;
+    const revealed = isTasmiBlurActive
+      ? (tasmiState?.revealedAyahs ?? new Set<AyahKey>())
+      : freeRecitedAyahs
+        ? new Set([...revealedSet, ...freeRecitedAyahs])
+        : revealedSet;
 
     const merged = new Set<AyahKey>();
     for (const page of visiblePages) {
@@ -1701,6 +1726,7 @@ export function App({
     tasmiState?.passage,
     tasmiState?.revealedAyahs,
     revealedSet,
+    freeRecitedAyahs,
     visiblePages,
     peekedAyah,
     glyphAyahs,

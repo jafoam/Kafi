@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import fs from "node:fs";
 import {
   buildPageTasmiCandidates,
+  cleanlyRecitedAyahs,
   countRecitedAyahs,
   createTasmiState,
   recordPeekMistake,
@@ -384,5 +385,63 @@ describe("short opening ayahs", () => {
     st = reduceTilawaEvent(st, position("locked", [3, 1], [1, 1], [3, 1]), fajrWords);
     expect(st.revealedAyahs.has("89:2")).toBe(true);
     expect(st.recitedWords.has("89:2:2")).toBe(true);
+  });
+});
+
+describe("Baca Bebas under Sembunyikan Ayat", () => {
+  const words = (_s: number, a: number) => (({ 1: ["a", "b"], 2: ["c", "d", "e"], 3: ["f", "g"] }) as Record<number, string[]>)[a] ?? [];
+  const locked = (ayah: number, word: number, fromAyah = ayah, fromWord = 1) =>
+    ({
+      v: 1,
+      type: "position",
+      timeMs: 1000,
+      referenceVersion: "ref-v2",
+      state: "locked",
+      observed: [
+        {
+          word: { surah: 100, ayah, word },
+          span: { start: { surah: 100, ayah: fromAyah, word: fromWord }, end: { surah: 100, ayah, word } },
+          confidence: 0.9,
+          cost: 0,
+          per: 0,
+        },
+      ],
+      expected: null,
+    }) as any;
+  const mistake = (state: "confirmed" | "uncertain", ayah: number, word: number) =>
+    ({
+      v: 1,
+      type: "checker",
+      timeMs: 1200,
+      id: `m-${ayah}-${word}`,
+      state,
+      errorClass: "wrong_word",
+      location: { surah: 100, ayah, word },
+      expected: "x",
+      confidence: 0.9,
+    }) as any;
+
+  it("opens an ayah recited whole without mistakes, and keeps a slipped or partial one closed", () => {
+    let st = createTasmiState("free", null);
+    st = reduceTilawaEvent(st, locked(1, 1), words);
+    expect(cleanlyRecitedAyahs(st, words).has("100:1")).toBe(false);
+
+    st = reduceTilawaEvent(st, locked(1, 2), words);
+    expect(cleanlyRecitedAyahs(st, words).has("100:1")).toBe(true);
+
+    // Ayah 2 recited to its end, but with a confirmed mistake: stays closed.
+    st = reduceTilawaEvent(st, locked(2, 3, 1, 1), words);
+    st = reduceTilawaEvent(st, mistake("confirmed", 2, 2), words);
+    expect(cleanlyRecitedAyahs(st, words).has("100:2")).toBe(false);
+
+    // The checker withdraws it: the ayah opens.
+    st = reduceTilawaEvent(st, mistake("uncertain", 2, 2), words);
+    expect(cleanlyRecitedAyahs(st, words).has("100:2")).toBe(true);
+  });
+
+  it("keeps an ayah closed when recitation started mid-ayah", () => {
+    let st = createTasmiState("free", null);
+    st = reduceTilawaEvent(st, locked(2, 3, 2, 2), words);
+    expect(cleanlyRecitedAyahs(st, words).has("100:2")).toBe(false);
   });
 });
