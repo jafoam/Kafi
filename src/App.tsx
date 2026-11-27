@@ -25,6 +25,7 @@ import { backupFileName, buildBackup, mergeBackup, saveBackupFile } from "./serv
 import {
   compareAyahKeys,
   createAudioController,
+  silentWavDataUri,
   DEFAULT_SCOPE,
   parseAyahKey,
   REPEAT_OPTIONS,
@@ -212,6 +213,7 @@ export function App({
           return quranApi.getAudioBlobUrl(folder, surah, ayah, signal);
         },
         analyzeSilence: createSilenceAnalyzer(),
+        unlockSrc: silentWavDataUri(),
         resolveRange: (kind, ayah) =>
           kind === "page" ? pageRange(mushafMap, ayah) : juzRange(catalog, ayah),
       }),
