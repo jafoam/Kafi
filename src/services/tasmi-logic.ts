@@ -307,6 +307,7 @@ export function reduceTilawaEvent(
 
       const { start, end } = top.span;
       const nextWords = new Set(state.recitedWords);
+      const nextRevealed = new Set(state.revealedAyahs);
       nextWords.add(`${top.word.surah}:${top.word.ayah}:${top.word.word}`);
       nextWords.add(`${start.surah}:${start.ayah}:${start.word}`);
       nextWords.add(`${end.surah}:${end.ayah}:${end.word}`);
@@ -314,11 +315,21 @@ export function reduceTilawaEvent(
         for (let w = start.word; w <= end.word; w += 1) {
           nextWords.add(`${start.surah}:${start.ayah}:${w}`);
         }
+      } else if (start.surah === end.surah && start.ayah < end.ayah) {
+        // A short opening ayah (وَٱلْفَجْرِ, وَٱلْعَصْرِ) fits too many places to lock on alone, so the
+        // first lock lands in a later ayah with a span reaching back over it. Every ayah the span has
+        // already passed was recited, so it opens and its words count.
+        for (let a = start.ayah; a <= end.ayah; a += 1) {
+          const last = a < end.ayah ? getAyahWords(start.surah, a).length : end.word;
+          for (let w = a === start.ayah ? start.word : 1; w <= last; w += 1) {
+            nextWords.add(`${start.surah}:${a}:${w}`);
+          }
+          if (a < end.ayah) nextRevealed.add(`${start.surah}:${a}`);
+        }
       }
       recitedWords = nextWords;
 
       // An ayah opens once it has been recited to its end (or left for the next one), and stays open.
-      const nextRevealed = new Set(state.revealedAyahs);
       if (prevAyah && prevAyah !== activeAyah && compareAyah(prevAyah, activeAyah) < 0) {
         nextRevealed.add(prevAyah);
       }
