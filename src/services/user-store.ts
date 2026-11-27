@@ -127,6 +127,15 @@ export function normalizeUserData(raw: unknown): UserData {
     }
   }
 
+  const hiddenAyahs: Record<AyahKey, BookmarkEvent> = {};
+  if (isPlainObject(raw.hiddenAyahs)) {
+    for (const [key, val] of Object.entries(raw.hiddenAyahs)) {
+      if (key.includes(":") && isPlainObject(val) && typeof val.on === "boolean" && typeof val.at === "string") {
+        hiddenAyahs[key as AyahKey] = { on: val.on, at: val.at };
+      }
+    }
+  }
+
   const highlights: Record<AyahKey, HighlightColor> = {};
   if (isPlainObject(raw.highlights)) {
     for (const [key, val] of Object.entries(raw.highlights)) {
@@ -193,6 +202,7 @@ export function normalizeUserData(raw: unknown): UserData {
     bookmarks,
     bookmarkLog,
     highlights,
+    hiddenAyahs,
     notes,
     settings,
     tasmiHistory,
@@ -206,6 +216,7 @@ export interface UserStore {
   load(): Promise<UserData>;
   toggleBookmark(ayah: AyahKey): Promise<UserData>;
   setHighlight(ayah: AyahKey, color: HighlightColor | null): Promise<UserData>;
+  setAyahHidden(ayah: AyahKey, hidden: boolean): Promise<UserData>;
   setNote(ayah: AyahKey, text: string): Promise<UserData>;
   updateSettings(patch: Partial<AppSettings>): Promise<UserData>;
   setLastPage(page: number): Promise<UserData>;
@@ -274,6 +285,15 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
         }
         return { ...current, highlights };
       });
+    },
+    setAyahHidden(ayah: AyahKey, hidden: boolean) {
+      return mutate((current) => ({
+        ...current,
+        hiddenAyahs: {
+          ...current.hiddenAyahs,
+          [ayah]: { on: hidden, at: new Date().toISOString() },
+        },
+      }));
     },
     setNote(ayah: AyahKey, text: string) {
       return mutate((current) => {

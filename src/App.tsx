@@ -1696,9 +1696,17 @@ export function App({
     }
   }, [freeRecitedAyahs]);
 
+  const hiddenAyahSet = useMemo(() => {
+    const set = new Set<AyahKey>();
+    for (const [key, event] of Object.entries(userData.hiddenAyahs ?? {})) {
+      if (event.on) set.add(key as AyahKey);
+    }
+    return set;
+  }, [userData.hiddenAyahs]);
+
   const blurSet = useMemo(() => {
     const mode = isTasmiBlurActive ? "tasmi" : userData.settings.hifzBlur ? "all" : "off";
-    if (mode === "off") return undefined;
+    if (mode === "off" && hiddenAyahSet.size === 0) return undefined;
 
     const passage = isTasmiBlurActive ? (tasmiState?.passage ?? null) : null;
     const revealed = isTasmiBlurActive
@@ -1718,9 +1726,16 @@ export function App({
         glyphAyahs[page.page],
       );
       for (const k of pageMask) merged.add(k);
+      // Ayahs hidden one by one stay hidden under any mode, until peeked or shown again.
+      if (hiddenAyahSet.size > 0) {
+        for (const k of computeBlurMask(page, "all", null, revealed, peekedAyah, glyphAyahs[page.page])) {
+          if (hiddenAyahSet.has(k)) merged.add(k);
+        }
+      }
     }
-    return merged;
+    return merged.size > 0 ? merged : undefined;
   }, [
+    hiddenAyahSet,
     isTasmiBlurActive,
     userData.settings.hifzBlur,
     tasmiState?.passage,
@@ -1731,6 +1746,26 @@ export function App({
     peekedAyah,
     glyphAyahs,
   ]);
+
+  const handleToggleAyahHidden = useCallback(
+    (ayah: AyahKey) => {
+      if (blurSet?.has(ayah)) {
+        // Show it: drop its own hide, and open it for this page when Sembunyikan Ayat hides everything.
+        if (hiddenAyahSet.has(ayah)) persistUser(userStore.setAyahHidden(ayah, false));
+        setRevealedSet((prev) => new Set(prev).add(ayah));
+      } else {
+        persistUser(userStore.setAyahHidden(ayah, true));
+        setRevealedSet((prev) => {
+          if (!prev.has(ayah)) return prev;
+          const next = new Set(prev);
+          next.delete(ayah);
+          return next;
+        });
+        setPeekedAyah((prev) => (prev === ayah ? null : prev));
+      }
+    },
+    [blurSet, hiddenAyahSet, userStore, persistUser],
+  );
 
   const effectiveMistakeAyahs = useMemo(() => {
     if (mistakeAyahs) return mistakeAyahs;
@@ -2016,8 +2051,8 @@ export function App({
           }}
           onToggleBookmark={handleToggleBookmark}
           onSetHighlight={handleSetHighlight}
-          hifzBlur={userData.settings.hifzBlur}
-          onToggleHifzBlur={handleToggleHifzBlur}
+          isHidden={blurSet?.has(selected.ayah) ?? false}
+          onToggleHidden={handleToggleAyahHidden}
         />
       )}
 

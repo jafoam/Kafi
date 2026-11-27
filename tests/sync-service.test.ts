@@ -191,3 +191,29 @@ describe("bookmark removal across sync", () => {
     expect(mergeUserData(b, a).bookmarks).toEqual(["3:1"]);
   });
 });
+
+describe("hidden ayahs across sync", () => {
+  it("lets the later hide or show of each ayah win", () => {
+    const local: UserData = {
+      ...DEFAULT_USER_DATA,
+      hiddenAyahs: {
+        "2:255": { on: false, at: "2026-11-27T10:00:00.000Z" },
+        "1:2": { on: true, at: "2026-11-27T08:00:00.000Z" },
+      },
+      updatedAt: "2026-11-27T10:00:00.000Z",
+    };
+    const remote: UserData = {
+      ...DEFAULT_USER_DATA,
+      hiddenAyahs: {
+        "2:255": { on: true, at: "2026-11-27T09:00:00.000Z" },
+        "1:2": { on: false, at: "2026-11-27T09:00:00.000Z" },
+        "112:1": { on: true, at: "2026-11-27T07:00:00.000Z" },
+      },
+      updatedAt: "2026-11-27T09:00:00.000Z",
+    };
+    const merged = mergeUserData(local, remote);
+    expect(merged.hiddenAyahs?.["2:255"]?.on).toBe(false);
+    expect(merged.hiddenAyahs?.["1:2"]?.on).toBe(false);
+    expect(merged.hiddenAyahs?.["112:1"]?.on).toBe(true);
+  });
+});
