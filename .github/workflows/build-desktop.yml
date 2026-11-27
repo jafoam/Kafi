@@ -20,23 +20,9 @@ permissions:
   contents: read
 
 jobs:
-  desktop:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            platform: windows
-            bundles: nsis,msi
-            artifact_path: src-tauri/target/release/bundle/nsis/*.exe
-            msi_path: src-tauri/target/release/bundle/msi/*.msi
-          - os: macos-latest
-            platform: macos
-            bundles: dmg
-            artifact_path: src-tauri/target/release/bundle/dmg/*.dmg
-            msi_path: ""
-    if: ${{ inputs.platform == 'all' || inputs.platform == matrix.platform || (inputs.platform == '' && matrix.platform == 'windows') }}
-    runs-on: ${{ matrix.os }}
+  windows:
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'windows' || inputs.platform == '' }}
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -56,20 +42,58 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      - name: Build lightweight desktop installer
+      - name: Build lightweight Windows installer
         shell: bash
         env:
           VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
         run: >-
           npx tauri build
-          --bundles "${{ matrix.bundles }}"
+          --bundles nsis,msi
           --config '{"build":{"beforeBuildCommand":"npm run build"},"bundle":{"resources":[]}}'
 
-      - name: Upload installer artifact
+      - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kafi-desktop-${{ matrix.platform }}
+          name: kafi-desktop-windows
           path: |
-            ${{ matrix.artifact_path }}
-            ${{ matrix.msi_path }}
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+
+  macos:
+    if: ${{ inputs.platform == 'all' || inputs.platform == 'macos' }}
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build lightweight macOS DMG
+        shell: bash
+        env:
+          VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
+        run: >-
+          npx tauri build
+          --bundles dmg
+          --config '{"build":{"beforeBuildCommand":"npm run build"},"bundle":{"resources":[]}}'
+
+      - name: Upload macOS DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kafi-desktop-macos
+          path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
