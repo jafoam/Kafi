@@ -89,6 +89,12 @@ export type PageNavMode = "swipe" | "scroll" | "scroll-page";
 
 export type HifzBlurLevel = "full" | "first-word";
 
+/**
+ * Which calligraphy draws the mushaf words. Both keep the 1405 Madinah page layout: `1405` uses the
+ * QCF v1 glyphs, `1441` the QCF v4 glyphs of the 1441 print (the only ones with tajweed colors).
+ */
+export type LetterStyle = "1405" | "1441";
+
 export interface AppSettings {
   theme: ThemeMode;
   spreadMode: SpreadMode;
@@ -99,8 +105,9 @@ export interface AppSettings {
   hifzBlurLevel: HifzBlurLevel;
   /** Show the word-by-word translation tooltip on mushaf words. */
   wordTranslation: boolean;
-  /** Draw mushaf pages with the colored tajweed fonts (QCF v4, 1441 layout) instead of plain QCF v1. */
+  /** Color the letters by tajweed rule; only the 1441 letters carry the colors, so it implies them. */
   tajweed: boolean;
+  letterStyle: LetterStyle;
   mistakeSound: boolean;
   pageNav: PageNavMode;
 }

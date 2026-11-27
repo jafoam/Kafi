@@ -420,19 +420,19 @@ export function AudioDownloadsPanel({
                 <li className="dl-item">
                   <div className="dl-item__main">
                     <div className="dl-item__name">
-                      <span>604 Halaman Tajwid Berwarna</span>
+                      <span>Huruf Madinah 1441 (604 halaman)</span>
                       {tajweedPages.status === "done" && <span className="dl-item__badge">Siap offline</span>}
                     </div>
                     <div className="dl-item__sub">
                       {tajweedPages.status === "running"
                         ? `Mengunduh ${tajweedPages.done}/${tajweedPages.total} halaman…`
                         : tajweedPages.status === "done"
-                          ? `Semua ${tajweedPages.total} halaman tajwid tersimpan offline.`
+                          ? `Semua ${tajweedPages.total} halaman tersimpan offline.`
                           : tajweedPages.status === "error"
                             ? `Sebagian gagal (${tajweedPages.done}/${tajweedPages.total}). Coba lagi.`
                             : tajweedPages.done > 0
-                              ? `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±60 MB total) untuk mode Tajwid berwarna tanpa internet.`
-                              : "Huruf berwarna tajwid (±60 MB), untuk mode Tajwid berwarna tanpa internet."}
+                              ? `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar huruf 1441 dan tajwid berwarna bisa dipakai tanpa internet.`
+                              : "Dipakai gaya huruf Madinah 1441 dan tajwid berwarna (±47 MB), agar bisa dibaca tanpa internet."}
                     </div>
                     <div className="dl-bar dl-bar--thin" aria-hidden="true">
                       <div

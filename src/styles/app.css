@@ -574,17 +574,31 @@ textarea:focus-visible {
   box-shadow: inset 0 -0.09em 0 var(--playing-word-color);
 }
 
-/* Calmer tajweed colors and plain ayah numbers: palettes registered in services/glyph-pages.ts. */
-.glyph-page--tajweed {
+/* Colors for the 1441 letters, registered in services/glyph-pages.ts: the guide's tajweed colors, or
+   plain ink when tajweed is off. font-palette is inherited, so the Tasmi' bar, the summary and the
+   reader follow the pages; other fonts ignore palettes not made for them. */
+.app-shell {
   font-palette: --kafi-tajweed-light;
 }
 
-:root[data-theme="sepia"] .glyph-page--tajweed {
+:root[data-theme="sepia"] .app-shell {
   font-palette: --kafi-tajweed-sepia;
 }
 
-:root[data-theme="dark"] .glyph-page--tajweed {
+:root[data-theme="dark"] .app-shell {
   font-palette: --kafi-tajweed-dark;
+}
+
+.app-shell.app-shell--plain-1441 {
+  font-palette: --kafi-plain-light;
+}
+
+:root[data-theme="sepia"] .app-shell.app-shell--plain-1441 {
+  font-palette: --kafi-plain-sepia;
+}
+
+:root[data-theme="dark"] .app-shell.app-shell--plain-1441 {
+  font-palette: --kafi-plain-dark;
 }
 
 .mushaf-page__img {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
-import type { HifzBlurLevel, PageNavMode, SpreadMode, ThemeMode } from "../data/types";
+import type { HifzBlurLevel, LetterStyle, PageNavMode, SpreadMode, ThemeMode } from "../data/types";
 import type { PwaInstall } from "../state/usePwaInstall";
 
 export interface TopBarProps {
@@ -14,6 +14,8 @@ export interface TopBarProps {
   focusMode: boolean;
   wordTranslation: boolean;
   tajweed: boolean;
+  letterStyle: LetterStyle;
+  onChangeLetterStyle: (style: LetterStyle) => void;
   theme: ThemeMode;
   /** PWA install control; shown on web when not yet installed to Home Screen. */
   pwaInstall?: PwaInstall;
@@ -49,6 +51,12 @@ const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
   { value: "scroll-page", label: "Per halaman" },
 ];
 
+/** Both keep the same pages and lines; only the calligraphy changes. */
+const LETTER_STYLE_OPTIONS: { value: LetterStyle; label: string }[] = [
+  { value: "1405", label: "Madinah 1405" },
+  { value: "1441", label: "Madinah 1441" },
+];
+
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "light", label: "Tema Kertas Terang" },
   { value: "sepia", label: "Tema Sepia Hangat" },
@@ -66,6 +74,8 @@ export function TopBar({
   focusMode,
   wordTranslation,
   tajweed,
+  letterStyle,
+  onChangeLetterStyle,
   theme,
   pwaInstall,
   onOpenPalette,
@@ -219,6 +229,8 @@ export function TopBar({
           focusMode={focusMode}
           wordTranslation={wordTranslation}
           tajweed={tajweed}
+          letterStyle={letterStyle}
+          onChangeLetterStyle={onChangeLetterStyle}
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
           onChangePageNav={onChangePageNav}
@@ -321,6 +333,8 @@ interface AppMenuProps {
   focusMode: boolean;
   wordTranslation: boolean;
   tajweed: boolean;
+  letterStyle: LetterStyle;
+  onChangeLetterStyle: (style: LetterStyle) => void;
   theme: ThemeMode;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onToggleHifzBlur: () => void;
@@ -348,6 +362,8 @@ function AppMenu({
   focusMode,
   wordTranslation,
   tajweed,
+  letterStyle,
+  onChangeLetterStyle,
   theme,
   onChangeSpreadMode,
   onToggleHifzBlur,
@@ -431,7 +447,11 @@ function AppMenu({
           </div>
         )}
         {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
-        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, tata letak halaman tetap sama", tajweed, onToggleTajweed)}
+        <div className="app-menu__field">
+          <span className="app-menu__label">Gaya huruf</span>
+          <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
+        </div>
+        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, memakai huruf Madinah 1441", tajweed, onToggleTajweed)}
         {linkRow("Hukum Tajwid", "Arti tiap warna dan contohnya", onOpenTajweedGuide)}
 
         <div className="app-menu__field">
