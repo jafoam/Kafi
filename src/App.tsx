@@ -1873,7 +1873,7 @@ export function App({
   const hideAudioDock =
     focusMode && !audioState.isPlaying && !audioState.isLoading && downloads.state.phase === "idle";
 
-  const offlinePages = useOfflinePages(!platform.isDesktop);
+  const offlinePages = useOfflinePages(platform);
   const tajweedPages = useTajweedPages(platform);
   const pwaInstall = usePwaInstall(!platform.isDesktop);
 
@@ -1982,7 +1982,6 @@ export function App({
           textDownloads={textDownloads}
           offlinePages={offlinePages}
           tajweedPages={tajweedPages}
-          isDesktop={platform.isDesktop}
           tilawaStorage={tilawaStorage}
           onDownloadTilawa={(onProgress, signal) => tilawaController.ensureReady(onProgress, signal)}
           onClose={() => setDownloadsOpen(false)}

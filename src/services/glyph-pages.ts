@@ -4,7 +4,7 @@ import quranPagesUrl from "../data/quran-pages.json?url";
 import { TAJWEED_RULES } from "../data/tajweed-rules";
 import quranPagesV2Url from "../data/quran-pages-v2.json?url";
 
-const REMOTE_QCF_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v1/woff2";
+export const REMOTE_QCF_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v1/woff2";
 /** COLRv1 fonts with the tajweed colors built in; they draw QCF v2 glyph codes (1441 layout). */
 export const REMOTE_TAJWEED_FONT_BASE = "https://verses.quran.com/fonts/quran/hafs/v4/colrv1/woff2";
 

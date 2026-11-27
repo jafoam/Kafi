@@ -30,7 +30,6 @@ export interface AudioDownloadsPanelProps {
   offlinePages: OfflinePages;
   /** The colored tajweed page fonts, saved on the device for offline use. */
   tajweedPages: OfflinePages;
-  isDesktop: boolean;
   tilawaStorage: TilawaModelStorage;
   onDownloadTilawa: (onProgress: (p: LoadProgress) => void, signal: AbortSignal) => Promise<void>;
   onClose: () => void;
@@ -58,7 +57,6 @@ export function AudioDownloadsPanel({
   textDownloads,
   offlinePages,
   tajweedPages,
-  isDesktop,
   tilawaStorage,
   onDownloadTilawa,
   onClose,
@@ -356,14 +354,14 @@ export function AudioDownloadsPanel({
                 <li className="dl-item">
                   <div className="dl-item__main">
                     <div className="dl-item__name">
-                      <span>604 Halaman Mushaf</span>
-                      {(isDesktop || offlinePages.status === "done") && (
+                      <span>Huruf Madinah 1405 (604 halaman)</span>
+                      {(offlinePages.bundled || offlinePages.status === "done") && (
                         <span className="dl-item__badge">Siap offline</span>
                       )}
                     </div>
                     <div className="dl-item__sub">
-                      {isDesktop
-                        ? "Sudah termasuk di dalam aplikasi desktop/APK."
+                      {offlinePages.bundled
+                        ? "Sudah termasuk di dalam paket aplikasi ini."
                         : !offlinePages.supported
                           ? "Cache halaman offline tidak didukung di browser ini."
                           : offlinePages.status === "running"
@@ -372,9 +370,11 @@ export function AudioDownloadsPanel({
                               ? `Semua ${offlinePages.total} halaman tersimpan offline.`
                               : offlinePages.status === "error"
                                 ? `Sebagian gagal (${offlinePages.done}/${offlinePages.total}). Coba lagi.`
-                                : "Simpan semua 604 halaman (±47 MB) untuk dibaca tanpa internet."}
+                                : offlinePages.done > 0
+                                  ? `${offlinePages.done}/${offlinePages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar mushaf bisa dibaca tanpa internet.`
+                                  : "Simpan semua 604 halaman huruf 1405 (±47 MB) untuk dibaca tanpa internet."}
                     </div>
-                    {!isDesktop && offlinePages.supported && (
+                    {!offlinePages.bundled && offlinePages.supported && (
                       <div className="dl-bar dl-bar--thin" aria-hidden="true">
                         <div
                           className={`dl-bar__fill ${offlinePages.status === "done" ? "dl-bar__fill--done" : ""}`}
@@ -385,7 +385,7 @@ export function AudioDownloadsPanel({
                       </div>
                     )}
                   </div>
-                  {!isDesktop && offlinePages.supported && offlinePages.status !== "done" && (
+                  {!offlinePages.bundled && offlinePages.supported && offlinePages.status !== "done" && (
                     <div className="dl-item__actions">
                       <button
                         type="button"
@@ -396,7 +396,9 @@ export function AudioDownloadsPanel({
                           ? "Batal"
                           : offlinePages.status === "error"
                             ? "Coba lagi"
-                            : "Unduh"}
+                            : offlinePages.done > 0
+                              ? "Lanjutkan"
+                              : "Unduh"}
                       </button>
                     </div>
                   )}

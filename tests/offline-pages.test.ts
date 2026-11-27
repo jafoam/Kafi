@@ -3,7 +3,9 @@ import {
   OFFLINE_CACHE,
   PAGE_COUNT,
   countOfflinePages,
+  countPlatformV1Pages,
   downloadAllPages,
+  downloadPlatformV1Pages,
 } from "../src/services/offline-pages";
 import { glyphFontUrl } from "../src/services/glyph-pages";
 
@@ -97,5 +99,25 @@ describe("offline page download", () => {
   it("counts the pages already stored", async () => {
     expect(await countOfflinePages(fakeStorage([5, 6, 7]).storage)).toBe(3);
     expect(await countOfflinePages(fakeStorage().storage)).toBe(0);
+  });
+
+  it("downloads and counts v1 fonts in the platform disk cache for lightweight APKs", async () => {
+    const store = new Map<string, Uint8Array>();
+    store.set("font:p1.woff2", new Uint8Array([1, 2, 3]));
+    store.set("font:v4t-p1.woff2", new Uint8Array([1, 2, 3])); // tajweed key must not count as v1
+    const platform = {
+      cacheList: async (b: string) =>
+        Array.from(store.entries())
+          .filter(([k]) => k.startsWith(`${b}:`))
+          .map(([k, v]) => ({ key: k.slice(b.length + 1), size: v.byteLength })),
+      cachePut: async (b: string, k: string, v: Uint8Array) => {
+        store.set(`${b}:${k}`, v);
+      },
+    };
+
+    expect(await countPlatformV1Pages(platform)).toBe(1);
+    const result = await downloadPlatformV1Pages(platform, { fetchFn: okFetch });
+    expect(result).toEqual({ done: PAGE_COUNT, failed: 0 });
+    expect(await countPlatformV1Pages(platform)).toBe(PAGE_COUNT);
   });
 });
