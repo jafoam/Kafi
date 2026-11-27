@@ -164,6 +164,16 @@ function mergeBookmarks(
   return { bookmarks: order.filter((key) => on.has(key)), bookmarkLog };
 }
 
+/** Per ayah, the later hide or show wins. */
+function mergeHiddenAyahs(local: UserData, remote: UserData): Record<AyahKey, BookmarkEvent> {
+  const merged: Record<AyahKey, BookmarkEvent> = { ...(local.hiddenAyahs ?? {}) };
+  for (const [key, event] of Object.entries(remote.hiddenAyahs ?? {}) as [AyahKey, BookmarkEvent][]) {
+    const mine = merged[key];
+    if (!mine || (Date.parse(event.at) || 0) > (Date.parse(mine.at) || 0)) merged[key] = event;
+  }
+  return merged;
+}
+
 /** Lossless merge of two UserData snapshots across devices. */
 export function mergeUserData(local: UserData, remote: UserData): UserData {
   const localTs = Date.parse(local.updatedAt ?? "") || 0;
@@ -218,6 +228,7 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     bookmarks,
     bookmarkLog,
     highlights,
+    hiddenAyahs: mergeHiddenAyahs(local, remote),
     notes,
     settings: remoteSettingsNewer
       ? { ...local.settings, ...remote.settings }

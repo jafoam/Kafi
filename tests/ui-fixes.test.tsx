@@ -346,13 +346,13 @@ describe("Full ayah translation inside AyahPopover", () => {
     expect(copyBtn?.textContent).toBe("Tersalin");
   });
 
-  it("offers the Sembunyikan Ayat switch, reflecting and toggling the setting", () => {
+  it("hides or shows just this ayah from one large row", () => {
     const rect = { left: 100, top: 300, width: 40, height: 24, bottom: 324, right: 140 } as DOMRect;
-    const onToggleHifzBlur = vi.fn();
+    const onToggleHidden = vi.fn();
     const quranApi = { getTranslation: async () => ({ html: "", fromCache: true }) } as unknown as QuranApi;
     const el = mount(
       <AyahPopover
-        ayah="1:1"
+        ayah="1:2"
         surahName="Al-Fatihah"
         anchorRect={rect}
         quranApi={quranApi}
@@ -363,15 +363,15 @@ describe("Full ayah translation inside AyahPopover", () => {
         onClose={() => {}}
         onToggleBookmark={() => {}}
         onSetHighlight={() => {}}
-        hifzBlur={true}
-        onToggleHifzBlur={onToggleHifzBlur}
+        isHidden={false}
+        onToggleHidden={onToggleHidden}
       />,
     );
-    const toggle = el.querySelector('[role="switch"]') as HTMLButtonElement;
-    expect(toggle.textContent).toContain("Sembunyikan Ayat");
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-    act(() => toggle.click());
-    expect(onToggleHifzBlur).toHaveBeenCalledTimes(1);
+    const row = el.querySelector('[role="switch"]') as HTMLButtonElement;
+    expect(row.textContent).toContain("Sembunyikan ayat ini");
+    expect(row.getAttribute("aria-checked")).toBe("false");
+    act(() => row.click());
+    expect(onToggleHidden).toHaveBeenCalledWith("1:2");
   });
 
   it("marks silent Tasmi' sessions as 'Belum ada bacaan' instead of 'Lancar'", () => {

@@ -183,6 +183,8 @@ export interface UserData {
   /** When each bookmark was last added or removed, so a removal survives sync. */
   bookmarkLog?: Record<AyahKey, BookmarkEvent>;
   highlights: Record<AyahKey, HighlightColor>;
+  /** Ayahs hidden one by one, with when each was last hidden or shown, so showing again survives sync. */
+  hiddenAyahs?: Record<AyahKey, BookmarkEvent>;
   notes: Record<AyahKey, string>;
   settings: AppSettings;
   tasmiHistory: TasmiSessionRecord[];
