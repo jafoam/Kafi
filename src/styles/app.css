@@ -2247,32 +2247,39 @@ textarea:focus-visible {
 }
 
 /* Live Recitation Ribbon */
+/* During Tasmi' the status bar takes the audio dock's place: same spot, same pill, same size. */
 .recitation-ribbon-zone {
   position: fixed;
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: 0;
   left: 0;
   right: 0;
-  z-index: 32;
+  z-index: 30;
   display: flex;
-  justify-content: center;
-  padding: 0 16px;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 14px;
   pointer-events: none;
+}
+
+.app-shell--tasmi .audio-dock-zone {
+  display: none;
 }
 
 .recitation-ribbon {
   pointer-events: auto;
-  width: 100%;
-  max-width: 760px;
-  padding: 8px 14px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--popover-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  width: 100%;
+  max-width: 980px;
+  padding: 8px 12px 8px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: var(--pill-shadow);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .recitation-ribbon__bar {
@@ -2280,6 +2287,9 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  /* As tall as the dock's tallest control, its play button. */
+  min-height: var(--control-h-lg);
 }
 
 .recitation-ribbon__status {
@@ -2287,7 +2297,8 @@ textarea:focus-visible {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  flex-wrap: wrap;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .recitation-ribbon__dot {
@@ -2314,6 +2325,9 @@ textarea:focus-visible {
 }
 
 .recitation-ribbon__state-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12.5px;
   font-weight: 600;
   color: var(--text-primary);
@@ -2341,7 +2355,8 @@ textarea:focus-visible {
 }
 
 .recitation-ribbon__toggle-btn {
-  height: 28px;
+  height: var(--control-h);
+  white-space: nowrap;
   padding: 0 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
@@ -2352,8 +2367,9 @@ textarea:focus-visible {
 }
 
 .recitation-ribbon__stop-btn {
-  height: 28px;
-  padding: 0 12px;
+  height: var(--control-h);
+  padding: 0 14px;
+  white-space: nowrap;
   border: none;
   border-radius: var(--radius-pill);
   background: var(--mistake-badge);
@@ -2363,12 +2379,22 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+/* The current ayah's words float in their own card just above the pill. */
 .recitation-ribbon__words {
+  pointer-events: auto;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 760px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border-subtle);
+  padding: 8px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   font-family: var(--font-arabic);
   font-size: 20px;
   line-height: 1.65;
@@ -3727,8 +3753,15 @@ textarea:focus-visible {
   }
 
   .recitation-ribbon-zone {
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-    padding: 0 8px;
+    padding: 0 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .recitation-ribbon {
+    padding: 4px 6px 4px 14px;
+  }
+
+  .recitation-ribbon__loc {
+    display: none;
   }
 
   .audio-dock__ayah-btn,
