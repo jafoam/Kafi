@@ -407,7 +407,7 @@ function AppMenu({
 
         {onOpenReader && linkRow("Baca Terjemahan & Tafsir", "Geser per ayat, fokus ke maknanya", onOpenReader)}
 
-        {toggleRow("Mode Fokus", "Halaman memenuhi layar", focusMode, () => {
+        {toggleRow("Mode Fokus", "Sembunyikan bilah atas & bawah", focusMode, () => {
           onToggleFocusMode();
           onClose();
         })}
