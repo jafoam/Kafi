@@ -2,6 +2,7 @@
   "name": "kafi",
   "private": true,
   "version": "0.1.0",
+  "license": "GPL-3.0-or-later",
   "description": "Pembaca Mushaf Madinah 15 baris dan pendamping hafalan Al-Qur'an dengan Tasmi' on-device.",
   "homepage": "https://kafi.zudd.in",
   "repository": {

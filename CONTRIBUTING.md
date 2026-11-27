@@ -34,3 +34,7 @@ Terima kasih atas minat Anda untuk berkontribusi pada Kafi.
 - **Teks antarmuka** ditulis dalam Bahasa Indonesia.
 - Sertakan tes untuk logika baru di `tests/`.
 - Untuk perubahan tampilan, sertakan tangkapan layar ukuran ponsel dan desktop di *pull request*.
+
+## Lisensi
+
+Dengan mengirimkan kontribusi, Anda setuju bahwa kontribusi tersebut dirilis di bawah [GPL-3.0-or-later](LICENSE), sama seperti bagian lain proyek ini.

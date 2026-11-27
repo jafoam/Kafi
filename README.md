@@ -9,6 +9,7 @@ Pembaca Mushaf Madinah 15 baris dan pendamping hafalan Al-Qur'an dengan Tasmi' y
 [![Deploy web](https://github.com/jafoam/Kafi/actions/workflows/deploy-web.yml/badge.svg)](https://github.com/jafoam/Kafi/actions/workflows/deploy-web.yml)
 [![Rilis](https://img.shields.io/github/v/release/jafoam/Kafi?include_prereleases&label=rilis)](https://github.com/jafoam/Kafi/releases)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20Android%20%C2%B7%20macOS-informational)
+[![Lisensi: GPL-3.0](https://img.shields.io/badge/lisensi-GPL--3.0-blue)](LICENSE)
 
 [Buka versi web](https://kafi.zudd.in) · [Unduh APK Android](https://github.com/jafoam/Kafi/releases) · [Laporkan masalah](https://github.com/jafoam/Kafi/issues/new/choose)
 
@@ -175,3 +176,9 @@ Daftar ini juga tersedia di aplikasi melalui menu ☰ → **Tentang & Sumber Dat
 - **[Muaalem](https://huggingface.co/obadx/muaalem-model-v3_2)** dan **[`quran-transcript`](https://github.com/obadx/quran-transcript)** (MIT): model guru dan fonemisasi rujukan.
 - **[k2-fsa Icefall](https://github.com/k2-fsa/icefall)** (Apache-2.0): arsitektur streaming Zipformer.
 - **[ONNX Runtime](https://github.com/microsoft/onnxruntime)** (MIT): inferensi WebGPU dan WASM di browser.
+
+## Lisensi
+
+Kode sumber Kafi dirilis di bawah [GNU General Public License v3.0](LICENSE) atau versi yang lebih baru. Anda bebas menggunakan, mempelajari, mengubah, dan mendistribusikan ulang Kafi, dengan syarat setiap karya turunan yang didistribusikan juga dirilis beserta kode sumbernya di bawah lisensi yang sama.
+
+Lisensi ini hanya berlaku untuk kode Kafi. Teks Al-Qur'an, font mushaf, terjemahan, tafsir, audio murottal, dan model Tasmi' tetap tunduk pada ketentuan masing-masing sumber yang tercantum pada bagian [Sumber data dan atribusi](#sumber-data-dan-atribusi).
