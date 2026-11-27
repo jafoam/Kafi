@@ -393,9 +393,6 @@ export function GlyphPageBody({
                   {isFirst && bookmarks.has(ayah) && (
                     <span className="ayah-box__bookmark" aria-hidden="true" />
                   )}
-                  {isFirst && mistake && (
-                    <span className="ayah-box__mistake-badge">{mistake.count > 1 ? mistake.count : "!"}</span>
-                  )}
                 </span>
               );
             })}
