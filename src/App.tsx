@@ -229,7 +229,9 @@ export function App({
   } | null>(null);
   const [lastSelectedAyah, setLastSelectedAyah] = useState<AyahKey | null>(null);
   const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
-  const glyphLoader = userData.settings.tajweed ? tajweedGlyphLoader : v1GlyphLoader;
+  // The 1441 letters come from the tajweed fonts; without tajweed they are drawn in plain ink.
+  const uses1441Letters = userData.settings.tajweed || userData.settings.letterStyle === "1441";
+  const glyphLoader = uses1441Letters ? tajweedGlyphLoader : v1GlyphLoader;
   const [focusMode, setFocusMode] = useState(false);
   const [tasmiHint, setTasmiHint] = useState(false);
   const [tasmiGuideOpen, setTasmiGuideOpen] = useState(false);
@@ -1774,7 +1776,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${scrollMode ? "" : "app-shell--swipe"} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${scrollMode ? "" : "app-shell--swipe"} ${uses1441Letters && !userData.settings.tajweed ? "app-shell--plain-1441" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -1813,7 +1815,19 @@ export function App({
         onToggleWordTranslation={() =>
           persistUser(userStore.updateSettings({ wordTranslation: !userData.settings.wordTranslation }))
         }
-        onToggleTajweed={() => persistUser(userStore.updateSettings({ tajweed: !userData.settings.tajweed }))}
+        letterStyle={uses1441Letters ? "1441" : "1405"}
+        onChangeLetterStyle={(letterStyle) =>
+          persistUser(
+            userStore.updateSettings(letterStyle === "1405" ? { letterStyle, tajweed: false } : { letterStyle }),
+          )
+        }
+        onToggleTajweed={() =>
+          persistUser(
+            userStore.updateSettings(
+              userData.settings.tajweed ? { tajweed: false } : { tajweed: true, letterStyle: "1441" },
+            ),
+          )
+        }
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(tasmiContextAyah)}
         onOpenDownloads={() => openDownloads("audio")}

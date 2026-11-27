@@ -51,6 +51,15 @@ describe("platform & user-store", () => {
     expect(data).toEqual(DEFAULT_USER_DATA);
   });
 
+  it("reads letter style from older saves: tajweed on meant the 1441 letters", async () => {
+    const saved = (settings: object) =>
+      createUserStore(createMemoryPlatform({ "kafi:user": JSON.stringify({ settings }) })).load();
+    expect((await saved({ tajweed: true })).settings.letterStyle).toBe("1441");
+    expect((await saved({ tajweed: false })).settings.letterStyle).toBe("1405");
+    expect((await saved({ tajweed: false, letterStyle: "1441" })).settings.letterStyle).toBe("1441");
+    expect((await saved({ letterStyle: "bogus" })).settings.letterStyle).toBe("1405");
+  });
+
   it("persists bookmarks, highlights, notes, settings, lastPage, and tasmi history", async () => {
     const platform = createMemoryPlatform();
     const store = createUserStore(platform);

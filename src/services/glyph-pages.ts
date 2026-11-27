@@ -409,11 +409,33 @@ const TAJWEED_PALETTE_OVERRIDES = {
   dark: tajweedOverrides("dark"),
 } as const;
 
+/** The 1441 letters without tajweed: every rule color, and the ink itself, in the theme's text color. */
+function plainOverrides(theme: "light" | "sepia" | "dark"): Record<number, string> {
+  const ink = { light: "#1a2220", sepia: "#2b2318", dark: "#e8ecea" }[theme];
+  const colors = tajweedOverrides(theme);
+  for (const index of [0, 13, 14]) colors[index] = ink;
+  for (const rule of TAJWEED_RULES) for (const index of rule.cpal) colors[index] = ink;
+  return colors;
+}
+
+const PLAIN_PALETTE_OVERRIDES = {
+  light: plainOverrides("light"),
+  sepia: plainOverrides("sepia"),
+  dark: plainOverrides("dark"),
+} as const;
+
 /** `font-palette` values for the tajweed fonts in each theme. */
 export const TAJWEED_PALETTES = {
   light: "--kafi-tajweed-light",
   sepia: "--kafi-tajweed-sepia",
   dark: "--kafi-tajweed-dark",
+} as const;
+
+/** `font-palette` values for the 1441 letters drawn without tajweed colors. */
+export const PLAIN_PALETTES = {
+  light: "--kafi-plain-light",
+  sepia: "--kafi-plain-sepia",
+  dark: "--kafi-plain-dark",
 } as const;
 const tajweedFamilies = new Set<string>();
 let paletteStyle: HTMLStyleElement | null = null;
@@ -435,5 +457,8 @@ function registerTajweedPalette(family: string): void {
     paletteRule(TAJWEED_PALETTES.light, families, 0, TAJWEED_PALETTE_OVERRIDES.light),
     paletteRule(TAJWEED_PALETTES.sepia, families, 0, TAJWEED_PALETTE_OVERRIDES.sepia),
     paletteRule(TAJWEED_PALETTES.dark, families, 1, TAJWEED_PALETTE_OVERRIDES.dark),
+    paletteRule(PLAIN_PALETTES.light, families, 0, PLAIN_PALETTE_OVERRIDES.light),
+    paletteRule(PLAIN_PALETTES.sepia, families, 0, PLAIN_PALETTE_OVERRIDES.sepia),
+    paletteRule(PLAIN_PALETTES.dark, families, 1, PLAIN_PALETTE_OVERRIDES.dark),
   ].join("\n");
 }

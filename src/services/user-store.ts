@@ -30,6 +30,7 @@ export const DEFAULT_USER_DATA: UserData = {
     hifzBlurLevel: "full",
     wordTranslation: true,
     tajweed: false,
+    letterStyle: "1405",
     mistakeSound: false,
     pageNav: "swipe",
   },
@@ -95,6 +96,13 @@ export function normalizeUserData(raw: unknown): UserData {
     wordTranslation:
       typeof rawSettings.wordTranslation === "boolean" ? rawSettings.wordTranslation : defaults.wordTranslation,
     tajweed: typeof rawSettings.tajweed === "boolean" ? rawSettings.tajweed : defaults.tajweed,
+    // Saved before letter styles existed: tajweed on meant the 1441 letters.
+    letterStyle:
+      rawSettings.letterStyle === "1405" || rawSettings.letterStyle === "1441"
+        ? rawSettings.letterStyle
+        : rawSettings.tajweed === true
+          ? "1441"
+          : defaults.letterStyle,
     mistakeSound:
       typeof rawSettings.mistakeSound === "boolean" ? rawSettings.mistakeSound : defaults.mistakeSound,
     pageNav:
