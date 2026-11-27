@@ -52,7 +52,7 @@ describe("tasmi-logic", () => {
     expect(options[1]).toMatchObject({ surah: 78, fromAyah: 31 });
   });
 
-  it("reveals an ayah only after full clean recitation, keeps mid-ayah mistakes, and counts peeks as mistakes", () => {
+  it("reveals an ayah after it is recited, keeps it open after mistakes and peeks, and counts peeks as mistakes", () => {
     let st = createTasmiState("memorization", { surah: 1, fromAyah: 1, toAyah: 7 });
     const words = () => ["بِسْمِ", "ٱللَّهِ", "ٱلرَّحْمَـٰنِ", "ٱلرَّحِيمِ"];
 
@@ -130,7 +130,7 @@ describe("tasmi-logic", () => {
     );
     expect(st.confirmedMistakes).toHaveLength(0);
 
-    // confirmed -> counted once with Uthmani word text and un-reveals the flagged ayah
+    // confirmed -> counted once with Uthmani word text; the ayah stays open
     st = reduceTilawaEvent(
       st,
       {
@@ -147,7 +147,7 @@ describe("tasmi-logic", () => {
     );
     expect(st.confirmedMistakes).toHaveLength(1);
     expect(st.confirmedMistakes[0].wordText).toBe("ٱلرَّحْمَـٰنِ");
-    expect(st.revealedAyahs.has("1:1")).toBe(false);
+    expect(st.revealedAyahs.has("1:1")).toBe(true);
 
     // resolved later -> mid-ayah mistake STILL counts as a mistake
     st = reduceTilawaEvent(
@@ -166,8 +166,9 @@ describe("tasmi-logic", () => {
     );
     expect(st.confirmedMistakes).toHaveLength(1);
 
-    // peeking a blurred ayah without reciting counts as a mistake
+    // peeking a blurred ayah without reciting counts as a mistake, and opens it for good
     st = recordPeekMistake(st, "1:2");
+    expect(st.revealedAyahs.has("1:2")).toBe(true);
     expect(st.confirmedMistakes).toHaveLength(2);
     expect(st.confirmedMistakes[1]).toMatchObject({
       errorClass: "peeked",
