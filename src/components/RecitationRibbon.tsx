@@ -93,7 +93,7 @@ export function RecitationRibbon({
       return data.lines
         .flatMap((line) => line.words)
         .filter((w) => w.ayah === activeAyahKey)
-        .map((w) => ({ code: w.code, fontFamily: data.fontFamily }));
+        .map((w) => ({ code: w.code, fontFamily: w.fontFamily ?? data.fontFamily }));
     };
 
     void (async () => {

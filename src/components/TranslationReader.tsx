@@ -147,11 +147,16 @@ function ReaderBody({
             (datas) => {
               const runs: GlyphRun[] = [];
               for (const data of datas) {
-                const codes: string[] = [];
                 for (const line of data.lines) {
-                  for (const w of line.words) if (w.ayah === key) codes.push(w.code);
+                  for (const w of line.words) {
+                    if (w.ayah !== key) continue;
+                    // A word drawn by another page's font starts its own run.
+                    const fontFamily = w.fontFamily ?? data.fontFamily;
+                    const last = runs[runs.length - 1];
+                    if (last && last.fontFamily === fontFamily) last.codes.push(w.code);
+                    else runs.push({ fontFamily, codes: [w.code] });
+                  }
                 }
-                if (codes.length) runs.push({ fontFamily: data.fontFamily, codes });
               }
               setGlyphs((prev) => new Map(prev).set(key, runs));
             },

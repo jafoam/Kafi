@@ -1631,7 +1631,7 @@ export function App({
   const tasmiLauncherVisible =
     !focusMode && !tasmiActive && !studyOpen && !overlayOpen && selected === null;
 
-  // The tajweed pages follow the 1441 print, which moves a few ayahs across page breaks.
+  // Switching glyph sets reloads the pages, so what each one prints is read again.
   useEffect(() => {
     setGlyphAyahs({});
   }, [glyphLoader]);
