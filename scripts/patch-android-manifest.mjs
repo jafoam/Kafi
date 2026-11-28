@@ -12,39 +12,73 @@ const REQUIRED_PERMISSIONS = [
 ];
 
 const MARKER = "KafiAndroid";
+const PATCH_VERSION_MARKER = "setBackIntercept";
 
 /**
- * Rewrites the generated MainActivity so the page can keep the screen on (window.KafiAndroid.setKeepAwake)
- * while murottal, talaqqi or Tasmi' runs. Keeps the generated package line; idempotent.
+ * Rewrites the generated MainActivity to:
+ * 1. Apply system-bar and cutout insets so scrolled content never bleeds behind the notification bar.
+ * 2. Expose window.KafiAndroid (setKeepAwake + setBackIntercept) for native wake lock and Back handling.
+ * Keeps the generated package line; idempotent.
  */
 export function patchMainActivity(kotlin) {
-  if (kotlin.includes(MARKER)) return kotlin;
+  if (kotlin.includes(MARKER) && kotlin.includes(PATCH_VERSION_MARKER)) return kotlin;
   const pkg = kotlin.match(/^package\s+[\w.]+/m);
   if (!pkg) throw new Error("Invalid MainActivity.kt: missing package line");
   return `${pkg[0]}
 
 import android.os.Bundle
+import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : TauriActivity() {
+  private var webViewRef: WebView? = null
+  private val backCallback = object : OnBackPressedCallback(false) {
+    override fun handleOnBackPressed() {
+      webViewRef?.evaluateJavascript("window.__kafiHandleBack?.()", null)
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    val content = findViewById<View>(android.R.id.content)
+    ViewCompat.setOnApplyWindowInsetsListener(content) { v, windowInsets ->
+      val bars = windowInsets.getInsets(
+        WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+      )
+      val ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime())
+      v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+      WindowInsetsCompat.CONSUMED
+    }
   }
 
   override fun onWebViewCreate(webView: WebView) {
-    webView.addJavascriptInterface(KeepAwakeBridge(), "${MARKER}")
+    webViewRef = webView
+    webView.addJavascriptInterface(KafiBridge(), "${MARKER}")
+    // Register after Tauri's AppPlugin so our callback sits above it when an overlay is open.
+    backCallback.remove()
+    onBackPressedDispatcher.addCallback(this, backCallback)
   }
 
-  inner class KeepAwakeBridge {
+  inner class KafiBridge {
     @JavascriptInterface
     fun setKeepAwake(on: Boolean) {
       runOnUiThread {
         if (on) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      }
+    }
+
+    @JavascriptInterface
+    fun setBackIntercept(enabled: Boolean) {
+      runOnUiThread {
+        backCallback.isEnabled = enabled
       }
     }
   }

@@ -6,7 +6,6 @@ import type {
   MurajaahCard,
   MushafMap,
   SurahInfo,
-  TasmiSessionKind,
   TasmiSessionRecord,
 } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
@@ -25,12 +24,15 @@ import {
 import type { NewMurajaahInput } from "../services/user-store";
 import { GlassSelect } from "./GlassSelect";
 import { useI18n } from "../i18n";
+import { useBackClose } from "../state/useBackClose";
 
-export type TasmiSummaryTab = "summary" | "history" | "schedule" | "progress";
+export type TasmiSummaryTab = "progress" | "history" | "schedule";
 
 export interface TasmiSummaryModalProps {
   open: boolean;
   initialTab: TasmiSummaryTab;
+  /** When true, opens directly as a standalone Summary popup (e.g. when a Tasmi' session finishes). */
+  summaryOnly?: boolean;
   record: TasmiSessionRecord | null;
   history: TasmiSessionRecord[];
   archivedIds?: Set<string>;
@@ -155,6 +157,7 @@ function evaluateRecord(
 export function TasmiSummaryModal({
   open,
   initialTab,
+  summaryOnly = false,
   record,
   history,
   archivedIds,
@@ -184,17 +187,18 @@ export function TasmiSummaryModal({
 }: TasmiSummaryModalProps) {
   const { lang, isEn, tr } = useI18n();
   const errorClassLabels = isEn ? ERROR_CLASS_LABELS_EN : ERROR_CLASS_LABELS;
-  const [tab, setTab] = useState<TasmiSummaryTab>(initialTab);
+  const resolvedInitialTab: TasmiSummaryTab =
+    initialTab === "progress" && (!catalog || !mushafMap) ? "history" : initialTab;
+  const [tab, setTab] = useState<TasmiSummaryTab>(resolvedInitialTab);
   const [historyFilter, setHistoryFilter] = useState<"active" | "archived">("active");
   const [scheduleFilter, setScheduleFilter] = useState<"active" | "archived">("active");
   const [addingSchedule, setAddingSchedule] = useState(false);
   const [schedSurah, setSchedSurah] = useState(78);
   const [schedFrom, setSchedFrom] = useState(1);
   const [schedTo, setSchedTo] = useState(10);
-  const [schedKind, setSchedKind] = useState<TasmiSessionKind>("murajaah");
   const [schedInterval, setSchedInterval] = useState(3);
   const [schedNote, setSchedNote] = useState("");
-  const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
+  const [popupRecord, setPopupRecord] = useState<TasmiSessionRecord | null>(null);
   const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
   const [mapView, setMapView] = useState<"juz" | "surah" | "page">("juz");
   const [statusFilter, setStatusFilter] = useState<"all" | HafalanStatus>("all");
@@ -202,6 +206,8 @@ export function TasmiSummaryModal({
   const [selectedHalaqahCode, setSelectedHalaqahCode] = useState<string>("");
   const [submittingHalaqah, setSubmittingHalaqah] = useState(false);
   const [submittedRecordId, setSubmittedRecordId] = useState<string | null>(null);
+
+  useBackClose(Boolean(open && !summaryOnly && popupRecord), () => setPopupRecord(null));
 
   const streak = useMemo(() => computeHafalanStreak(history, undefined, lang), [history, lang]);
   const progressMap = useMemo(() => {
@@ -240,28 +246,33 @@ export function TasmiSummaryModal({
 
   useEffect(() => {
     if (!open) return;
-    setTab(initialTab);
-    setSelectedRecord(record ?? history[0] ?? null);
+    setTab(initialTab === "progress" && (!catalog || !mushafMap) ? "history" : initialTab);
+    setPopupRecord(null);
     // Omit `history` so async addTasmiHistory updates don't reset the user's open tab or record.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialTab, record]);
+  }, [open, initialTab, summaryOnly, record]);
 
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        if (!summaryOnly && popupRecord) {
+          setPopupRecord(null);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open, summaryOnly, popupRecord, onClose]);
 
-  const activeRecord = selectedRecord ?? record ?? history[0] ?? null;
+  const activeRecord = summaryOnly ? (record ?? history[0] ?? null) : popupRecord;
+  const showingSummaryPopup = Boolean(open && activeRecord && (summaryOnly || popupRecord !== null));
 
   useEffect(() => {
-    if (!open || tab !== "summary" || !activeRecord || !glyphLoader || !ayahToPage) return;
+    if (!showingSummaryPopup || !activeRecord || !glyphLoader || !ayahToPage) return;
     if (activeRecord.mistakes.length === 0) return;
 
     const neededPages = new Set<number>();
@@ -299,7 +310,7 @@ export function TasmiSummaryModal({
     return () => {
       live = false;
     };
-  }, [open, tab, activeRecord, glyphLoader, ayahToPage]);
+  }, [showingSummaryPopup, activeRecord, glyphLoader, ayahToPage]);
 
   const breakdown = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -325,12 +336,210 @@ export function TasmiSummaryModal({
 
   if (!open) return null;
 
+  const renderSummaryContent = (targetRecord: TasmiSessionRecord) => {
+    const status = evaluateRecord(targetRecord, lang);
+    return (
+      <>
+        <div className="tasmi-summary__hero">
+          <div>
+            <div className="tasmi-summary__surah">
+              {surahByNum.get(targetRecord.surah)?.name ?? `Surah ${targetRecord.surah}`} ·{" "}
+              {tr("Ayat", "Ayah")} {targetRecord.fromAyah}–{targetRecord.toAyah}
+            </div>
+            <div className="tasmi-summary__meta">
+              {tr("Durasi", "Duration")} {formatDuration(targetRecord.durationSec)} ·{" "}
+              {formatDate(targetRecord.startedAt, lang)}
+              {status.progressText ? ` · ${status.progressText}` : ""}
+              {targetRecord.peekedAyahs && targetRecord.peekedAyahs.length > 0
+                ? ` · ${targetRecord.peekedAyahs.length} ${tr("diintip", "peeked")}`
+                : ""}
+            </div>
+          </div>
+          <div className={`tasmi-summary__score tasmi-summary__score--${status.tone}`}>
+            {status.label}
+          </div>
+        </div>
+
+        {activeCard && (
+          <div className="tasmi-summary__schedule-note">
+            {tr("Jadwal Muraja'ah berikutnya:", "Next Muraja'ah review:")}{" "}
+            <strong>{formatDueLabel(activeCard.dueAt, undefined, lang)}</strong> (
+            {tr(`interval ${activeCard.stabilityDays} hari`, `${activeCard.stabilityDays}-day interval`)})
+          </div>
+        )}
+
+        {drillAyahs.length > 0 && onStartDrill && (
+          <button
+            type="button"
+            className="tasmi-summary__drill-btn"
+            onClick={() => onStartDrill(drillAyahs)}
+          >
+            {tr(`Latih Kesalahan (${drillAyahs.length} ayat)`, `Drill Mistakes (${drillAyahs.length} ayahs)`)}
+          </button>
+        )}
+
+        {halaqahs.length > 0 && onSubmitToHalaqah && (
+          <div className="halaqah-submit-row">
+            {halaqahs.length > 1 && (
+              <GlassSelect
+                ariaLabel={tr("Pilih Halaqah", "Select Halaqah")}
+                value={selectedHalaqahCode || halaqahs[0].code}
+                options={halaqahs.map((h) => ({ value: h.code, label: h.name }))}
+                onChange={setSelectedHalaqahCode}
+              />
+            )}
+            <button
+              type="button"
+              className="tasmi-sheet__history-btn halaqah-submit-btn"
+              disabled={submittingHalaqah || submittedRecordId === targetRecord.id}
+              onClick={() => {
+                const target =
+                  halaqahs.find((h) => h.code === selectedHalaqahCode) ?? halaqahs[0];
+                if (!target) return;
+                setSubmittingHalaqah(true);
+                void onSubmitToHalaqah(target, targetRecord)
+                  .then(() => setSubmittedRecordId(targetRecord.id))
+                  .finally(() => setSubmittingHalaqah(false));
+              }}
+            >
+              {submittedRecordId === targetRecord.id
+                ? tr("✓ Terkirim ke Halaqah", "✓ Sent to Halaqah")
+                : submittingHalaqah
+                  ? tr("Mengirim…", "Sending…")
+                  : `${tr("Kirim ke Halaqah", "Send to Halaqah")}${halaqahs.length === 1 ? ` (${halaqahs[0].name})` : ""}`}
+            </button>
+          </div>
+        )}
+
+        <div className="tasmi-summary__breakdown">
+          {BREAKDOWN_CLASSES.map((cls) => (
+            <div key={cls} className="tasmi-summary__stat">
+              <span className="tasmi-summary__stat-val">{breakdown[cls] ?? 0}</span>
+              <span className="tasmi-summary__stat-lbl">{errorClassLabels[cls]}</span>
+            </div>
+          ))}
+        </div>
+
+        {targetRecord.mistakes.length === 0 ? (
+          <div className="tasmi-summary__empty">{status.emptyNote}</div>
+        ) : (
+          <div className="tasmi-summary__list">
+            {targetRecord.mistakes.map((m) => {
+              const ayahKey: AyahKey = `${m.surah}:${m.ayah}`;
+              const words = getAyahWords(m.surah, m.ayah);
+              const surahName = surahByNum.get(m.surah)?.name ?? `Surah ${m.surah}`;
+
+              return (
+                <div key={m.id} className="tasmi-summary__mistake">
+                  <div className="tasmi-summary__mistake-head">
+                    <span className="tasmi-summary__mistake-badge">
+                      {formatErrorClass(m.errorClass, lang)}
+                    </span>
+                    <span className="tasmi-summary__mistake-loc">
+                      {surahName} : {m.ayah}
+                      {m.word ? ` (${tr("kata", "word")} ${m.word})` : ""}
+                    </span>
+                  </div>
+
+                  {words.length > 0 ? (() => {
+                    const rawQcf = qcfByAyah[ayahKey];
+                    const qcf = rawQcf && rawQcf.length - 1 === words.length ? rawQcf.slice(0, -1) : null;
+                    return (
+                      <div
+                        className={`tasmi-summary__arabic ${qcf ? "tasmi-summary__arabic--qcf" : ""}`}
+                        dir="rtl"
+                        lang="ar"
+                      >
+                        {words.map((w, idx) => (
+                          <span
+                            key={idx}
+                            className={
+                              m.word === idx + 1 ? "tasmi-summary__word--flagged" : undefined
+                            }
+                            style={qcf ? { fontFamily: `"${qcf[idx].fontFamily}"` } : undefined}
+                          >
+                            {qcf ? qcf[idx].code : w}{" "}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })() : m.wordText ? (
+                    <div className="tasmi-summary__arabic" dir="rtl" lang="ar">
+                      <span className="tasmi-summary__word--flagged">{m.wordText}</span>
+                    </div>
+                  ) : null}
+
+                  <div className="tasmi-summary__mistake-actions">
+                    <button
+                      type="button"
+                      className="tasmi-summary__play-btn"
+                      onClick={() => onPlayAyah(ayahKey)}
+                    >
+                      {tr("▶ Dengar Murottal", "▶ Play Audio")}
+                    </button>
+                    <button
+                      type="button"
+                      className="tasmi-summary__jump-btn"
+                      onClick={() => onJumpToAyah(ayahKey)}
+                    >
+                      {tr("Buka Ayat", "Open Ayah")}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
+  };
+
+  if (summaryOnly) {
+    return (
+      <div
+        className="palette-backdrop"
+        role="dialog"
+        aria-modal="true"
+        aria-label={tr("Ringkasan Tasmi'", "Tasmi' Summary")}
+        onClick={onClose}
+      >
+        <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
+          <div className="tasmi-sheet__header">
+            <div>
+              <h2 className="tasmi-sheet__title">{tr("Ringkasan Tasmi'", "Tasmi' Summary")}</h2>
+              <p className="tasmi-sheet__subtitle">
+                {tr("Hasil bacaan Tasmi' yang baru saja selesai", "Result of your completed Tasmi' session")}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="ayah-popover__close"
+              aria-label={tr("Tutup", "Close")}
+              onClick={onClose}
+            >
+              ×
+            </button>
+          </div>
+          <div className="tasmi-summary__body">
+            {activeRecord ? (
+              renderSummaryContent(activeRecord)
+            ) : (
+              <div className="tasmi-summary__empty">
+                {tr("Belum ada sesi Tasmi' yang selesai.", "No completed Tasmi' sessions yet.")}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label={tr("Ringkasan & Riwayat Tasmi'", "Tasmi' Summary & History")}
+      aria-label={tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}
       onClick={onClose}
     >
       <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
@@ -338,7 +547,7 @@ export function TasmiSummaryModal({
           <div>
             <h2 className="tasmi-sheet__title">{tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}</h2>
             <p className="tasmi-sheet__subtitle">
-              {tr("Tinjau catatan bacaan dan dengarkan murottal untuk koreksi", "Review recitation notes and listen to audio for correction")}
+              {tr("Pantau progres hafalan, riwayat setoran, dan jadwal muraja'ah", "Track memorization progress, session history, and revision schedule")}
             </p>
           </div>
           <button
@@ -352,17 +561,19 @@ export function TasmiSummaryModal({
         </div>
 
         <div className="tasmi-sheet__modes" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "summary"}
-            className={`tasmi-sheet__mode-btn ${
-              tab === "summary" ? "tasmi-sheet__mode-btn--active" : ""
-            }`}
-            onClick={() => setTab("summary")}
-          >
-            {tr("Ringkasan", "Summary")}
-          </button>
+          {catalog && mushafMap && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "progress"}
+              className={`tasmi-sheet__mode-btn ${
+                tab === "progress" ? "tasmi-sheet__mode-btn--active" : ""
+              }`}
+              onClick={() => setTab("progress")}
+            >
+              {tr("Progres", "Progress")}
+            </button>
+          )}
           <button
             type="button"
             role="tab"
@@ -385,188 +596,10 @@ export function TasmiSummaryModal({
           >
             {tr("Jadwal", "Schedule")} ({activeMurajaahCount})
           </button>
-          {catalog && mushafMap && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === "progress"}
-              className={`tasmi-sheet__mode-btn ${
-                tab === "progress" ? "tasmi-sheet__mode-btn--active" : ""
-              }`}
-              onClick={() => setTab("progress")}
-            >
-              {tr("Progres", "Progress")}
-            </button>
-          )}
         </div>
 
         <div className="tasmi-summary__body">
-          {tab === "summary" ? (
-            activeRecord ? (() => {
-              const status = evaluateRecord(activeRecord, lang);
-              return (
-              <>
-                <div className="tasmi-summary__hero">
-                  <div>
-                    <div className="tasmi-summary__surah">
-                      {surahByNum.get(activeRecord.surah)?.name ?? `Surah ${activeRecord.surah}`} ·{" "}
-                      {tr("Ayat", "Ayah")} {activeRecord.fromAyah}–{activeRecord.toAyah}
-                    </div>
-                    <div className="tasmi-summary__meta">
-                      {tr("Durasi", "Duration")} {formatDuration(activeRecord.durationSec)} ·{" "}
-                      {formatDate(activeRecord.startedAt, lang)}
-                      {status.progressText ? ` · ${status.progressText}` : ""}
-                      {activeRecord.peekedAyahs && activeRecord.peekedAyahs.length > 0
-                        ? ` · ${activeRecord.peekedAyahs.length} ${tr("diintip", "peeked")}`
-                        : ""}
-                    </div>
-                  </div>
-                  <div className={`tasmi-summary__score tasmi-summary__score--${status.tone}`}>
-                    {status.label}
-                  </div>
-                </div>
-
-                {activeCard && (
-                  <div className="tasmi-summary__schedule-note">
-                    {tr(
-                      `Jadwal ${activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} berikutnya:`,
-                      `Next ${activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} review:`,
-                    )}{" "}
-                    <strong>{formatDueLabel(activeCard.dueAt, undefined, lang)}</strong> (
-                    {tr(`interval ${activeCard.stabilityDays} hari`, `${activeCard.stabilityDays}-day interval`)})
-                  </div>
-                )}
-
-                {drillAyahs.length > 0 && onStartDrill && (
-                  <button
-                    type="button"
-                    className="tasmi-summary__drill-btn"
-                    onClick={() => onStartDrill(drillAyahs)}
-                  >
-                    {tr(`Latih Kesalahan (${drillAyahs.length} ayat)`, `Drill Mistakes (${drillAyahs.length} ayahs)`)}
-                  </button>
-                )}
-
-                {halaqahs.length > 0 && onSubmitToHalaqah && (
-                  <div className="halaqah-submit-row">
-                    {halaqahs.length > 1 && (
-                      <GlassSelect
-                        ariaLabel={tr("Pilih Halaqah", "Select Halaqah")}
-                        value={selectedHalaqahCode || halaqahs[0].code}
-                        options={halaqahs.map((h) => ({ value: h.code, label: h.name }))}
-                        onChange={setSelectedHalaqahCode}
-                      />
-                    )}
-                    <button
-                      type="button"
-                      className="tasmi-sheet__history-btn halaqah-submit-btn"
-                      disabled={submittingHalaqah || submittedRecordId === activeRecord.id}
-                      onClick={() => {
-                        const target =
-                          halaqahs.find((h) => h.code === selectedHalaqahCode) ?? halaqahs[0];
-                        if (!target) return;
-                        setSubmittingHalaqah(true);
-                        void onSubmitToHalaqah(target, activeRecord)
-                          .then(() => setSubmittedRecordId(activeRecord.id))
-                          .finally(() => setSubmittingHalaqah(false));
-                      }}
-                    >
-                      {submittedRecordId === activeRecord.id
-                        ? tr("✓ Terkirim ke Halaqah", "✓ Sent to Halaqah")
-                        : submittingHalaqah
-                          ? tr("Mengirim…", "Sending…")
-                          : `${tr("Kirim ke Halaqah", "Send to Halaqah")}${halaqahs.length === 1 ? ` (${halaqahs[0].name})` : ""}`}
-                    </button>
-                  </div>
-                )}
-
-                <div className="tasmi-summary__breakdown">
-                  {BREAKDOWN_CLASSES.map((cls) => (
-                    <div key={cls} className="tasmi-summary__stat">
-                      <span className="tasmi-summary__stat-val">{breakdown[cls] ?? 0}</span>
-                      <span className="tasmi-summary__stat-lbl">{errorClassLabels[cls]}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {activeRecord.mistakes.length === 0 ? (
-                  <div className="tasmi-summary__empty">{status.emptyNote}</div>
-                ) : (
-                  <div className="tasmi-summary__list">
-                    {activeRecord.mistakes.map((m) => {
-                      const ayahKey: AyahKey = `${m.surah}:${m.ayah}`;
-                      const words = getAyahWords(m.surah, m.ayah);
-                      const surahName = surahByNum.get(m.surah)?.name ?? `Surah ${m.surah}`;
-
-                      return (
-                        <div key={m.id} className="tasmi-summary__mistake">
-                          <div className="tasmi-summary__mistake-head">
-                            <span className="tasmi-summary__mistake-badge">
-                              {formatErrorClass(m.errorClass, lang)}
-                            </span>
-                            <span className="tasmi-summary__mistake-loc">
-                              {surahName} : {m.ayah}
-                              {m.word ? ` (${tr("kata", "word")} ${m.word})` : ""}
-                            </span>
-                          </div>
-
-                          {words.length > 0 ? (() => {
-                            const rawQcf = qcfByAyah[ayahKey];
-                            const qcf = rawQcf && rawQcf.length - 1 === words.length ? rawQcf.slice(0, -1) : null;
-                            return (
-                              <div
-                                className={`tasmi-summary__arabic ${qcf ? "tasmi-summary__arabic--qcf" : ""}`}
-                                dir="rtl"
-                                lang="ar"
-                              >
-                                {words.map((w, idx) => (
-                                  <span
-                                    key={idx}
-                                    className={
-                                      m.word === idx + 1 ? "tasmi-summary__word--flagged" : undefined
-                                    }
-                                    style={qcf ? { fontFamily: `"${qcf[idx].fontFamily}"` } : undefined}
-                                  >
-                                    {qcf ? qcf[idx].code : w}{" "}
-                                  </span>
-                                ))}
-                              </div>
-                            );
-                          })() : m.wordText ? (
-                            <div className="tasmi-summary__arabic" dir="rtl" lang="ar">
-                              <span className="tasmi-summary__word--flagged">{m.wordText}</span>
-                            </div>
-                          ) : null}
-
-                          <div className="tasmi-summary__mistake-actions">
-                            <button
-                              type="button"
-                              className="tasmi-summary__play-btn"
-                              onClick={() => onPlayAyah(ayahKey)}
-                            >
-                              {tr("▶ Dengar Murottal", "▶ Play Audio")}
-                            </button>
-                            <button
-                              type="button"
-                              className="tasmi-summary__jump-btn"
-                              onClick={() => onJumpToAyah(ayahKey)}
-                            >
-                              {tr("Buka Ayat", "Open Ayah")}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-              );
-            })() : (
-              <div className="tasmi-summary__empty">
-                {tr("Belum ada sesi Tasmi' yang selesai.", "No completed Tasmi' sessions yet.")}
-              </div>
-            )
-          ) : tab === "history" ? (
+          {tab === "history" ? (
             history.length === 0 ? (
               <div className="tasmi-summary__empty">
                 {tr(
@@ -630,8 +663,7 @@ export function TasmiSummaryModal({
                         scoreTone={status.tone}
                         archived={isArchived}
                         onSelect={() => {
-                          setSelectedRecord(item);
-                          setTab("summary");
+                          setPopupRecord(item);
                         }}
                         onToggleArchive={
                           onToggleArchiveHistory
@@ -641,8 +673,8 @@ export function TasmiSummaryModal({
                         onDelete={
                           onDeleteHistory
                             ? () => {
-                                if (selectedRecord?.id === item.id) {
-                                  setSelectedRecord(null);
+                                if (popupRecord?.id === item.id) {
+                                  setPopupRecord(null);
                                 }
                                 onDeleteHistory(item.id);
                               }
@@ -697,7 +729,6 @@ export function TasmiSummaryModal({
 
             const statusCounts: Record<HafalanStatus, number> = {
               smooth: 0,
-              ziyadah: 0,
               needs_review: 0,
               none: 0,
             };
@@ -713,14 +744,35 @@ export function TasmiSummaryModal({
                 ? activeItems.find((item) => item.key === selectedProgressKey) ?? null
                 : null;
 
+            const latestMatchingRecord = selectedItem
+              ? history.find((rec) => {
+                  if (selectedItem.surahNumber !== undefined) {
+                    return rec.surah === selectedItem.surahNumber;
+                  }
+                  if (mapView === "page") {
+                    const p = ayahToPage?.[`${rec.surah}:${rec.fromAyah}`];
+                    const pEnd = ayahToPage?.[`${rec.surah}:${rec.toAyah}`];
+                    return p !== undefined && pEnd !== undefined && selectedItem.page >= p && selectedItem.page <= pEnd;
+                  }
+                  if (mapView === "juz" && catalog) {
+                    const juzIdx = catalog.juzs.findIndex((j) => `juz-${j.number}` === selectedItem.key);
+                    const curJuz = catalog.juzs[juzIdx];
+                    const nextJuz = catalog.juzs[juzIdx + 1];
+                    const recPage = ayahToPage?.[`${rec.surah}:${rec.fromAyah}`];
+                    if (!curJuz || !recPage) return false;
+                    const endPage = nextJuz ? nextJuz.page - 1 : 604;
+                    return recPage >= curJuz.page && recPage <= endPage;
+                  }
+                  return false;
+                }) ?? null
+              : null;
+
             const statusLabel = (st: HafalanStatus) =>
               st === "smooth"
                 ? tr("Lancar", "Smooth")
-                : st === "ziyadah"
-                  ? "Ziyadah"
-                  : st === "needs_review"
-                    ? tr("Perlu ulang", "Needs review")
-                    : tr("Belum", "Not yet");
+                : st === "needs_review"
+                  ? tr("Perlu ulang", "Needs review")
+                  : tr("Belum", "Not yet");
 
             const formatReason = (reason: string) =>
               reason === "murajaah_lapse"
@@ -809,7 +861,6 @@ export function TasmiSummaryModal({
                   [
                     ["all", tr("Semua", "All"), activeItems.length, null],
                     ["needs_review", tr("Perlu ulang", "Needs review"), statusCounts.needs_review, "needs_review"],
-                    ["ziyadah", "Ziyadah", statusCounts.ziyadah, "ziyadah"],
                     ["smooth", tr("Lancar", "Smooth"), statusCounts.smooth, "smooth"],
                     ["none", tr("Belum", "Not yet"), statusCounts.none, "none"],
                   ] as const
@@ -903,6 +954,15 @@ export function TasmiSummaryModal({
                   )}
 
                   <div className="progress-detail__actions">
+                    {latestMatchingRecord && (
+                      <button
+                        type="button"
+                        className="tasmi-sheet__history-btn"
+                        onClick={() => setPopupRecord(latestMatchingRecord)}
+                      >
+                        {tr("Lihat Ringkasan", "View Summary")}
+                      </button>
+                    )}
                     {selectedItem.needsReviewAyahs.length > 0 && onStartDrill && (
                       <button
                         type="button"
@@ -1054,7 +1114,7 @@ export function TasmiSummaryModal({
                         surah: schedSurah,
                         fromAyah: clampedFrom,
                         toAyah: clampedTo,
-                        kind: schedKind,
+                        kind: "murajaah",
                         intervalDays: schedInterval,
                         note: schedNote,
                       });
@@ -1096,29 +1156,18 @@ export function TasmiSummaryModal({
                         />
                       </label>
                     </div>
-                    <div className="schedule-form__row">
-                      <GlassSelect
-                        ariaLabel={tr("Jenis hafalan", "Memorization type")}
-                        value={schedKind}
-                        options={[
-                          { value: "murajaah", label: "Muraja'ah" },
-                          { value: "ziyadah", label: "Ziyadah" },
-                        ]}
-                        onChange={(v) => setSchedKind(v as TasmiSessionKind)}
-                      />
-                      <GlassSelect
-                        ariaLabel={tr("Interval ulang", "Review interval")}
-                        value={String(schedInterval)}
-                        options={[
-                          { value: "1", label: tr("Tiap 1 hari", "Every 1 day") },
-                          { value: "3", label: tr("Tiap 3 hari", "Every 3 days") },
-                          { value: "7", label: tr("Tiap 7 hari", "Every 7 days") },
-                          { value: "14", label: tr("Tiap 14 hari", "Every 14 days") },
-                          { value: "30", label: tr("Tiap 30 hari", "Every 30 days") },
-                        ]}
-                        onChange={(v) => setSchedInterval(Number(v))}
-                      />
-                    </div>
+                    <GlassSelect
+                      ariaLabel={tr("Interval ulang", "Review interval")}
+                      value={String(schedInterval)}
+                      options={[
+                        { value: "1", label: tr("Tiap 1 hari", "Every 1 day") },
+                        { value: "3", label: tr("Tiap 3 hari", "Every 3 days") },
+                        { value: "7", label: tr("Tiap 7 hari", "Every 7 days") },
+                        { value: "14", label: tr("Tiap 14 hari", "Every 14 days") },
+                        { value: "30", label: tr("Tiap 30 hari", "Every 30 days") },
+                      ]}
+                      onChange={(v) => setSchedInterval(Number(v))}
+                    />
                     <input
                       type="text"
                       className="palette__input"
@@ -1156,7 +1205,6 @@ export function TasmiSummaryModal({
                               {sName} · {tr("Ayat", "Ayah")} {card.fromAyah}–{card.toAyah}
                             </div>
                             <div className="tasmi-summary__history-sub">
-                              {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
                               {tr(`Tiap ${card.stabilityDays} hari`, `Every ${card.stabilityDays} days`)}
                               {card.reps > 0
                                 ? ` · ${card.reps}× ${tr("selesai", "done")}`
@@ -1215,6 +1263,41 @@ export function TasmiSummaryModal({
           })()}
         </div>
       </div>
+
+      {popupRecord && (
+        <div
+          className="palette-backdrop tasmi-summary__popup-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={tr("Ringkasan Tasmi'", "Tasmi' Summary")}
+          onClick={(e) => {
+            e.stopPropagation();
+            setPopupRecord(null);
+          }}
+        >
+          <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
+            <div className="tasmi-sheet__header">
+              <div>
+                <h2 className="tasmi-sheet__title">{tr("Ringkasan Tasmi'", "Tasmi' Summary")}</h2>
+                <p className="tasmi-sheet__subtitle">
+                  {tr("Tinjau catatan bacaan dan dengarkan murottal untuk koreksi", "Review recitation notes and listen to audio for correction")}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ayah-popover__close"
+                aria-label={tr("Tutup", "Close")}
+                onClick={() => setPopupRecord(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="tasmi-summary__body">
+              {renderSummaryContent(popupRecord)}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

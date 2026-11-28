@@ -273,7 +273,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
     const el = mount(
       <TasmiSummaryModal
         open={true}
-        initialTab="summary"
+        initialTab="history"
         record={newer}
         history={[older]}
         surahs={catalog.surahs}
@@ -284,7 +284,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
       />,
     );
 
-    // User switches to History tab before async addTasmiHistory finishes
+    // User switches to Schedule tab before async addTasmiHistory finishes
     const tabs = el.querySelectorAll('[role="tab"]');
     act(() => {
       (tabs[1] as HTMLButtonElement).click();
@@ -295,7 +295,7 @@ describe("TasmiSheet and TasmiSummaryModal fixes", () => {
     mount(
       <TasmiSummaryModal
         open={true}
-        initialTab="summary"
+        initialTab="history"
         record={newer}
         history={[newer, older]}
         surahs={catalog.surahs}
@@ -402,7 +402,8 @@ describe("Full ayah translation inside AyahPopover", () => {
     const el = mount(
       <TasmiSummaryModal
         open={true}
-        initialTab="summary"
+        initialTab="progress"
+        summaryOnly={true}
         record={silentRecord}
         history={[silentRecord]}
         surahs={catalog.surahs}
@@ -781,10 +782,10 @@ describe("Gradual blur and recent pages in search", () => {
     expect(el.textContent).toContain("Belum ada bacaan");
     expect(el.textContent).not.toContain("Lancar");
 
-    // Switch to Jadwal tab
+    // Switch to Jadwal tab (only History & Schedule exist when catalog/mushafMap are omitted)
     const tabs = el.querySelectorAll('[role="tab"]');
     act(() => {
-      (tabs[2] as HTMLButtonElement).click();
+      (tabs[1] as HTMLButtonElement).click();
     });
     expect(el.textContent).toContain("Belum disetor");
     expect(el.textContent).not.toContain("× selesai");
@@ -1075,7 +1076,10 @@ describe("Gradual blur and recent pages in search", () => {
         />
       </LanguageProvider>,
     );
-    expect(tsEl.textContent).toContain("Session type");
+    expect(tsEl.textContent).toContain("Tasmi' Evaluation");
+    expect(tsEl.textContent).toContain("Guide");
+    expect(tsEl.textContent).not.toContain("Text Quiz");
+    expect(tsEl.textContent).not.toContain("Session type");
     expect(tsEl.textContent).toContain("Passage");
     expect(tsEl.textContent).toContain("Full surah");
     expect(tsEl.textContent).toContain("Hide ayahs");

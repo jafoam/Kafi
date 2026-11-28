@@ -47,6 +47,7 @@ import {
   computeBlurMask,
   countRecitedAyahs,
   createTasmiState,
+  isPassageCompleted,
   recordPeekMistake,
   pickRandomChallenge,
   reduceTilawaEvent,
@@ -304,8 +305,9 @@ export function App({
   const [summaryModal, setSummaryModal] = useState<{
     open: boolean;
     tab: TasmiSummaryTab;
+    summaryOnly?: boolean;
     record: TasmiSessionRecord | null;
-  }>({ open: false, tab: "summary", record: null });
+  }>({ open: false, tab: "progress", summaryOnly: false, record: null });
   const [compareAyah, setCompareAyah] = useState<AyahKey | null>(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const [halaqahOpen, setHalaqahOpen] = useState(false);
@@ -332,6 +334,8 @@ export function App({
   const tasmiStateRef = useRef<TasmiLiveState | null>(null);
   const tasmiStartedAtRef = useRef<number>(0);
   const tasmiStartingRef = useRef<boolean>(false);
+  const tasmiAutoStopTimerRef = useRef<number | null>(null);
+  const handleStopTasmiRef = useRef<() => Promise<void>>(async () => {});
   const wordLookupRef = useRef<WordLookupFn>(EMPTY_WORD_LOOKUP);
   const mountedRef = useRef(true);
   const modalReturnToRef = useRef<"settings" | "tasmi" | "study" | null>(null);
@@ -1241,6 +1245,10 @@ export function App({
       tilawaAbortRef.current = abort;
 
       // Close sheet immediately and show the live ribbon + blur so startup feels responsive.
+      if (tasmiAutoStopTimerRef.current !== null) {
+        window.clearTimeout(tasmiAutoStopTimerRef.current);
+        tasmiAutoStopTimerRef.current = null;
+      }
       const initial = createTasmiState(mode, passage);
       tasmiStateRef.current = initial;
       tasmiStartedAtRef.current = Date.now();
@@ -1274,6 +1282,16 @@ export function App({
           const next = reduceTilawaEvent(base, event, lookup);
           tasmiStateRef.current = next;
           setTasmiState(next);
+          if (
+            mode === "memorization" &&
+            tasmiAutoStopTimerRef.current === null &&
+            isPassageCompleted(next, lookup)
+          ) {
+            tasmiAutoStopTimerRef.current = window.setTimeout(() => {
+              tasmiAutoStopTimerRef.current = null;
+              void handleStopTasmiRef.current();
+            }, 900);
+          }
         };
 
         if (mode === "free") {
@@ -1425,6 +1443,15 @@ export function App({
           const next = reduceTilawaEvent(base, event, lookup);
           tasmiStateRef.current = next;
           setTasmiState(next);
+          if (
+            tasmiAutoStopTimerRef.current === null &&
+            isPassageCompleted(next, lookup)
+          ) {
+            tasmiAutoStopTimerRef.current = window.setTimeout(() => {
+              tasmiAutoStopTimerRef.current = null;
+              void handleStopTasmiRef.current();
+            }, 900);
+          }
         };
 
         await tilawaController.startMemorization(challenge.passage, onEvent);
@@ -1621,6 +1648,10 @@ export function App({
   );
 
   const handleStopTasmi = useCallback(async () => {
+    if (tasmiAutoStopTimerRef.current !== null) {
+      window.clearTimeout(tasmiAutoStopTimerRef.current);
+      tasmiAutoStopTimerRef.current = null;
+    }
     stopPromptAudio();
     const wasDrill = errorDrill !== null;
     setTasmiActive(false);
@@ -1662,11 +1693,13 @@ export function App({
       };
       persistUser(userStore.addTasmiHistory(record));
       clearModalReturn();
-      setSummaryModal({ open: true, tab: "summary", record });
+      setSummaryModal({ open: true, tab: "progress", summaryOnly: true, record });
     } else if (finalState) {
       showToast(trApp("Sesi Baca Bebas selesai", "Free Recite session finished"));
     }
   }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast, trApp, clearModalReturn]);
+
+  handleStopTasmiRef.current = handleStopTasmi;
 
   const handleDrillNext = useCallback(() => {
     if (!errorDrill) return;
@@ -1700,7 +1733,8 @@ export function App({
     setTasmiSheetOpen(false);
     setSummaryModal({
       open: true,
-      tab: "history",
+      tab: "progress",
+      summaryOnly: false,
       record: userData.tasmiHistory[0] ?? null,
     });
   }, [ensureWordLookup, userData.tasmiHistory]);
@@ -2691,12 +2725,6 @@ export function App({
             setTasmiGuideOpen(true);
           })
         }
-        onOpenQuiz={() =>
-          openChildFrom("tasmi", () => {
-            setTasmiSheetOpen(false);
-            setQuizOpen(true);
-          })
-        }
         streakSummary={{
           currentStreak: hafalanStreak.currentStreak,
           todaySessions: hafalanStreak.todaySessions,
@@ -2723,6 +2751,7 @@ export function App({
       <TasmiSummaryModal
         open={summaryModal.open}
         initialTab={summaryModal.tab}
+        summaryOnly={summaryModal.summaryOnly}
         record={summaryModal.record}
         history={userData.tasmiHistory}
         archivedIds={archivedTasmiIds}

@@ -46,4 +46,41 @@ describe("useBackClose", () => {
     expect(closed).toBe(0);
     await m.unmount();
   });
+
+  it("uses native KafiAndroid bridge on Android without touching window.history", async () => {
+    const calls: boolean[] = [];
+    const win = window as Window & {
+      KafiAndroid?: { setBackIntercept: (on: boolean) => void };
+      __kafiHandleBack?: () => void;
+    };
+    win.KafiAndroid = { setBackIntercept: (on) => calls.push(on) };
+    try {
+      let closedA = 0;
+      let closedB = 0;
+      const before = window.history.length;
+      const a = mount(false, () => closedA++);
+      const b = mount(false, () => closedB++);
+
+      await a.render(true);
+      await b.render(true);
+      expect(window.history.length).toBe(before);
+      expect(calls.at(-1)).toBe(true);
+
+      win.__kafiHandleBack?.();
+      expect(closedB).toBe(1);
+      expect(closedA).toBe(0);
+      expect(calls.at(-1)).toBe(true);
+      await b.render(false);
+
+      win.__kafiHandleBack?.();
+      expect(closedA).toBe(1);
+      expect(calls.at(-1)).toBe(false);
+      await a.render(false);
+
+      await a.unmount();
+      await b.unmount();
+    } finally {
+      delete win.KafiAndroid;
+    }
+  });
 });

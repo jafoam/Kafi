@@ -5,6 +5,7 @@ import {
   cleanlyRecitedAyahs,
   countRecitedAyahs,
   createTasmiState,
+  isPassageCompleted,
   recordPeekMistake,
   reduceTilawaEvent,
   computeBlurMask,
@@ -503,5 +504,16 @@ describe("Baca Bebas under Sembunyikan Ayat", () => {
     let st = createTasmiState("free", null);
     st = reduceTilawaEvent(st, locked(2, 3, 2, 2), words);
     expect(cleanlyRecitedAyahs(st, words).has("100:2")).toBe(false);
+  });
+
+  it("detects passage completion once the final word of the declared range is recited", () => {
+    let st = createTasmiState("memorization", { surah: 100, fromAyah: 1, toAyah: 2 });
+    expect(isPassageCompleted(st, words)).toBe(false);
+    st = reduceTilawaEvent(st, locked(1, 2, 1, 1), words);
+    expect(isPassageCompleted(st, words)).toBe(false);
+    st = reduceTilawaEvent(st, locked(2, 2, 2, 1), words);
+    expect(isPassageCompleted(st, words)).toBe(false);
+    st = reduceTilawaEvent(st, locked(2, 3, 2, 1), words);
+    expect(isPassageCompleted(st, words)).toBe(true);
   });
 });

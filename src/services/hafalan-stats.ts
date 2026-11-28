@@ -6,7 +6,7 @@ import type {
   TasmiSessionRecord,
 } from "../data/types";
 
-export type HafalanStatus = "none" | "ziyadah" | "smooth" | "needs_review";
+export type HafalanStatus = "none" | "smooth" | "needs_review";
 
 export interface PageProgress {
   page: number;
@@ -39,7 +39,6 @@ export interface HafalanProgressSummary {
   totalAyahs: number;
   memorizedAyahs: number;
   smoothAyahs: number;
-  ziyadahAyahs: number;
   needsReviewAyahs: number;
   memorizedPages: number;
 }
@@ -70,20 +69,8 @@ export interface HafalanStreak {
   weekDays: StreakDay[];
 }
 
-const STATUS_PRIORITY: Record<HafalanStatus, number> = {
-  none: 0,
-  smooth: 1,
-  ziyadah: 2,
-  needs_review: 3,
-};
-
-function mergeStatus(a: HafalanStatus, b: HafalanStatus): HafalanStatus {
-  return STATUS_PRIORITY[b] > STATUS_PRIORITY[a] ? b : a;
-}
-
 function summarizeGroupStatus(counts: Record<HafalanStatus, number>): HafalanStatus {
   if (counts.needs_review > 0) return "needs_review";
-  if (counts.ziyadah > 0) return "ziyadah";
   if (counts.smooth > 0) return "smooth";
   return "none";
 }
@@ -94,57 +81,87 @@ export function computeHafalanProgress(
   catalog: Pick<Catalog, "surahs" | "juzs">,
   mushafMap: Pick<MushafMap, "pages" | "ayahToPage">,
 ): HafalanProgressMap {
-  const ayahStatus = new Map<AyahKey, HafalanStatus>();
+  const ayahState = new Map<AyahKey, { status: HafalanStatus; ts: number }>();
   const reviewReasonsMap = new Map<AyahKey, Set<string>>();
 
-  const addReason = (key: AyahKey, reason: string) => {
-    let set = reviewReasonsMap.get(key);
-    if (!set) {
-      set = new Set<string>();
+  const setAyahStatus = (key: AyahKey, status: HafalanStatus, ts: number, reasons?: Iterable<string>) => {
+    ayahState.set(key, { status, ts });
+    if (status === "needs_review") {
+      const set = new Set<string>(reasons ?? []);
       reviewReasonsMap.set(key, set);
+    } else {
+      reviewReasonsMap.delete(key);
     }
-    set.add(reason);
   };
 
-  // Derive per-ayah status from spaced-repetition cards first.
+  // Process Tasmi' sessions chronologically so newer smooth sessions clear older mistakes.
+  const chronological = [...tasmiHistory].sort(
+    (a, b) => (Date.parse(a.startedAt) || 0) - (Date.parse(b.startedAt) || 0),
+  );
+
+  for (const rec of chronological) {
+    const hasExplicitCounts = typeof rec.recitedWords === "number" || typeof rec.recitedAyahs === "number";
+    const words = rec.recitedWords ?? 0;
+    const ayahs = rec.recitedAyahs ?? 0;
+    const peeked = rec.peekedAyahs ?? [];
+    if (hasExplicitCounts && words === 0 && ayahs === 0 && rec.mistakes.length === 0 && peeked.length === 0) {
+      continue;
+    }
+
+    const ts = Date.parse(rec.startedAt) || 0;
+    const totalAyahs = Math.max(1, rec.toAyah - rec.fromAyah + 1);
+    const coveredCount =
+      typeof rec.recitedAyahs === "number" ? Math.min(totalAyahs, Math.max(0, rec.recitedAyahs)) : totalAyahs;
+    const coveredEnd = coveredCount > 0 ? Math.min(rec.toAyah, rec.fromAyah + coveredCount - 1) : rec.fromAyah - 1;
+
+    const mistakeReasons = new Map<AyahKey, Set<string>>();
+    for (const m of rec.mistakes) {
+      const key: AyahKey = `${m.surah}:${m.ayah}`;
+      let set = mistakeReasons.get(key);
+      if (!set) {
+        set = new Set<string>();
+        mistakeReasons.set(key, set);
+      }
+      set.add(m.errorClass);
+    }
+    for (const key of peeked) {
+      let set = mistakeReasons.get(key);
+      if (!set) {
+        set = new Set<string>();
+        mistakeReasons.set(key, set);
+      }
+      set.add("peeked");
+    }
+
+    for (let a = rec.fromAyah; a <= coveredEnd; a += 1) {
+      const key: AyahKey = `${rec.surah}:${a}`;
+      if (!mistakeReasons.has(key)) {
+        setAyahStatus(key, "smooth", ts);
+      }
+    }
+    for (const [key, reasons] of mistakeReasons.entries()) {
+      setAyahStatus(key, "needs_review", ts, reasons);
+    }
+  }
+
+  // Also include reviewed schedule cards (reps > 0 or lapses > 0) when they are at least as recent.
   for (const card of murajaahCards) {
     // Unreviewed manual schedules (0 reps, 0 lapses) are pending targets, not completed memorization.
     if (card.reps === 0 && card.lapses === 0) continue;
-    const status: HafalanStatus =
-      card.lapses > 0 && card.reps === 0
-        ? "needs_review"
-        : card.kind === "ziyadah"
-          ? "ziyadah"
-          : "smooth";
+    const ts = Date.parse(card.lastReviewedAt) || 0;
+    const status: HafalanStatus = card.lapses > 0 && card.reps === 0 ? "needs_review" : "smooth";
     for (let a = card.fromAyah; a <= card.toAyah; a += 1) {
       const key: AyahKey = `${card.surah}:${a}`;
-      const prev = ayahStatus.get(key) ?? "none";
-      ayahStatus.set(key, mergeStatus(prev, status));
-      if (status === "needs_review") addReason(key, "murajaah_lapse");
-    }
-  }
-
-  // Flag specific ayahs that had mistakes in the latest session covering them.
-  const latestByPassage = new Map<string, TasmiSessionRecord>();
-  for (const rec of tasmiHistory) {
-    const id = `${rec.surah}:${rec.fromAyah}-${rec.toAyah}`;
-    const prev = latestByPassage.get(id);
-    if (!prev || (Date.parse(rec.startedAt) || 0) > (Date.parse(prev.startedAt) || 0)) {
-      latestByPassage.set(id, rec);
-    }
-  }
-  for (const rec of latestByPassage.values()) {
-    for (const m of rec.mistakes) {
-      const key: AyahKey = `${m.surah}:${m.ayah}`;
-      ayahStatus.set(key, "needs_review");
-      addReason(key, m.errorClass);
+      const prev = ayahState.get(key);
+      if (!prev || ts >= prev.ts) {
+        setAyahStatus(key, status, ts, status === "needs_review" ? ["murajaah_lapse"] : undefined);
+      }
     }
   }
 
   // Aggregate per-surah
   let totalAyahs = 0;
   let smoothAyahs = 0;
-  let ziyadahAyahs = 0;
   let needsReviewAyahs = 0;
 
   const surahs: SurahProgress[] = catalog.surahs.map((s) => {
@@ -152,18 +169,16 @@ export function computeHafalanProgress(
     const counts: Record<HafalanStatus, number> = {
       none: 0,
       smooth: 0,
-      ziyadah: 0,
       needs_review: 0,
     };
     const surahReviewAyahs: AyahKey[] = [];
     for (let a = 1; a <= s.ayahs; a += 1) {
       const key: AyahKey = `${s.number}:${a}`;
-      const st = ayahStatus.get(key) ?? "none";
+      const st = ayahState.get(key)?.status ?? "none";
       counts[st] += 1;
       if (st === "needs_review") surahReviewAyahs.push(key);
     }
     smoothAyahs += counts.smooth;
-    ziyadahAyahs += counts.ziyadah;
     needsReviewAyahs += counts.needs_review;
     const coveredAyahs = s.ayahs - counts.none;
     return {
@@ -183,7 +198,6 @@ export function computeHafalanProgress(
     const counts: Record<HafalanStatus, number> = {
       none: 0,
       smooth: 0,
-      ziyadah: 0,
       needs_review: 0,
     };
     const seen = new Set<AyahKey>();
@@ -192,7 +206,7 @@ export function computeHafalanProgress(
       const key: AyahKey = `${seg.surah}:${seg.ayah}`;
       if (entry.leadingSplitAyah === key || seen.has(key)) continue;
       seen.add(key);
-      const st = ayahStatus.get(key) ?? "none";
+      const st = ayahState.get(key)?.status ?? "none";
       counts[st] += 1;
       if (st === "needs_review") pageReviewAyahs.push(key);
     }
@@ -217,7 +231,6 @@ export function computeHafalanProgress(
     const counts: Record<HafalanStatus, number> = {
       none: 0,
       smooth: 0,
-      ziyadah: 0,
       needs_review: 0,
     };
     let coveredAyahs = 0;
@@ -252,9 +265,8 @@ export function computeHafalanProgress(
     juzs,
     summary: {
       totalAyahs,
-      memorizedAyahs: smoothAyahs + ziyadahAyahs + needsReviewAyahs,
+      memorizedAyahs: smoothAyahs + needsReviewAyahs,
       smoothAyahs,
-      ziyadahAyahs,
       needsReviewAyahs,
       memorizedPages,
     },

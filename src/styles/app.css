@@ -7108,21 +7108,40 @@ textarea:focus-visible {
   color: var(--text-secondary);
 }
 
+.progress-map__filters {
+  flex-wrap: nowrap;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.progress-map__filters::-webkit-scrollbar {
+  display: none;
+}
+
 .pm-filter-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 0 auto;
   gap: 4px;
   min-height: 30px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border: none;
   border-radius: var(--radius-pill);
   background: var(--glass-control-bg);
   box-shadow: var(--glass-control-shadow);
   color: var(--text-secondary);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 550;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color 140ms ease, color 140ms ease, transform 180ms var(--glass-spring);
+}
+
+.tasmi-summary__popup-backdrop {
+  z-index: 60;
 }
 
 .pm-filter-pill:hover {

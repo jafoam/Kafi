@@ -259,6 +259,33 @@ export function countRecitedAyahs(state: TasmiLiveState): number {
   return uniqueAyahs.size;
 }
 
+/**
+ * Returns true once the reciter has reached the last word of the declared passage's final ayah.
+ * Multi-ayah passages also require at least 2 distinct recited ayahs to avoid premature stops from a stray lock.
+ */
+export function isPassageCompleted(
+  state: TasmiLiveState,
+  getAyahWords: (surah: number, ayah: number) => string[],
+): boolean {
+  if (state.mode !== "memorization" || !state.passage) return false;
+  const { surah, fromAyah, toAyah } = state.passage;
+  const lastWordCount = getAyahWords(surah, toAyah).length;
+  if (lastWordCount === 0) return false;
+
+  const lastKey: AyahKey = `${surah}:${toAyah}`;
+  const reachedEndWord =
+    state.recitedWords.has(`${lastKey}:${lastWordCount}`) ||
+    (state.activeWord?.surah === surah &&
+      state.activeWord.ayah === toAyah &&
+      state.activeWord.word >= lastWordCount);
+  if (!reachedEndWord) return false;
+
+  if (toAyah > fromAyah) {
+    return countRecitedAyahs(state) >= 2;
+  }
+  return true;
+}
+
 function compareAyah(a: AyahKey, b: AyahKey): number {
   const [sa, aa] = a.split(":").map(Number);
   const [sb, ab] = b.split(":").map(Number);

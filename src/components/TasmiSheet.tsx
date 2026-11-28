@@ -46,7 +46,6 @@ export interface TasmiSheetProps {
   onStartRandom?: (pool: RandomPool, enableBlur: boolean) => void;
   onOpenHistory: () => void;
   onOpenGuide: () => void;
-  onOpenQuiz?: () => void;
   streakSummary?: { currentStreak: number; todaySessions: number; todayMinutes: number };
 }
 
@@ -87,7 +86,6 @@ export function TasmiSheet({
   onStartRandom,
   onOpenHistory,
   onOpenGuide,
-  onOpenQuiz,
   streakSummary,
 }: TasmiSheetProps) {
   const { lang, isEn, tr } = useI18n();
@@ -107,7 +105,6 @@ export function TasmiSheet({
   const nextMurajaah = useMemo(() => getNextMurajaahTarget(murajaahCards), [murajaahCards]);
 
   const [mode, setMode] = useState<"memorization" | "random" | "free">("memorization");
-  const [sessionKind, setSessionKind] = useState<TasmiSessionKind>("murajaah");
   const [selectedSurah, setSelectedSurah] = useState<number>(1);
   const [fromAyah, setFromAyah] = useState<number>(1);
   const [toAyah, setToAyah] = useState<number>(7);
@@ -231,17 +228,15 @@ export function TasmiSheet({
             </button>
           </div>
           <div className="tasmi-sheet__header-actions">
-            {onOpenQuiz && (
-              <button
-                type="button"
-                className="tasmi-sheet__history-btn"
-                onClick={onOpenQuiz}
-                disabled={isBusy}
-                title={tr("Kuis teks sambung & urutkan ayat (mode senyap/offline)", "Silent offline ayah continuation & ordering quiz")}
-              >
-                {tr("Kuis Teks", "Text Quiz")}
-              </button>
-            )}
+            <button
+              type="button"
+              className="tasmi-sheet__history-btn"
+              onClick={onOpenHistory}
+              disabled={isBusy}
+              aria-label={tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}
+            >
+              {tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}{historyCount > 0 ? ` (${historyCount})` : ""}
+            </button>
             <button
               type="button"
               className="tasmi-sheet__history-btn"
@@ -249,15 +244,6 @@ export function TasmiSheet({
               disabled={isBusy}
             >
               {tr("Panduan", "Guide")}
-            </button>
-            <button
-              type="button"
-              className="tasmi-sheet__history-btn"
-              onClick={onOpenHistory}
-              disabled={isBusy}
-              aria-label={`${tr("Riwayat Tasmi'", "Tasmi' History")}${historyCount > 0 ? ` (${historyCount})` : ""}`}
-            >
-              {tr("Riwayat", "History")}{historyCount > 0 ? ` (${historyCount})` : ""}
             </button>
           </div>
         </div>
@@ -345,41 +331,12 @@ export function TasmiSheet({
                     <span className="tasmi-sheet__murajaah-sub">
                       {surahByNum.get(nextMurajaah.surah)?.name ?? `Surah ${nextMurajaah.surah}`}{" "}
                       {nextMurajaah.fromAyah}–{nextMurajaah.toAyah} ·{" "}
-                      {nextMurajaah.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
                       {formatDueLabel(nextMurajaah.dueAt, undefined, lang)}
                     </span>
                   </span>
                   <span className="tasmi-sheet__murajaah-pill">{tr("Mulai", "Start")}</span>
                 </button>
               )}
-
-              <div className="tasmi-sheet__inline">
-                <span className="tasmi-sheet__label">{tr("Jenis setoran", "Session type")}</span>
-                <div
-                  className="app-menu__segmented"
-                  role="radiogroup"
-                  aria-label={tr("Jenis setoran", "Session type")}
-                >
-                  {(
-                    [
-                      ["murajaah", "Muraja'ah"],
-                      ["ziyadah", tr("Ziyadah (baru)", "Ziyadah (new)")],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      disabled={isBusy}
-                      aria-checked={sessionKind === value}
-                      className={`app-menu__seg ${sessionKind === value ? "app-menu__seg--active" : ""}`}
-                      onClick={() => setSessionKind(value)}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <div className="tasmi-sheet__section">
                 <span className="tasmi-sheet__label">{tr("Cakupan", "Passage")}</span>
@@ -785,7 +742,7 @@ export function TasmiSheet({
                 onStartMemorization(
                   { surah: selectedSurah, fromAyah: clampedFrom, toAyah: clampedTo },
                   enableBlur,
-                  sessionKind,
+                  "murajaah",
                 );
               }
             }}

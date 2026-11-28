@@ -8,7 +8,7 @@ const catalog = catalogJson as unknown as Catalog;
 const mushafMap = mushafMapJson as unknown as MushafMap;
 
 describe("computeHafalanProgress", () => {
-  it("aggregates smooth, ziyadah, and needs_review across surahs, juzs, and pages", () => {
+  it("aggregates smooth and needs_review across surahs, juzs, and pages from cards and smooth Tasmi' history", () => {
     const cards: MurajaahCard[] = [
       {
         id: "1:1-7",
@@ -58,14 +58,49 @@ describe("computeHafalanProgress", () => {
 
     expect(map.surahs[0].status).toBe("smooth");
     expect(map.surahs[0].coveredAyahs).toBe(7);
-    expect(map.surahs[111].status).toBe("ziyadah");
+    expect(map.surahs[111].status).toBe("smooth");
     expect(map.surahs[113].status).toBe("needs_review");
     expect(map.juzs[0].status).toBe("smooth");
     expect(map.juzs[29].status).toBe("needs_review");
     expect(map.summary.memorizedAyahs).toBe(17);
-    expect(map.summary.smoothAyahs).toBe(7);
-    expect(map.summary.ziyadahAyahs).toBe(4);
+    expect(map.summary.smoothAyahs).toBe(11);
     expect(map.summary.needsReviewAyahs).toBe(6);
+  });
+
+  it("records smooth Tasmi' sessions in progress even without a schedule card, and clears older mistakes", () => {
+    const history: TasmiSessionRecord[] = [
+      {
+        id: "fatihah-smooth",
+        startedAt: "2026-11-28T10:00:00.000Z",
+        durationSec: 40,
+        surah: 1,
+        fromAyah: 1,
+        toAyah: 7,
+        recitedAyahs: 7,
+        recitedWords: 29,
+        mistakes: [],
+      },
+      {
+        id: "fatihah-older-mistake",
+        startedAt: "2026-11-27T10:00:00.000Z",
+        durationSec: 35,
+        surah: 1,
+        fromAyah: 1,
+        toAyah: 7,
+        recitedAyahs: 7,
+        recitedWords: 29,
+        mistakes: [{ id: "m1", errorClass: "wrong_word", surah: 1, ayah: 5, word: 2 }],
+      },
+    ];
+
+    const map = computeHafalanProgress([], history, catalog, mushafMap);
+    expect(map.surahs[0].status).toBe("smooth");
+    expect(map.surahs[0].coveredAyahs).toBe(7);
+    expect(map.surahs[0].needsReviewAyahs).toEqual([]);
+    expect(map.pages[0].status).toBe("smooth");
+    expect(map.juzs[0].status).toBe("smooth");
+    expect(map.summary.smoothAyahs).toBe(7);
+    expect(map.summary.needsReviewAyahs).toBe(0);
   });
 
   it("ignores unreviewed manual schedule targets (0 reps, 0 lapses) so they are not marked smooth automatically", () => {
@@ -105,7 +140,6 @@ describe("computeHafalanProgress", () => {
     expect(map.surahs[78].coveredAyahs).toBe(0);
     expect(map.summary.memorizedAyahs).toBe(0);
     expect(map.summary.smoothAyahs).toBe(0);
-    expect(map.summary.ziyadahAyahs).toBe(0);
     expect(map.summary.memorizedPages).toBe(0);
   });
 });
