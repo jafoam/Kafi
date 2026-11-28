@@ -6,6 +6,8 @@ import type {
   UserData,
 } from "../data/types";
 import { formatDueLabel } from "../services/murajaah-srs";
+import { isHiddenAyahActive } from "../services/user-store";
+import { useI18n } from "../i18n";
 
 export interface ManageDataModalProps {
   open: boolean;
@@ -56,6 +58,7 @@ export function ManageDataModal({
   onDeleteMurajaah,
   onRemoveHalaqah,
 }: ManageDataModalProps) {
+  const { tr } = useI18n();
   const [section, setSection] = useState<ManageSection>("tasmi");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -82,7 +85,7 @@ export function ManageDataModal({
   const hiddenKeys = useMemo(
     () =>
       Object.entries(userData.hiddenAyahs ?? {})
-        .filter(([, ev]) => ev.on)
+        .filter(([, ev]) => isHiddenAyahActive(ev))
         .map(([k]) => k as AyahKey),
     [userData.hiddenAyahs],
   );
@@ -122,11 +125,11 @@ export function ManageDataModal({
 
   const sections: { id: ManageSection; label: string; count: number }[] = [
     { id: "tasmi", label: "Tasmi'", count: userData.tasmiHistory.length },
-    { id: "schedule", label: "Jadwal", count: cards.length },
-    { id: "bookmarks", label: "Bookmark", count: userData.bookmarks.length },
-    { id: "notes", label: "Catatan", count: noteEntries.length },
-    { id: "highlights", label: "Sorotan", count: highlightEntries.length },
-    { id: "hidden", label: "Disembunyikan", count: hiddenKeys.length },
+    { id: "schedule", label: tr("Jadwal", "Schedule"), count: cards.length },
+    { id: "bookmarks", label: tr("Bookmark", "Bookmarks"), count: userData.bookmarks.length },
+    { id: "notes", label: tr("Catatan", "Notes"), count: noteEntries.length },
+    { id: "highlights", label: tr("Sorotan", "Highlights"), count: highlightEntries.length },
+    { id: "hidden", label: tr("Disembunyikan", "Hidden"), count: hiddenKeys.length },
     { id: "halaqah", label: "Halaqah", count: halaqahs.length },
   ];
 
@@ -135,18 +138,21 @@ export function ManageDataModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Kelola Data Pengguna"
+      aria-label={tr("Kelola Data Pengguna", "Manage User Data")}
       onClick={onClose}
     >
       <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Kelola Data</h2>
+            <h2 className="tasmi-sheet__title">{tr("Kelola Data", "Manage Data")}</h2>
             <p className="tasmi-sheet__subtitle">
-              Arsipkan atau hapus riwayat, jadwal, bookmark, catatan, sorotan, dan halaqah
+              {tr(
+                "Arsipkan atau hapus riwayat, jadwal, bookmark, catatan, sorotan, dan halaqah",
+                "Archive or delete history, schedules, bookmarks, notes, highlights, and halaqah",
+              )}
             </p>
           </div>
-          <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+          <button type="button" className="ayah-popover__close" aria-label={tr("Tutup", "Close")} onClick={onClose}>
             ×
           </button>
         </div>

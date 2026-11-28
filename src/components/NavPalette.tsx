@@ -9,6 +9,7 @@ import {
 } from "../services/arabic-search";
 import type { TilawaController } from "../services/tilawa-controller";
 import { clampPage, MAX_PAGE, MIN_PAGE } from "../state/reader-logic";
+import { useI18n } from "../i18n";
 
 export type PaletteTab = "surah" | "juz" | "page" | "search" | "bookmarks";
 
@@ -77,6 +78,7 @@ export function NavPalette({
   onJumpToAyah,
   onToggleBookmark,
 }: NavPaletteProps) {
+  const { tr } = useI18n();
   const [tab, setTab] = useState<PaletteTab>(initialTab);
   const [query, setQuery] = useState("");
   const [pageInput, setPageInput] = useState(String(currentPage));
@@ -267,21 +269,31 @@ export function NavPalette({
     >
       <div className="palette" onClick={(e) => e.stopPropagation()}>
         <div className="palette__tabs" role="tablist">
-          {TABS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              className={`palette__tab ${tab === item.id ? "palette__tab--active" : ""}`}
-              onClick={() => {
-                setTab(item.id);
-                setQuery("");
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {TABS.map((item) => {
+            const label =
+              item.id === "page"
+                ? tr("Halaman", "Page")
+                : item.id === "search"
+                  ? tr("Cari Ayat", "Search")
+                  : item.id === "bookmarks"
+                    ? tr("Bookmark", "Bookmarks")
+                    : item.label;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                className={`palette__tab ${tab === item.id ? "palette__tab--active" : ""}`}
+                onClick={() => {
+                  setTab(item.id);
+                  setQuery("");
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         {(tab === "surah" || tab === "search") && (
@@ -295,8 +307,8 @@ export function NavPalette({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={
                   tab === "surah"
-                    ? "Cari nama atau nomor surah..."
-                    : "Ketik potongan ayat Arab (tanpa harakat) atau nama surah..."
+                    ? tr("Cari nama atau nomor surah...", "Search surah name or number...")
+                    : tr("Ketik potongan ayat Arab (tanpa harakat) atau nama surah...", "Type Arabic words or surah name...")
                 }
               />
               {tab === "search" && tilawaController && (
@@ -305,13 +317,17 @@ export function NavPalette({
                   className={`palette__voice-btn ${voiceState !== "idle" ? "palette__voice-btn--active" : ""}`}
                   onClick={() => void handleToggleVoiceSearch()}
                   aria-pressed={voiceState !== "idle"}
-                  aria-label={voiceState !== "idle" ? "Hentikan pencarian suara" : "Cari ayat dengan suara"}
-                  title="Cari ayat dengan suara (on-device)"
+                  aria-label={
+                    voiceState !== "idle"
+                      ? tr("Hentikan pencarian suara", "Stop voice search")
+                      : tr("Cari ayat dengan suara", "Search ayah by voice")
+                  }
+                  title={tr("Cari ayat dengan suara (on-device)", "Voice search (on-device)")}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
                   </svg>
-                  <span>{voiceState === "listening" ? "Stop" : voiceState === "loading" ? "…" : "Suara"}</span>
+                  <span>{voiceState === "listening" ? "Stop" : voiceState === "loading" ? "…" : tr("Suara", "Voice")}</span>
                 </button>
               )}
             </div>

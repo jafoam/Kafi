@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { SOURCE_CODE_URL } from "../data/acknowledgements";
 import type {
+  AppLanguage,
   HifzBlurLevel,
   LetterStyle,
   PageNavMode,
@@ -8,12 +9,15 @@ import type {
   SpreadMode,
   ThemeMode,
 } from "../data/types";
+import { useI18n } from "../i18n";
 
 const RELEASES_URL = `${SOURCE_CODE_URL}/releases/latest`;
 
 export interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  language?: AppLanguage;
+  onChangeLanguage?: (language: AppLanguage) => void;
   readingMode: ReadingMode;
   flowFontScale: number;
   spreadMode: SpreadMode;
@@ -26,6 +30,7 @@ export interface SettingsModalProps {
   tajweed: boolean;
   halaqahConnected?: boolean;
   syncConnected?: boolean;
+  syncError?: string | null;
   onChangeReadingMode: (mode: ReadingMode) => void;
   onChangeFlowFontScale: (scale: number) => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
@@ -48,33 +53,14 @@ export interface SettingsModalProps {
   onOpenAbout: () => void;
 }
 
-const READING_MODE_OPTIONS: { value: ReadingMode; label: string }[] = [
-  { value: "mushaf", label: "Mushaf" },
-  { value: "translation", label: "Terjemahan" },
-  { value: "reading", label: "Bacaan" },
+const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
+  { value: "id", label: "Indonesia" },
+  { value: "en", label: "English" },
 ];
 
 const LETTER_STYLE_OPTIONS: { value: LetterStyle; label: string }[] = [
   { value: "1405", label: "1405" },
   { value: "1441", label: "1441" },
-];
-
-const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
-  { value: "swipe", label: "Geser" },
-  { value: "scroll", label: "Gulir" },
-  { value: "scroll-page", label: "Per hal." },
-];
-
-const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
-  { value: "auto", label: "Otomatis" },
-  { value: "single", label: "1 Hal." },
-  { value: "double", label: "2 Hal." },
-];
-
-const THEME_OPTIONS: { value: ThemeMode; label: string; ariaLabel: string }[] = [
-  { value: "light", label: "Terang", ariaLabel: "Tema Kertas Terang" },
-  { value: "sepia", label: "Sepia", ariaLabel: "Tema Sepia Hangat" },
-  { value: "dark", label: "Gelap", ariaLabel: "Tema Malam Gelap" },
 ];
 
 function Segmented<T extends string>({
@@ -109,6 +95,8 @@ function Segmented<T extends string>({
 export function SettingsModal({
   open,
   onClose,
+  language = "id",
+  onChangeLanguage,
   readingMode,
   flowFontScale,
   spreadMode,
@@ -121,6 +109,7 @@ export function SettingsModal({
   tajweed,
   halaqahConnected = false,
   syncConnected = false,
+  syncError = null,
   onChangeReadingMode,
   onChangeFlowFontScale,
   onChangeSpreadMode,
@@ -142,6 +131,8 @@ export function SettingsModal({
   onOpenSync,
   onOpenAbout,
 }: SettingsModalProps) {
+  const { tr } = useI18n();
+
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -161,24 +152,50 @@ export function SettingsModal({
     action();
   };
 
+  const readingModeOptions: { value: ReadingMode; label: string }[] = [
+    { value: "mushaf", label: "Mushaf" },
+    { value: "translation", label: tr("Terjemahan", "Translation") },
+    { value: "reading", label: tr("Bacaan", "Reading") },
+  ];
+
+  const pageNavOptions: { value: PageNavMode; label: string }[] = [
+    { value: "swipe", label: tr("Geser", "Swipe") },
+    { value: "scroll", label: tr("Gulir", "Scroll") },
+    { value: "scroll-page", label: tr("Per hal.", "Snap") },
+  ];
+
+  const spreadOptions: { value: SpreadMode; label: string }[] = [
+    { value: "auto", label: tr("Otomatis", "Auto") },
+    { value: "single", label: tr("1 Hal.", "1 Page") },
+    { value: "double", label: tr("2 Hal.", "2 Pages") },
+  ];
+
+  const themeOptions: { value: ThemeMode; label: string; ariaLabel: string }[] = [
+    { value: "light", label: tr("Terang", "Light"), ariaLabel: tr("Tema Kertas Terang", "Light Paper Theme") },
+    { value: "sepia", label: "Sepia", ariaLabel: tr("Tema Sepia Hangat", "Warm Sepia Theme") },
+    { value: "dark", label: tr("Gelap", "Dark"), ariaLabel: tr("Tema Malam Gelap", "Dark Night Theme") },
+  ];
+
   return (
     <div
       className="settings-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Pengaturan"
+      aria-label={tr("Pengaturan", "Settings")}
       onClick={onClose}
     >
       <div className="settings-sheet" onClick={(e) => e.stopPropagation()}>
         <header className="settings-sheet__header">
           <div className="settings-sheet__heading">
-            <h2 className="settings-sheet__title">Pengaturan</h2>
-            <p className="settings-sheet__subtitle">Tampilan mushaf, hafalan, dan data offline</p>
+            <h2 className="settings-sheet__title">{tr("Pengaturan", "Settings")}</h2>
+            <p className="settings-sheet__subtitle">
+              {tr("Tampilan mushaf, bahasa, hafalan, dan data offline", "Mushaf display, language, memorization, and offline data")}
+            </p>
           </div>
           <button
             type="button"
             className="ayah-popover__close settings-sheet__close"
-            aria-label="Tutup pengaturan"
+            aria-label={tr("Tutup pengaturan", "Close settings")}
             onClick={onClose}
           >
             ×
@@ -189,27 +206,46 @@ export function SettingsModal({
           {/* Group 1: Tampilan & Mushaf */}
           <section className="settings-group" aria-labelledby="settings-grp-display">
             <h3 id="settings-grp-display" className="settings-group__title">
-              Tampilan &amp; Mushaf
+              {tr("Tampilan & Mushaf", "Display & Mushaf")}
             </h3>
             <div className="settings-card">
+              {onChangeLanguage && (
+                <div className="settings-control-row">
+                  <div className="settings-row__text">
+                    <span className="settings-row__title">{tr("Bahasa / Language", "Language / Bahasa")}</span>
+                    <span className="settings-row__sub">
+                      {tr("Bahasa antarmuka dan terjemahan bawaan", "Interface language and default translation")}
+                    </span>
+                  </div>
+                  <div className="app-menu__seg-compact">
+                    <Segmented
+                      label={tr("Pilih bahasa", "Choose language")}
+                      value={language}
+                      options={LANGUAGE_OPTIONS}
+                      onChange={onChangeLanguage}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="settings-control-row settings-control-row--stack">
-                <span className="settings-row__title">Mode baca</span>
+                <span className="settings-row__title">{tr("Mode baca", "Reading mode")}</span>
                 <Segmented
-                  label="Mode baca"
+                  label={tr("Mode baca", "Reading mode")}
                   value={readingMode}
-                  options={READING_MODE_OPTIONS}
+                  options={readingModeOptions}
                   onChange={onChangeReadingMode}
                 />
               </div>
 
               {readingMode !== "mushaf" && (
                 <div className="settings-control-row">
-                  <span className="settings-row__title">Ukuran huruf</span>
-                  <div className="flow-font-stepper" role="group" aria-label="Ukuran huruf">
+                  <span className="settings-row__title">{tr("Ukuran huruf", "Font size")}</span>
+                  <div className="flow-font-stepper" role="group" aria-label={tr("Ukuran huruf", "Font size")}>
                     <button
                       type="button"
                       className="flow-font-stepper__btn"
-                      aria-label="Perkecil huruf"
+                      aria-label={tr("Perkecil huruf", "Decrease font size")}
                       disabled={flowFontScale <= 0.85}
                       onClick={() =>
                         onChangeFlowFontScale(Math.max(0.85, Math.round((flowFontScale - 0.15) * 100) / 100))
@@ -221,7 +257,7 @@ export function SettingsModal({
                     <button
                       type="button"
                       className="flow-font-stepper__btn"
-                      aria-label="Perbesar huruf"
+                      aria-label={tr("Perbesar huruf", "Increase font size")}
                       disabled={flowFontScale >= 1.6}
                       onClick={() =>
                         onChangeFlowFontScale(Math.min(1.6, Math.round((flowFontScale + 0.15) * 100) / 100))
@@ -234,9 +270,9 @@ export function SettingsModal({
               )}
 
               <div className="settings-control-row">
-                <span className="settings-row__title">Tema</span>
-                <div className="app-menu__swatches" role="group" aria-label="Tema warna">
-                  {THEME_OPTIONS.map((option) => (
+                <span className="settings-row__title">{tr("Tema", "Theme")}</span>
+                <div className="app-menu__swatches" role="group" aria-label={tr("Tema warna", "Color theme")}>
+                  {themeOptions.map((option) => (
                     <button
                       key={option.value}
                       type="button"
@@ -254,12 +290,14 @@ export function SettingsModal({
 
               <div className="settings-control-row">
                 <div className="settings-row__text">
-                  <span className="settings-row__title">Huruf Madinah</span>
-                  <span className="settings-row__sub">Khat cetak 1405 H atau 1441 H</span>
+                  <span className="settings-row__title">{tr("Huruf Madinah", "Madinah Script")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Khat cetak 1405 H atau 1441 H", "1405 H or 1441 H print calligraphy")}
+                  </span>
                 </div>
                 <div className="app-menu__seg-compact">
                   <Segmented
-                    label="Gaya huruf"
+                    label={tr("Gaya huruf", "Script style")}
                     value={letterStyle}
                     options={LETTER_STYLE_OPTIONS}
                     onChange={onChangeLetterStyle}
@@ -270,24 +308,24 @@ export function SettingsModal({
               {readingMode === "mushaf" && (
                 <>
                   <div className="settings-control-row">
-                    <span className="settings-row__title">Pindah halaman</span>
+                    <span className="settings-row__title">{tr("Pindah halaman", "Page navigation")}</span>
                     <div className="app-menu__seg-compact">
                       <Segmented
-                        label="Pindah halaman"
+                        label={tr("Pindah halaman", "Page navigation")}
                         value={pageNav}
-                        options={PAGE_NAV_OPTIONS}
+                        options={pageNavOptions}
                         onChange={onChangePageNav}
                       />
                     </div>
                   </div>
 
                   <div className="settings-control-row settings-control-row--spread">
-                    <span className="settings-row__title">Tata halaman</span>
+                    <span className="settings-row__title">{tr("Tata halaman", "Page layout")}</span>
                     <div className="app-menu__seg-compact">
                       <Segmented
-                        label="Mode halaman"
+                        label={tr("Mode halaman", "Page spread")}
                         value={spreadMode}
-                        options={SPREAD_OPTIONS}
+                        options={spreadOptions}
                         onChange={onChangeSpreadMode}
                       />
                     </div>
@@ -303,8 +341,10 @@ export function SettingsModal({
                 onClick={onToggleTajweed}
               >
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Tajwid Warna</span>
-                  <span className="settings-row__sub">Warna hukum tajwid pada khat Madinah 1441</span>
+                  <span className="settings-row__title">{tr("Tajwid Warna", "Color Tajweed")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Warna hukum tajwid pada khat Madinah 1441", "Color-coded tajweed rules on Madinah 1441 script")}
+                  </span>
                 </span>
                 <span className={`settings-switch ${tajweed ? "settings-switch--on" : ""}`} aria-hidden="true" />
               </button>
@@ -317,8 +357,10 @@ export function SettingsModal({
                 onClick={onToggleWordTranslation}
               >
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Terjemah Kata</span>
-                  <span className="settings-row__sub">Tampilkan arti kata saat diketuk</span>
+                  <span className="settings-row__title">{tr("Terjemah Kata", "Word-by-Word")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Tampilkan arti kata saat diketuk", "Show word meaning when tapped")}
+                  </span>
                 </span>
                 <span
                   className={`settings-switch ${wordTranslation ? "settings-switch--on" : ""}`}
@@ -334,8 +376,10 @@ export function SettingsModal({
                 onClick={onToggleHifzBlur}
               >
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Sembunyikan Ayat</span>
-                  <span className="settings-row__sub">Mode hafalan, ketuk ayat untuk mengintip</span>
+                  <span className="settings-row__title">{tr("Sembunyikan Ayat", "Hide Ayahs")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Mode hafalan, ketuk ayat untuk mengintip", "Memorization blur, tap an ayah to peek")}
+                  </span>
                 </span>
                 <span className={`settings-switch ${hifzBlur ? "settings-switch--on" : ""}`} aria-hidden="true" />
               </button>
@@ -343,11 +387,11 @@ export function SettingsModal({
               {hifzBlur && (
                 <div className="settings-control-row settings-control-row--sub">
                   <Segmented
-                    label="Tingkat sembunyi"
+                    label={tr("Tingkat sembunyi", "Blur level")}
                     value={hifzBlurLevel}
                     options={[
-                      { value: "full", label: "Sembunyi penuh" },
-                      { value: "first-word", label: "Tampil kata pertama" },
+                      { value: "full", label: tr("Sembunyi penuh", "Full blur") },
+                      { value: "first-word", label: tr("Tampil kata pertama", "Show first word") },
                     ]}
                     onChange={onChangeHifzBlurLevel}
                   />
@@ -359,7 +403,7 @@ export function SettingsModal({
           {/* Group 2: Hafalan & Belajar */}
           <section className="settings-group" aria-labelledby="settings-grp-hafalan">
             <h3 id="settings-grp-hafalan" className="settings-group__title">
-              Hafalan &amp; Belajar
+              {tr("Hafalan & Belajar", "Memorization & Study")}
             </h3>
             <div className="settings-card">
               <button type="button" className="settings-row" onClick={openAndClose(onOpenProgress)}>
@@ -369,8 +413,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Progres &amp; Streak</span>
-                  <span className="settings-row__sub">Peta 30 Juz, 114 Surah, 604 halaman &amp; streak harian</span>
+                  <span className="settings-row__title">{tr("Progres & Streak", "Progress & Streak")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Peta 30 Juz, 114 Surah, 604 halaman & streak harian", "30 Juz, 114 Surahs, 604 pages map & daily streak")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -383,8 +429,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Jadwal Muraja&apos;ah</span>
-                  <span className="settings-row__sub">Atur sendiri target ziyadah &amp; muraja&apos;ah</span>
+                  <span className="settings-row__title">{tr("Jadwal Muraja'ah", "Muraja'ah Schedule")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Atur sendiri target ziyadah & muraja'ah", "Manage your own ziyadah & revision targets")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -397,8 +445,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Kuis Teks Offline</span>
-                  <span className="settings-row__sub">Sambung &amp; urutkan ayat tanpa suara</span>
+                  <span className="settings-row__title">{tr("Kuis Teks Offline", "Offline Text Quiz")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Sambung & urutkan ayat tanpa suara", "Continue & order ayahs silently offline")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -414,9 +464,11 @@ export function SettingsModal({
                 </span>
                 <span className="settings-row__text">
                   <span className="settings-row__title">Halaqah</span>
-                  <span className="settings-row__sub">Grup setoran tanpa login (kode grup)</span>
+                  <span className="settings-row__sub">
+                    {tr("Grup setoran tanpa login (kode grup)", "No-login study circle via group code")}
+                  </span>
                 </span>
-                {halaqahConnected && <span className="settings-row__status">Aktif</span>}
+                {halaqahConnected && <span className="settings-row__status">{tr("Aktif", "Active")}</span>}
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
 
@@ -428,8 +480,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Baca Tafsir</span>
-                  <span className="settings-row__sub">Buka terjemahan &amp; tafsir layar penuh</span>
+                  <span className="settings-row__title">{tr("Baca Tafsir", "Read Tafsir")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Buka terjemahan & tafsir layar penuh", "Open full-screen translation & tafsir reader")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -442,8 +496,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Hukum Tajwid</span>
-                  <span className="settings-row__sub">Panduan warna hukum bacaan</span>
+                  <span className="settings-row__title">{tr("Hukum Tajwid", "Tajweed Guide")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Panduan warna hukum bacaan", "Color legend for recitation rules")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -453,7 +509,7 @@ export function SettingsModal({
           {/* Group 3: Data & Offline */}
           <section className="settings-group" aria-labelledby="settings-grp-data">
             <h3 id="settings-grp-data" className="settings-group__title">
-              Data &amp; Offline
+              {tr("Data & Offline", "Data & Offline")}
             </h3>
             <div className="settings-card">
               <button type="button" className="settings-row" onClick={openAndClose(onOpenManageData)}>
@@ -465,8 +521,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Kelola Data</span>
-                  <span className="settings-row__sub">Arsipkan atau hapus riwayat, jadwal, catatan &amp; bookmark</span>
+                  <span className="settings-row__title">{tr("Kelola Data", "Manage Data")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Arsipkan atau hapus riwayat, jadwal, catatan & bookmark", "Archive or delete history, schedules, notes & bookmarks")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -479,8 +537,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Unduh Offline</span>
-                  <span className="settings-row__sub">Audio murottal, halaman mushaf, terjemah &amp; tafsir</span>
+                  <span className="settings-row__title">{tr("Unduh Offline", "Offline Downloads")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Audio murottal, halaman mushaf, terjemah & tafsir", "Recitation audio, mushaf pages, translations & tafsir")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -493,10 +553,20 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Sync Perangkat</span>
-                  <span className="settings-row__sub">Sinkronisasi terenkripsi antar perangkat tanpa login</span>
+                  <span className="settings-row__title">{tr("Sync Perangkat", "Device Sync")}</span>
+                  <span className="settings-row__sub">
+                    {syncError
+                      ? tr("Sinkronisasi gagal, ketuk untuk memeriksa", "Sync failed, tap to review")
+                      : tr("Sinkronisasi terenkripsi antar perangkat tanpa login", "Encrypted no-login sync across devices")}
+                  </span>
                 </span>
-                {syncConnected && <span className="settings-row__status">Aktif</span>}
+                {syncError ? (
+                  <span className="settings-row__status settings-row__status--warn">
+                    {tr("Perlu cek", "Check sync")}
+                  </span>
+                ) : syncConnected ? (
+                  <span className="settings-row__status">{tr("Aktif", "Active")}</span>
+                ) : null}
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
             </div>
@@ -505,7 +575,7 @@ export function SettingsModal({
           {/* Group 4: Aplikasi */}
           <section className="settings-group" aria-labelledby="settings-grp-app">
             <h3 id="settings-grp-app" className="settings-group__title">
-              Aplikasi
+              {tr("Aplikasi", "App")}
             </h3>
             <div className="settings-card">
               <button type="button" className="settings-row" onClick={openAndClose(onOpenAbout)}>
@@ -515,8 +585,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Tentang &amp; Sumber</span>
-                  <span className="settings-row__sub">Lisensi &amp; sumber data mushaf</span>
+                  <span className="settings-row__title">{tr("Tentang & Sumber", "About & Sources")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Lisensi & sumber data mushaf", "Licenses & mushaf data attributions")}
+                  </span>
                 </span>
                 <span className="settings-row__trail" aria-hidden="true">›</span>
               </button>
@@ -535,8 +607,10 @@ export function SettingsModal({
                   </svg>
                 </span>
                 <span className="settings-row__text">
-                  <span className="settings-row__title">Aplikasi (GitHub)</span>
-                  <span className="settings-row__sub">Unduh APK Android &amp; versi Desktop</span>
+                  <span className="settings-row__title">{tr("Aplikasi (GitHub)", "App Releases (GitHub)")}</span>
+                  <span className="settings-row__sub">
+                    {tr("Unduh APK Android & versi Desktop", "Download Android APK & Desktop builds")}
+                  </span>
                 </span>
                 <span className="settings-row__trail settings-row__trail--ext" aria-hidden="true">↗</span>
               </a>

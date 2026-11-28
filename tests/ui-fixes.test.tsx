@@ -16,6 +16,8 @@ import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
 import { TopBar } from "../src/components/TopBar";
 import { SettingsModal } from "../src/components/SettingsModal";
+import { LanguageProvider } from "../src/i18n";
+import { HIDDEN_AYAH_TTL_MS, isHiddenAyahActive } from "../src/services/user-store";
 import type { QuranApi } from "../src/services/quran-api";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -815,19 +817,56 @@ describe("Gradual blur and recent pages in search", () => {
 
     const gearBtn = topEl.querySelector<HTMLButtonElement>('button[aria-label="Pengaturan"]');
     expect(gearBtn).not.toBeNull();
-    expect(topEl.querySelector(".topbar__status-dot")).not.toBeNull();
+    // Passive connected status (halaqah/sync) must NOT render a sticky notification dot
+    expect(topEl.querySelector(".topbar__status-dot")).toBeNull();
     act(() => {
       gearBtn?.click();
     });
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
 
+    // Actionable alert (e.g. failed sync) DOES show the notification dot
+    const alertEl = mount(
+      <TopBar
+        surahLabel="Al-Fatihah"
+        juzNumber={1}
+        pageLabel="1"
+        spreadMode="auto"
+        pageNav="swipe"
+        hifzBlur={false}
+        wordTranslation={true}
+        tajweed={false}
+        letterStyle="1405"
+        theme="light"
+        hasActionableAlert={true}
+        onOpenPalette={() => {}}
+        onOpenTasmi={() => {}}
+        onOpenDownloads={() => {}}
+        onOpenTajweedGuide={() => {}}
+        onOpenAbout={() => {}}
+        onChangeSpreadMode={() => {}}
+        onChangePageNav={() => {}}
+        onToggleHifzBlur={() => {}}
+        onToggleFocusMode={() => {}}
+        onToggleWordTranslation={() => {}}
+        onToggleTajweed={() => {}}
+        onChangeTheme={() => {}}
+        onChangeLetterStyle={() => {}}
+        onOpenSettings={onOpenSettings}
+        focusMode={false}
+      />,
+    );
+    expect(alertEl.querySelector(".topbar__status-dot")).not.toBeNull();
+
     const onClose = vi.fn();
     const onOpenSchedule = vi.fn();
     const onToggleTajweed = vi.fn();
+    const onChangeLanguage = vi.fn();
     const modalEl = mount(
       <SettingsModal
         open={true}
         onClose={onClose}
+        language="id"
+        onChangeLanguage={onChangeLanguage}
         readingMode="mushaf"
         flowFontScale={1}
         spreadMode="auto"
@@ -868,6 +907,15 @@ describe("Gradual blur and recent pages in search", () => {
     expect(modalEl.textContent).toContain("Aplikasi");
     expect(modalEl.textContent).toContain("Aktif");
 
+    const enBtn = Array.from(modalEl.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find(
+      (b) => b.textContent === "English",
+    );
+    expect(enBtn).not.toBeUndefined();
+    act(() => {
+      enBtn?.click();
+    });
+    expect(onChangeLanguage).toHaveBeenCalledWith("en");
+
     const tajweedSwitch = Array.from(modalEl.querySelectorAll<HTMLButtonElement>('[role="switch"]')).find((b) =>
       b.textContent?.includes("Tajwid Warna"),
     );
@@ -889,5 +937,87 @@ describe("Gradual blur and recent pages in search", () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     });
     expect(onClose).toHaveBeenCalledTimes(2);
+
+    // English UI rendering via LanguageProvider
+    const enModalEl = mount(
+      <LanguageProvider language="en">
+        <SettingsModal
+          open={true}
+          onClose={() => {}}
+          language="en"
+          onChangeLanguage={() => {}}
+          readingMode="mushaf"
+          flowFontScale={1}
+          spreadMode="auto"
+          pageNav="swipe"
+          letterStyle="1405"
+          theme="light"
+          hifzBlur={false}
+          hifzBlurLevel="full"
+          wordTranslation={true}
+          tajweed={false}
+          onChangeReadingMode={() => {}}
+          onChangeFlowFontScale={() => {}}
+          onChangeSpreadMode={() => {}}
+          onChangePageNav={() => {}}
+          onChangeLetterStyle={() => {}}
+          onChangeTheme={() => {}}
+          onToggleHifzBlur={() => {}}
+          onChangeHifzBlurLevel={() => {}}
+          onToggleWordTranslation={() => {}}
+          onToggleTajweed={() => {}}
+          onOpenProgress={() => {}}
+          onOpenSchedule={() => {}}
+          onOpenQuiz={() => {}}
+          onOpenHalaqah={() => {}}
+          onOpenReader={() => {}}
+          onOpenTajweedGuide={() => {}}
+          onOpenManageData={() => {}}
+          onOpenDownloads={() => {}}
+          onOpenSync={() => {}}
+          onOpenAbout={() => {}}
+        />
+      </LanguageProvider>,
+    );
+    expect(enModalEl.textContent).toContain("Settings");
+    expect(enModalEl.textContent).toContain("Display & Mushaf");
+    expect(enModalEl.textContent).toContain("Memorization & Study");
+  });
+
+  it("renders neighboring spread pages in MushafSpread when allPages is provided and expires hidden ayahs after TTL", () => {
+    const el = mount(
+      <MushafSpread
+        rightPageEntry={mushafMap.pages[1]}
+        leftPageEntry={null}
+        allPages={mushafMap.pages}
+        pageUrls={{ 1: "/1.gif", 2: "/2.gif", 3: "/3.gif" }}
+        selectedAyah={null}
+        playingAyah={null}
+        highlights={{}}
+        bookmarks={new Set()}
+        canGoPrev={true}
+        canGoNext={true}
+        isModalOpen={false}
+        getPageImageUrl={async (p) => `/${p}.gif`}
+        onTurnPage={() => {}}
+        onSelectAyah={() => {}}
+        onClearSelection={() => {}}
+        onToggleFocus={() => {}}
+        onTogglePalette={() => {}}
+      />,
+    );
+    expect(el.querySelector(".mushaf-neighbor--left")).not.toBeNull();
+    expect(el.querySelector(".mushaf-neighbor--right")).not.toBeNull();
+
+    const now = Date.parse("2026-11-28T15:00:00.000Z");
+    expect(
+      isHiddenAyahActive({ on: true, at: new Date(now - 5 * 60_000).toISOString() }, now),
+    ).toBe(true);
+    expect(
+      isHiddenAyahActive({ on: true, at: new Date(now - HIDDEN_AYAH_TTL_MS - 1000).toISOString() }, now),
+    ).toBe(false);
+    expect(
+      isHiddenAyahActive({ on: false, at: new Date(now).toISOString() }, now),
+    ).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  AppLanguage,
   AppSettings,
   AyahKey,
   BookmarkEvent,
@@ -17,6 +18,19 @@ import type { PlatformAdapter } from "../platform/types";
 import { murajaahCardId } from "./murajaah-srs";
 
 export const USER_DATA_KEY = "kafi:user";
+/** Per-ayah manual hide ("Sembunyikan ayat ini") expires after 15 minutes of inactivity. */
+export const HIDDEN_AYAH_TTL_MS = 15 * 60 * 1000;
+
+export function isHiddenAyahActive(
+  event: BookmarkEvent | undefined,
+  nowMs: number = Date.now(),
+  ttlMs: number = HIDDEN_AYAH_TTL_MS,
+): boolean {
+  if (!event || !event.on) return false;
+  const ts = Date.parse(event.at);
+  if (!Number.isFinite(ts)) return false;
+  return nowMs - ts < ttlMs;
+}
 
 export const DEFAULT_USER_DATA: UserData = {
   lastPage: 1,
@@ -25,6 +39,7 @@ export const DEFAULT_USER_DATA: UserData = {
   highlights: {},
   notes: {},
   settings: {
+    language: "id",
     theme: "light",
     spreadMode: "auto",
     reciterId: "Alafasy_128kbps",
@@ -44,6 +59,7 @@ export const DEFAULT_USER_DATA: UserData = {
   tasmiHistory: [],
 };
 
+const VALID_LANGUAGES = new Set<AppLanguage>(["id", "en"]);
 const VALID_THEMES = new Set<ThemeMode>(["light", "sepia", "dark"]);
 const VALID_SPREADS = new Set<SpreadMode>(["auto", "single", "double"]);
 const VALID_HIGHLIGHTS = new Set<HighlightColor>(["amber", "emerald", "sky", "rose"]);
@@ -86,6 +102,9 @@ export function normalizeUserData(raw: unknown): UserData {
   const rawSettings = isPlainObject(raw.settings) ? raw.settings : {};
 
   const settings: AppSettings = {
+    language: VALID_LANGUAGES.has(rawSettings.language as AppLanguage)
+      ? (rawSettings.language as AppLanguage)
+      : defaults.language,
     theme: VALID_THEMES.has(rawSettings.theme as ThemeMode)
       ? (rawSettings.theme as ThemeMode)
       : detectSystemTheme(),
@@ -312,6 +331,7 @@ export interface UserStore {
   toggleBookmark(ayah: AyahKey): Promise<UserData>;
   setHighlight(ayah: AyahKey, color: HighlightColor | null): Promise<UserData>;
   setAyahHidden(ayah: AyahKey, hidden: boolean): Promise<UserData>;
+  pruneExpiredHiddenAyahs(nowMs?: number): Promise<UserData>;
   setNote(ayah: AyahKey, text: string): Promise<UserData>;
   updateSettings(patch: Partial<AppSettings>): Promise<UserData>;
   setLastPage(page: number): Promise<UserData>;
@@ -397,6 +417,22 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
           [ayah]: { on: hidden, at: new Date().toISOString() },
         },
       }));
+    },
+    pruneExpiredHiddenAyahs(nowMs: number = Date.now()) {
+      return mutate((current) => {
+        const entries = Object.entries(current.hiddenAyahs ?? {});
+        if (entries.length === 0) return current;
+        let changed = false;
+        const nowIso = new Date(nowMs).toISOString();
+        const next: Record<AyahKey, BookmarkEvent> = { ...(current.hiddenAyahs ?? {}) };
+        for (const [key, ev] of entries) {
+          if (ev.on && !isHiddenAyahActive(ev, nowMs)) {
+            next[key as AyahKey] = { on: false, at: nowIso };
+            changed = true;
+          }
+        }
+        return changed ? { ...current, hiddenAyahs: next } : current;
+      });
     },
     setNote(ayah: AyahKey, text: string) {
       return mutate((current) => {

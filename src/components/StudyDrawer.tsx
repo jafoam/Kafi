@@ -8,6 +8,7 @@ import type {
 } from "../data/types";
 import type { QuranApi } from "../services/quran-api";
 import { parseAyahKey } from "../services/audio-controller";
+import { useI18n } from "../i18n";
 
 export type StudyTab = "terjemahan" | "tafsir" | "catatan";
 
@@ -80,6 +81,7 @@ export function StudyDrawer({
   onOpenDownloads,
   onOpenReader,
 }: StudyDrawerProps) {
+  const { tr } = useI18n();
   const [tab, setTab] = useState<StudyTab>("terjemahan");
   const [translationState, setTranslationState] = useState<FetchState>(INITIAL_FETCH);
   const [tafsirState, setTafsirState] = useState<FetchState>(INITIAL_FETCH);
@@ -305,9 +307,9 @@ export function StudyDrawer({
       <div className="study-drawer__tabs" role="tablist">
         {(
           [
-            ["terjemahan", "Terjemahan"],
+            ["terjemahan", tr("Terjemahan", "Translation")],
             ["tafsir", "Tafsir"],
-            ["catatan", "Catatan"],
+            ["catatan", tr("Catatan", "Notes")],
           ] as const
         ).map(([key, label]) => (
           <button

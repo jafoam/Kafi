@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AyahKey, HighlightColor, TasmiMistakeRecord } from "../data/types";
 import type { QuranApi } from "../services/quran-api";
 import { formatErrorClass } from "../services/tasmi-logic";
+import { useI18n } from "../i18n";
 
 export interface AyahPopoverProps {
   ayah: AyahKey;
@@ -63,6 +64,7 @@ export function AyahPopover({
   isHidden = false,
   onToggleHidden,
 }: AyahPopoverProps) {
+  const { tr } = useI18n();
   const ayahNum = ayah.split(":")[1] ?? "";
   const popoverRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number }>(() => ({
@@ -213,11 +215,11 @@ export function AyahPopover({
 
       <div className="ayah-popover__translation" aria-live="polite">
         {translation.status === "loading" && (
-          <span className="ayah-popover__translation-muted">Memuat terjemahan…</span>
+          <span className="ayah-popover__translation-muted">{tr("Memuat terjemahan…", "Loading translation…")}</span>
         )}
         {translation.status === "error" && (
           <span className="ayah-popover__translation-muted">
-            Terjemahan belum tersedia offline.
+            {tr("Terjemahan belum tersedia offline.", "Translation not available offline.")}
           </span>
         )}
         {translation.status === "ready" && (
@@ -235,22 +237,22 @@ export function AyahPopover({
           className="ayah-popover__action ayah-popover__action--primary"
           onClick={() => onPlayAyah?.(ayah)}
         >
-          Putar dari sini
+          {tr("Putar dari sini", "Play from here")}
         </button>
         <button type="button" className="ayah-popover__action" onClick={() => onOpenStudy?.(ayah)}>
           Tafsir
         </button>
         <button type="button" className="ayah-popover__action" onClick={() => onStartTasmi?.(ayah)}>
-          Tasmi&apos; dari sini
+          {tr("Tasmi' dari sini", "Tasmi' from here")}
         </button>
         {onCompareAudio && (
           <button
             type="button"
             className="ayah-popover__action"
             onClick={() => onCompareAudio(ayah)}
-            title="Rekam suaramu lalu bandingkan dengan qari"
+            title={tr("Rekam suaramu lalu bandingkan dengan qari", "Record your recitation and compare with the reciter")}
           >
-            Bandingkan Suara
+            {tr("Bandingkan Suara", "Compare Audio")}
           </button>
         )}
       </div>
@@ -263,7 +265,7 @@ export function AyahPopover({
             onClick={() => void handleCopy()}
             aria-live="polite"
           >
-            {copied ? "Tersalin" : "Salin"}
+            {copied ? tr("Tersalin", "Copied") : tr("Salin", "Copy")}
           </button>
           {canShare && (
             <button
@@ -271,7 +273,7 @@ export function AyahPopover({
               className="ayah-popover__bookmark-btn"
               onClick={() => void handleShare()}
             >
-              Bagikan
+              {tr("Bagikan", "Share")}
             </button>
           )}
           <button
@@ -282,7 +284,7 @@ export function AyahPopover({
             aria-pressed={isBookmarked}
             onClick={() => onToggleBookmark(ayah)}
           >
-            {isBookmarked ? "Tersimpan" : "Bookmark"}
+            {isBookmarked ? tr("Tersimpan", "Saved") : "Bookmark"}
           </button>
         </div>
 
@@ -348,7 +350,7 @@ export function AyahPopover({
               </>
             )}
           </svg>
-          <span className="ayah-popover__hide-label">Sembunyikan ayat ini</span>
+          <span className="ayah-popover__hide-label">{tr("Sembunyikan ayat ini", "Hide this ayah")}</span>
           <span
             className={`app-menu__switch ${isHidden ? "app-menu__switch--on" : ""}`}
             aria-hidden="true"

@@ -268,6 +268,7 @@ textarea:focus-visible {
   justify-content: center;
   padding: 62px 52px 80px;
   min-height: 0;
+  overflow: hidden;
   container-type: size;
   transition: padding 220ms ease;
 }
@@ -374,6 +375,37 @@ textarea:focus-visible {
 
 .turn-btn--right {
   right: 12px;
+}
+
+/* Horizontal book track: keeps neighboring spreads visible beside the active spread while dragging */
+.mushaf-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  max-height: 100%;
+  will-change: transform;
+}
+
+.mushaf-neighbor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mushaf-neighbor--left {
+  right: calc(100% + 16px);
+}
+
+.mushaf-neighbor--right {
+  left: calc(100% + 16px);
 }
 
 /* Mushaf Spread (explicit LTR so leftPage is always visual left, rightPage always visual right) */
@@ -4611,9 +4643,11 @@ textarea:focus-visible {
   width: 160px;
   padding: 6px 10px;
   border-radius: var(--radius-md);
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
+  background: var(--word-tip-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
   font-family: system-ui, sans-serif;
   text-align: center;
   pointer-events: none;
@@ -5850,9 +5884,11 @@ textarea:focus-visible {
   gap: 8px;
   padding: 5px 8px;
   border-radius: var(--radius-pill);
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  box-shadow: var(--panel-shadow);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: var(--pill-shadow);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
 }
 
 .flow-font-stepper {
@@ -7423,7 +7459,7 @@ textarea:focus-visible {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--mistake-badge);
   box-shadow: 0 0 0 2px var(--panel-bg);
 }
 
@@ -7629,6 +7665,11 @@ textarea:focus-visible {
   border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.settings-row__status--warn {
+  background: var(--mistake-bg);
+  color: var(--mistake-badge);
 }
 
 .settings-row__trail {

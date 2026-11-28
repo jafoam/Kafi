@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { GlassSelect } from "./GlassSelect";
+import { useI18n } from "../i18n";
 import type { LoadProgress } from "@tilawa/core";
 import type {
   AyahKey,
@@ -83,6 +84,7 @@ export function TasmiSheet({
   onOpenQuiz,
   streakSummary,
 }: TasmiSheetProps) {
+  const { tr } = useI18n();
   const candidates = useMemo(
     () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs),
     [visiblePages, surahs, glyphAyahs],
@@ -206,7 +208,9 @@ export function TasmiSheet({
         <div className="tasmi-sheet__header">
           <div>
             <h2 className="tasmi-sheet__title">Tasmi&apos;</h2>
-            <p className="tasmi-sheet__subtitle">Suaramu diproses di perangkat</p>
+            <p className="tasmi-sheet__subtitle">
+              {tr("Suaramu diproses di perangkat", "Your voice is processed on-device")}
+            </p>
           </div>
           <div className="tasmi-sheet__header-actions">
             {onOpenQuiz && (
@@ -215,9 +219,9 @@ export function TasmiSheet({
                 className="tasmi-sheet__history-btn"
                 onClick={onOpenQuiz}
                 disabled={isBusy}
-                title="Kuis teks sambung & urutkan ayat (mode senyap/offline)"
+                title={tr("Kuis teks sambung & urutkan ayat (mode senyap/offline)", "Silent offline ayah continuation & ordering quiz")}
               >
-                Kuis Teks
+                {tr("Kuis Teks", "Text Quiz")}
               </button>
             )}
             <button
@@ -226,21 +230,21 @@ export function TasmiSheet({
               onClick={onOpenGuide}
               disabled={isBusy}
             >
-              Panduan
+              {tr("Panduan", "Guide")}
             </button>
             <button
               type="button"
               className="tasmi-sheet__history-btn"
               onClick={onOpenHistory}
               disabled={isBusy}
-              aria-label={`Riwayat Tasmi'${historyCount > 0 ? ` (${historyCount})` : ""}`}
+              aria-label={`${tr("Riwayat Tasmi'", "Tasmi' History")}${historyCount > 0 ? ` (${historyCount})` : ""}`}
             >
-              Riwayat{historyCount > 0 ? ` (${historyCount})` : ""}
+              {tr("Riwayat", "History")}{historyCount > 0 ? ` (${historyCount})` : ""}
             </button>
             <button
               type="button"
               className="ayah-popover__close"
-              aria-label="Tutup"
+              aria-label={tr("Tutup", "Close")}
               disabled={isBusy}
               onClick={onClose}
             >
@@ -249,7 +253,7 @@ export function TasmiSheet({
           </div>
         </div>
 
-        <div className="tasmi-sheet__modes" role="tablist" aria-label="Mode Tasmi'">
+        <div className="tasmi-sheet__modes" role="tablist" aria-label={tr("Mode Tasmi'", "Tasmi' Mode")}>
           <button
             type="button"
             role="tab"
@@ -260,7 +264,7 @@ export function TasmiSheet({
             disabled={isBusy}
             onClick={() => setMode("memorization")}
           >
-            Hafalan
+            {tr("Hafalan", "Memorization")}
           </button>
           <button
             type="button"
@@ -272,7 +276,7 @@ export function TasmiSheet({
             disabled={isBusy}
             onClick={() => setMode("random")}
           >
-            Uji Acak
+            {tr("Uji Acak", "Random Test")}
           </button>
           <button
             type="button"
@@ -284,7 +288,7 @@ export function TasmiSheet({
             disabled={isBusy}
             onClick={() => setMode("free")}
           >
-            Baca Bebas
+            {tr("Baca Bebas", "Free Recite")}
           </button>
         </div>
 

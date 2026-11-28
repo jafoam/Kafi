@@ -17,6 +17,7 @@ import {
   type SelectedWord,
 } from "../services/word-translations";
 import { useLongPress } from "../state/useLongPress";
+import { useI18n } from "../i18n";
 
 const wordLoader = createWordTranslationLoader();
 const BISMILLAH = "\uFDFD";
@@ -296,6 +297,7 @@ export function FlowReader({
   onToggleFocus,
   onTogglePalette,
 }: FlowReaderProps) {
+  const { tr } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reportedRef = useRef(currentPage);
   const recentReportsRef = useRef(new Map<number, number>());
@@ -756,12 +758,12 @@ export function FlowReader({
     >
       <div className={`flow-mode-bar-wrap ${focusMode ? "flow-mode-bar-wrap--hidden" : ""}`}>
         <div className="flow-mode-bar-row">
-          <div className="flow-mode-bar" role="tablist" aria-label="Mode baca">
+          <div className="flow-mode-bar" role="tablist" aria-label={tr("Mode baca", "Reading mode")}>
             {(
               [
                 ["mushaf", "Mushaf"],
-                ["translation", "Terjemahan"],
-                ["reading", "Bacaan"],
+                ["translation", tr("Terjemahan", "Translation")],
+                ["reading", tr("Bacaan", "Reading")],
               ] as const
             ).map(([value, label]) => (
               <button
@@ -948,7 +950,7 @@ export function FlowReader({
                               </div>
                             ) : tState.status === "error" ? (
                               <div className="flow-ayah-card__error">
-                                <span>Terjemahan belum termuat.</span>
+                                <span>{tr("Terjemahan belum termuat.", "Translation not loaded.")}</span>
                                 <button
                                   type="button"
                                   className="flow-ayah-card__retry"
@@ -957,7 +959,7 @@ export function FlowReader({
                                     loadAyahTranslation(item.ayah);
                                   }}
                                 >
-                                  Coba lagi
+                                  {tr("Coba lagi", "Retry")}
                                 </button>
                               </div>
                             ) : (
@@ -1055,7 +1057,11 @@ export function FlowReader({
           >
             <span className="word-tip__tr">{tipInfo.transliteration}</span>
             <span className="word-tip__id">{tipInfo.translation}</span>
-            {tip.touch && <span className="word-tip__hint">Tahan kata untuk menu ayat</span>}
+            {tip.touch && (
+              <span className="word-tip__hint">
+                {tr("Tahan kata untuk menu ayat", "Hold word for ayah menu")}
+              </span>
+            )}
           </div>
         )}
       </main>

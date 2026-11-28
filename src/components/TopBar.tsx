@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
 import { SOURCE_CODE_URL } from "../data/acknowledgements";
-import type { HifzBlurLevel, LetterStyle, PageNavMode, ReadingMode, SpreadMode, ThemeMode } from "../data/types";
+import type { AppLanguage, HifzBlurLevel, LetterStyle, PageNavMode, ReadingMode, SpreadMode, ThemeMode } from "../data/types";
 import type { PwaInstall } from "../state/usePwaInstall";
+import { useI18n } from "../i18n";
 
 const RELEASES_URL = `${SOURCE_CODE_URL}/releases/latest`;
 const RELEASES_API_URL = "https://api.github.com/repos/jafoam/Kafi/releases/latest";
@@ -83,6 +84,10 @@ export interface TopBarProps {
   onOpenHalaqah?: () => void;
   onOpenManageData?: () => void;
   onOpenSettings?: () => void;
+  language?: AppLanguage;
+  onChangeLanguage?: (language: AppLanguage) => void;
+  /** True only when there is an actionable alert (e.g., failed sync) that the user can resolve. */
+  hasActionableAlert?: boolean;
   halaqahConnected?: boolean;
   syncConnected?: boolean;
   /** Told when the ☰ menu opens or closes, so other popups can step aside. */
@@ -99,12 +104,6 @@ const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
   { value: "swipe", label: "Geser" },
   { value: "scroll", label: "Gulir" },
   { value: "scroll-page", label: "Per hal." },
-];
-
-const READING_MODE_OPTIONS: { value: ReadingMode; label: string }[] = [
-  { value: "mushaf", label: "Mushaf" },
-  { value: "translation", label: "Terjemahan" },
-  { value: "reading", label: "Bacaan" },
 ];
 
 /** Both keep the same pages and lines; only the calligraphy changes. */
@@ -159,10 +158,12 @@ export function TopBar({
   onOpenHalaqah,
   onOpenManageData,
   onOpenSettings,
-  halaqahConnected = false,
-  syncConnected = false,
+  language = "id",
+  onChangeLanguage,
+  hasActionableAlert = false,
   onMenuOpenChange,
 }: TopBarProps) {
+  const { tr } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   useEffect(() => {
@@ -187,13 +188,13 @@ export function TopBar({
           type="button"
           className="focus-exit-btn"
           onClick={onToggleFocusMode}
-          aria-label="Keluar Mode Fokus"
-          title="Keluar Mode Fokus (F / Esc)"
+          aria-label={tr("Keluar Mode Fokus", "Exit Focus Mode")}
+          title={tr("Keluar Mode Fokus (F / Esc)", "Exit Focus Mode (F / Esc)")}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
           </svg>
-          <span>Keluar Fokus</span>
+          <span>{tr("Keluar Fokus", "Exit Focus")}</span>
         </button>
       )}
       <header className={`topbar ${focusMode ? "topbar--hidden" : ""}`}>
@@ -203,12 +204,12 @@ export function TopBar({
             type="button"
             className="topbar__location-pill"
             onClick={() => onOpenPalette("surah")}
-            title="Buka navigasi Surah, Juz, dan Halaman"
+            title={tr("Buka navigasi Surah, Juz, dan Halaman", "Open Surah, Juz, and Page navigation")}
           >
             <span className="topbar__location-name">{surahLabel}</span>
             <span className="topbar__location-meta">
               <span className="topbar__location-juz">Juz {juzNumber} · </span>
-              Hal. {pageLabel}
+              {tr("Hal.", "Pg.")} {pageLabel}
             </span>
           </button>
         </div>
@@ -224,14 +225,14 @@ export function TopBar({
                   if (result === "guide") setInstallGuideOpen(true);
                 });
               }}
-              aria-label="Instal aplikasi ke layar utama"
-              title="Instal Kafi ke layar utama agar halaman baca lebih lega"
+              aria-label={tr("Instal aplikasi ke layar utama", "Install app to home screen")}
+              title={tr("Instal Kafi ke layar utama agar halaman baca lebih lega", "Install Kafi to home screen for a fuller reading view")}
             >
               <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3v12m0 0-4-4m4 4 4-4" />
                 <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
               </svg>
-              <span className="topbar__label">Instal</span>
+              <span className="topbar__label">{tr("Instal", "Install")}</span>
             </button>
           )}
 
@@ -239,14 +240,14 @@ export function TopBar({
             type="button"
             className="topbar__btn"
             onClick={() => onOpenPalette("search")}
-            title="Cari Ayat atau Surah (Cmd/Ctrl+K)"
-            aria-label="Cari Ayat"
+            title={tr("Cari Ayat atau Surah (Cmd/Ctrl+K)", "Search Ayah or Surah (Cmd/Ctrl+K)")}
+            aria-label={tr("Cari Ayat", "Search Ayah")}
           >
             <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
             </svg>
-            <span className="topbar__label">Cari Ayat</span>
+            <span className="topbar__label">{tr("Cari Ayat", "Search")}</span>
             <span className="topbar__kbd">⌘K</span>
           </button>
 
@@ -255,15 +256,15 @@ export function TopBar({
             className={`topbar__btn topbar__desk ${hifzBlur ? "topbar__btn--active" : ""}`}
             aria-pressed={hifzBlur}
             onClick={onToggleHifzBlur}
-            title="Mode Hafalan: sembunyikan ayat dan ketuk untuk mengintip"
-            aria-label="Sembunyikan Ayat"
+            title={tr("Mode Hafalan: sembunyikan ayat dan ketuk untuk mengintip", "Memorization mode: blur ayahs and tap to peek")}
+            aria-label={tr("Sembunyikan Ayat", "Hide Ayahs")}
           >
             <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 3l18 18" />
               <path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6A17.4 17.4 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
               <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
             </svg>
-            <span className="topbar__label">Sembunyikan Ayat</span>
+            <span className="topbar__label">{tr("Sembunyikan Ayat", "Hide Ayahs")}</span>
           </button>
 
           <button
@@ -271,13 +272,13 @@ export function TopBar({
             className={`topbar__btn topbar__desk ${focusMode ? "topbar__btn--active" : ""}`}
             aria-pressed={focusMode}
             onClick={onToggleFocusMode}
-            title="Mode Fokus (F)"
-            aria-label="Mode Fokus"
+            title={tr("Mode Fokus (F)", "Focus Mode (F)")}
+            aria-label={tr("Mode Fokus", "Focus Mode")}
           >
             <svg className="topbar__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
             </svg>
-            <span className="topbar__label">Mode Fokus</span>
+            <span className="topbar__label">{tr("Mode Fokus", "Focus")}</span>
           </button>
 
           <button
@@ -287,10 +288,10 @@ export function TopBar({
               setInstallGuideOpen(false);
               setMenuOpen((open) => !open);
             }}
-            aria-label="Opsi tampilan cepat: mode baca, tema, dan tajwid"
+            aria-label={tr("Opsi tampilan cepat: mode baca, tema, dan tajwid", "Quick display options: reading mode, theme, and tajweed")}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
-            title="Opsi tampilan cepat"
+            title={tr("Opsi tampilan cepat", "Quick display options")}
           >
             <svg className="topbar__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M4 7h16M4 12h16M4 17h16" />
@@ -306,14 +307,14 @@ export function TopBar({
                 setInstallGuideOpen(false);
                 onOpenSettings();
               }}
-              aria-label="Pengaturan"
-              title="Pengaturan: tampilan, hafalan, data & aplikasi"
+              aria-label={tr("Pengaturan", "Settings")}
+              title={tr("Pengaturan: tampilan, bahasa, hafalan & data", "Settings: display, language, memorization & data")}
             >
               <svg className="topbar__icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.95" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="3" />
                 <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
               </svg>
-              {(halaqahConnected || syncConnected) && (
+              {hasActionableAlert && (
                 <span className="topbar__status-dot" aria-hidden="true" />
               )}
             </button>
@@ -323,12 +324,12 @@ export function TopBar({
             type="button"
             className="topbar__tasmi topbar__desk"
             onClick={onOpenTasmi}
-            title="Tasmi': bacakan hafalanmu, aplikasi menyimak dan menandai kesalahan"
+            title={tr("Tasmi': bacakan hafalanmu, aplikasi menyimak dan menandai kesalahan", "Tasmi': recite from memory and detect mistakes on-device")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
             </svg>
-            <span>Mulai Tasmi&apos;</span>
+            <span>{tr("Mulai Tasmi'", "Start Tasmi'")}</span>
           </button>
         </div>
       </header>
@@ -368,8 +369,9 @@ export function TopBar({
           onOpenHalaqah={onOpenHalaqah}
           onOpenManageData={onOpenManageData}
           onOpenSettings={onOpenSettings}
-          halaqahConnected={halaqahConnected}
-          syncConnected={syncConnected}
+          language={language}
+          onChangeLanguage={onChangeLanguage}
+          hasActionableAlert={hasActionableAlert}
           onClose={() => setMenuOpen(false)}
         />
       )}
@@ -539,8 +541,9 @@ interface AppMenuProps {
   onOpenHalaqah?: () => void;
   onOpenManageData?: () => void;
   onOpenSettings?: () => void;
-  halaqahConnected?: boolean;
-  syncConnected?: boolean;
+  language?: AppLanguage;
+  onChangeLanguage?: (language: AppLanguage) => void;
+  hasActionableAlert?: boolean;
   onClose: () => void;
 }
 
@@ -579,10 +582,12 @@ function AppMenu({
   onOpenHalaqah,
   onOpenManageData,
   onOpenSettings,
-  halaqahConnected = false,
-  syncConnected = false,
+  language = "id",
+  onChangeLanguage,
+  hasActionableAlert = false,
   onClose,
 }: AppMenuProps) {
+  const { tr } = useI18n();
   const [submenu, setSubmenu] = useState<"root" | "hafalan" | "data">("root");
 
   useEffect(() => {
@@ -656,8 +661,8 @@ function AppMenu({
 
   return (
     <>
-      <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
-      <div className="app-menu" role="dialog" aria-label="Menu">
+      <button type="button" className="app-menu__backdrop" aria-label={tr("Tutup menu", "Close menu")} onClick={onClose} />
+      <div className="app-menu" role="dialog" aria-label={tr("Menu", "Menu")}>
         {submenu !== "root" ? (
           <div className="app-menu__submenu">
             <div className="app-menu__subhead">
@@ -667,43 +672,43 @@ function AppMenu({
                 onClick={() => setSubmenu("root")}
               >
                 <span aria-hidden="true">‹</span>
-                <span>Kembali</span>
+                <span>{tr("Kembali", "Back")}</span>
               </button>
               <span className="app-menu__subtitle">
-                {submenu === "hafalan" ? "Hafalan" : "Data & Aplikasi"}
+                {submenu === "hafalan" ? tr("Hafalan", "Memorization") : tr("Data & Aplikasi", "Data & App")}
               </span>
             </div>
 
             {submenu === "hafalan" ? (
               <div className="app-menu__sublist">
                 {onOpenProgress &&
-                  submenuRow("Progres & Streak", "Peta Juz, Surah, 604 halaman & streak", onOpenProgress)}
+                  submenuRow(tr("Progres & Streak", "Progress & Streak"), tr("Peta Juz, Surah, 604 halaman & streak", "Juz, Surah, 604 pages map & streak"), onOpenProgress)}
                 {onOpenSchedule &&
-                  submenuRow("Jadwal Muraja'ah", "Atur sendiri target ziyadah & muraja'ah", onOpenSchedule)}
+                  submenuRow(tr("Jadwal Muraja'ah", "Muraja'ah Schedule"), tr("Atur sendiri target ziyadah & muraja'ah", "Manage your ziyadah & revision targets"), onOpenSchedule)}
                 {onOpenQuiz &&
-                  submenuRow("Kuis Teks Offline", "Sambung & urutkan ayat tanpa suara", onOpenQuiz)}
+                  submenuRow(tr("Kuis Teks Offline", "Offline Text Quiz"), tr("Sambung & urutkan ayat tanpa suara", "Continue & order ayahs silently"), onOpenQuiz)}
                 {onOpenHalaqah &&
-                  submenuRow("Halaqah", "Grup setoran tanpa login (kode grup)", onOpenHalaqah, halaqahConnected)}
+                  submenuRow("Halaqah", tr("Grup setoran tanpa login (kode grup)", "No-login study circle via group code"), onOpenHalaqah)}
               </div>
             ) : (
               <div className="app-menu__sublist">
                 {onOpenManageData &&
-                  submenuRow("Kelola Data", "Arsipkan atau hapus riwayat, jadwal, catatan, bookmark", onOpenManageData)}
-                {submenuRow("Unduh Offline", "Audio murottal, halaman, terjemah & tafsir", onOpenDownloads)}
+                  submenuRow(tr("Kelola Data", "Manage Data"), tr("Arsipkan atau hapus riwayat, jadwal, catatan, bookmark", "Archive or delete history, schedules, notes, bookmarks"), onOpenManageData)}
+                {submenuRow(tr("Unduh Offline", "Offline Downloads"), tr("Audio murottal, halaman, terjemah & tafsir", "Audio, mushaf pages, translations & tafsir"), onOpenDownloads)}
                 {onOpenSync &&
-                  submenuRow("Sync Perangkat", "Sinkronisasi terenkripsi tanpa login", onOpenSync, syncConnected)}
-                {submenuRow("Tentang & Sumber", "Lisensi & sumber data mushaf", onOpenAbout)}
+                  submenuRow(tr("Sync Perangkat", "Device Sync"), tr("Sinkronisasi terenkripsi tanpa login", "Encrypted no-login sync"), onOpenSync, hasActionableAlert)}
+                {submenuRow(tr("Tentang & Sumber", "About & Sources"), tr("Lisensi & sumber data mushaf", "Licenses & mushaf data attributions"), onOpenAbout)}
                 <a
                   className="app-menu__subrow app-menu__subrow--ext"
                   href={RELEASES_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={onClose}
-                  title="Unduh versi aplikasi Android/Desktop di GitHub"
+                  title={tr("Unduh versi aplikasi Android/Desktop di GitHub", "Download Android/Desktop app releases on GitHub")}
                 >
                   <span className="app-menu__subrow-text">
-                    <span className="app-menu__subrow-title">Aplikasi (GitHub)</span>
-                    <span className="app-menu__subrow-sub">Unduh APK Android &amp; Desktop</span>
+                    <span className="app-menu__subrow-title">{tr("Aplikasi (GitHub)", "App Releases (GitHub)")}</span>
+                    <span className="app-menu__subrow-sub">{tr("Unduh APK Android & Desktop", "Download Android APK & Desktop")}</span>
                   </span>
                   <span className="app-menu__subrow-trail app-menu__subrow-trail--ext" aria-hidden="true">
                     ↗
@@ -716,11 +721,15 @@ function AppMenu({
           <>
         {onChangeReadingMode && (
           <div className="app-menu__field">
-            <span className="app-menu__label">Mode baca</span>
+            <span className="app-menu__label">{tr("Mode baca", "Reading mode")}</span>
             <Segmented
-              label="Mode baca"
+              label={tr("Mode baca", "Reading mode")}
               value={readingMode}
-              options={READING_MODE_OPTIONS}
+              options={[
+                { value: "mushaf", label: "Mushaf" },
+                { value: "translation", label: tr("Terjemahan", "Translation") },
+                { value: "reading", label: tr("Bacaan", "Reading") },
+              ]}
               onChange={(next) => {
                 onChangeReadingMode(next);
                 onClose();
@@ -731,12 +740,12 @@ function AppMenu({
 
         {readingMode !== "mushaf" && onChangeFlowFontScale && (
           <div className="app-menu__field app-menu__field--row">
-            <span className="app-menu__label">Ukuran huruf</span>
-            <div className="flow-font-stepper" role="group" aria-label="Ukuran huruf">
+            <span className="app-menu__label">{tr("Ukuran huruf", "Font size")}</span>
+            <div className="flow-font-stepper" role="group" aria-label={tr("Ukuran huruf", "Font size")}>
               <button
                 type="button"
                 className="flow-font-stepper__btn"
-                aria-label="Perkecil huruf"
+                aria-label={tr("Perkecil huruf", "Decrease font size")}
                 disabled={flowFontScale <= 0.85}
                 onClick={() => onChangeFlowFontScale(Math.max(0.85, Math.round((flowFontScale - 0.15) * 100) / 100))}
               >
@@ -746,7 +755,7 @@ function AppMenu({
               <button
                 type="button"
                 className="flow-font-stepper__btn"
-                aria-label="Perbesar huruf"
+                aria-label={tr("Perbesar huruf", "Increase font size")}
                 disabled={flowFontScale >= 1.6}
                 onClick={() => onChangeFlowFontScale(Math.min(1.6, Math.round((flowFontScale + 0.15) * 100) / 100))}
               >
@@ -756,24 +765,24 @@ function AppMenu({
           </div>
         )}
 
-        <div className="app-menu__grid" role="group" aria-label="Opsi cepat">
-          {toggleChip("Mode Fokus", "Sembunyikan bilah atas & bawah", focusMode, () => {
+        <div className="app-menu__grid" role="group" aria-label={tr("Opsi cepat", "Quick options")}>
+          {toggleChip(tr("Mode Fokus", "Focus Mode"), tr("Sembunyikan bilah atas & bawah", "Hide top & bottom bars"), focusMode, () => {
             onToggleFocusMode();
             onClose();
           })}
-          {toggleChip("Sembunyikan Ayat", "Mode hafalan, ketuk untuk mengintip", hifzBlur, onToggleHifzBlur)}
-          {toggleChip("Terjemah Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
-          {toggleChip("Tajwid Warna", "Warna hukum tajwid (Madinah 1441)", tajweed, onToggleTajweed)}
+          {toggleChip(tr("Sembunyikan Ayat", "Hide Ayahs"), tr("Mode hafalan, ketuk untuk mengintip", "Memorization blur, tap to peek"), hifzBlur, onToggleHifzBlur)}
+          {toggleChip(tr("Terjemah Kata", "Word-by-Word"), tr("Arti kata saat diketuk", "Word meaning on tap"), wordTranslation, onToggleWordTranslation)}
+          {toggleChip(tr("Tajwid Warna", "Color Tajweed"), tr("Warna hukum tajwid (Madinah 1441)", "Tajweed colors (Madinah 1441)"), tajweed, onToggleTajweed)}
         </div>
 
         {hifzBlur && onChangeHifzBlurLevel && (
           <div className="app-menu__inline">
             <Segmented
-              label="Tingkat sembunyi"
+              label={tr("Tingkat sembunyi", "Blur level")}
               value={hifzBlurLevel}
               options={[
-                { value: "full", label: "Sembunyi penuh" },
-                { value: "first-word", label: "Tampil kata pertama" },
+                { value: "full", label: tr("Sembunyi penuh", "Full blur") },
+                { value: "first-word", label: tr("Tampil kata pertama", "First word") },
               ]}
               onChange={onChangeHifzBlurLevel}
             />
@@ -810,24 +819,49 @@ function AppMenu({
         )}
 
         <div className="app-menu__field app-menu__field--row">
-          <span className="app-menu__label">Tema</span>
-          <div className="app-menu__swatches" role="group" aria-label="Tema warna">
-            {THEME_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`app-menu__swatch ${theme === option.value ? "app-menu__swatch--active" : ""}`}
-                aria-pressed={theme === option.value}
-                aria-label={option.label}
-                title={THEME_SHORT[option.value]}
-                onClick={() => onChangeTheme(option.value)}
-              >
-                <span className={`theme-dot theme-dot--${option.value}`} aria-hidden="true" />
-                <span className="app-menu__swatch-name">{THEME_SHORT[option.value]}</span>
-              </button>
-            ))}
+          <span className="app-menu__label">{tr("Tema", "Theme")}</span>
+          <div className="app-menu__swatches" role="group" aria-label={tr("Tema warna", "Color theme")}>
+            {THEME_OPTIONS.map((option) => {
+              const shortName =
+                option.value === "light"
+                  ? tr("Terang", "Light")
+                  : option.value === "dark"
+                    ? tr("Gelap", "Dark")
+                    : "Sepia";
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`app-menu__swatch ${theme === option.value ? "app-menu__swatch--active" : ""}`}
+                  aria-pressed={theme === option.value}
+                  aria-label={option.label}
+                  title={shortName}
+                  onClick={() => onChangeTheme(option.value)}
+                >
+                  <span className={`theme-dot theme-dot--${option.value}`} aria-hidden="true" />
+                  <span className="app-menu__swatch-name">{shortName}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {onChangeLanguage && (
+          <div className="app-menu__field app-menu__field--row">
+            <span className="app-menu__label">{tr("Bahasa", "Language")}</span>
+            <div className="app-menu__seg-compact">
+              <Segmented
+                label={tr("Pilih bahasa", "Choose language")}
+                value={language}
+                options={[
+                  { value: "id", label: "ID" },
+                  { value: "en", label: "EN" },
+                ]}
+                onChange={onChangeLanguage}
+              />
+            </div>
+          </div>
+        )}
 
         <span className="app-menu__divider" aria-hidden="true" />
 
@@ -842,8 +876,8 @@ function AppMenu({
               }}
             >
               <span className="app-menu__link-chip-label">
-                Semua Pengaturan
-                {(halaqahConnected || syncConnected) && (
+                {tr("Semua Pengaturan", "All Settings")}
+                {hasActionableAlert && (
                   <span className="app-menu__status-dot" aria-hidden="true" />
                 )}
               </span>
@@ -861,8 +895,7 @@ function AppMenu({
               onClick={() => setSubmenu("hafalan")}
             >
               <span className="app-menu__link-chip-label">
-                Hafalan
-                {halaqahConnected && <span className="app-menu__status-dot" aria-hidden="true" />}
+                {tr("Hafalan", "Memorization")}
               </span>
               <span className="app-menu__chevron" aria-hidden="true">
                 ›
@@ -875,15 +908,15 @@ function AppMenu({
             onClick={() => setSubmenu("data")}
           >
             <span className="app-menu__link-chip-label">
-              Data &amp; Aplikasi
-              {syncConnected && <span className="app-menu__status-dot" aria-hidden="true" />}
+              {tr("Data & Aplikasi", "Data & App")}
+              {hasActionableAlert && <span className="app-menu__status-dot" aria-hidden="true" />}
             </span>
             <span className="app-menu__chevron" aria-hidden="true">
               ›
             </span>
           </button>
-          {onOpenReader && linkChip("Baca Tafsir", onOpenReader)}
-          {linkChip("Hukum Tajwid", onOpenTajweedGuide)}
+          {onOpenReader && linkChip(tr("Baca Tafsir", "Read Tafsir"), onOpenReader)}
+          {linkChip(tr("Hukum Tajwid", "Tajweed Guide"), onOpenTajweedGuide)}
         </div>
         )}
           </>
@@ -892,12 +925,6 @@ function AppMenu({
     </>
   );
 }
-
-const THEME_SHORT: Record<ThemeMode, string> = {
-  light: "Terang",
-  sepia: "Sepia",
-  dark: "Gelap",
-};
 
 function Segmented<T extends string>({
   label,

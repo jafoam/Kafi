@@ -81,6 +81,8 @@ export type SpreadMode = "auto" | "single" | "double";
 
 export type ThemeMode = "light" | "sepia" | "dark";
 
+export type AppLanguage = "id" | "en";
+
 /**
  * How the reader moves between pages: sideways swipe, a continuous vertical scroll, or a vertical
  * scroll that stops on each page.
@@ -102,6 +104,7 @@ export type HifzBlurLevel = "full" | "first-word";
 export type LetterStyle = "1405" | "1441";
 
 export interface AppSettings {
+  language: AppLanguage;
   theme: ThemeMode;
   spreadMode: SpreadMode;
   reciterId: string;

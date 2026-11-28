@@ -5,6 +5,8 @@ import type { EngineEvent, LoadProgress } from "@tilawa/core";
 import catalogJson from "./data/catalog.json";
 import mushafMapJson from "./data/mushaf-map.json";
 import type {
+  AppLanguage,
+  AppSettings,
   AyahKey,
   Catalog,
   HifzBlurLevel,
@@ -61,7 +63,12 @@ import {
   SYNC_CONFIG_KEY,
   syncUserData,
 } from "./services/sync-service";
-import { createUserStore, DEFAULT_USER_DATA } from "./services/user-store";
+import {
+  createUserStore,
+  DEFAULT_USER_DATA,
+  isHiddenAyahActive,
+} from "./services/user-store";
+import { LanguageProvider } from "./i18n";
 import {
   clampPage,
   getVisiblePages,
@@ -838,10 +845,22 @@ export function App({
       if (opts?.fromVoice) {
         const { surah, ayah: ayahNum } = parseAyahKey(ayah);
         const sName = surahByNumber.get(surah)?.name ?? `Surah ${surah}`;
-        showToast(`Ditemukan: ${sName} : ${ayahNum}`);
+        showToast(
+          userData.settings.language === "en"
+            ? `Found: ${sName} : ${ayahNum}`
+            : `Ditemukan: ${sName} : ${ayahNum}`,
+        );
       }
     },
-    [getPagesForAyah, rightPage, leftPage, navigateToPage, surahByNumber, showToast],
+    [
+      getPagesForAyah,
+      rightPage,
+      leftPage,
+      navigateToPage,
+      surahByNumber,
+      showToast,
+      userData.settings.language,
+    ],
   );
 
   const handleChangeSpreadMode = useCallback(
@@ -857,6 +876,27 @@ export function App({
     },
     [userStore, persistUser],
   );
+
+  const handleChangeLanguage = useCallback(
+    (language: AppLanguage) => {
+      const patch: Partial<AppSettings> = { language };
+      if (language === "en") {
+        if (userData.settings.translationId === 33) patch.translationId = 20;
+        if (userData.settings.tafsirId === "equran-id") patch.tafsirId = "169";
+      } else {
+        if (userData.settings.translationId === 20) patch.translationId = 33;
+        if (userData.settings.tafsirId === "169") patch.tafsirId = "equran-id";
+      }
+      persistUser(userStore.updateSettings(patch));
+    },
+    [userData.settings.translationId, userData.settings.tafsirId, userStore, persistUser],
+  );
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = userData.settings.language;
+    }
+  }, [userData.settings.language]);
 
   const handleChangeReciter = useCallback(
     (reciterId: string) => {
@@ -1806,13 +1846,45 @@ export function App({
     }
   }, [freeRecitedAyahs]);
 
+  const [hiddenNowMs, setHiddenNowMs] = useState<number>(() => Date.now());
+
+  const hasAnyStoredHidden = useMemo(
+    () => Object.values(userData.hiddenAyahs ?? {}).some((ev) => ev.on),
+    [userData.hiddenAyahs],
+  );
+
+  // Auto-expire per-ayah manual hides after 15 minutes of inactivity (including after returning to the app).
+  useEffect(() => {
+    if (!hasAnyStoredHidden) return;
+    const checkExpiry = () => {
+      const now = Date.now();
+      setHiddenNowMs(now);
+      const anyExpired = Object.values(userDataRef.current.hiddenAyahs ?? {}).some(
+        (ev) => ev.on && !isHiddenAyahActive(ev, now),
+      );
+      if (anyExpired) {
+        persistUser(userStore.pruneExpiredHiddenAyahs(now));
+      }
+    };
+    checkExpiry();
+    const timer = window.setInterval(checkExpiry, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkExpiry();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [hasAnyStoredHidden, userStore, persistUser]);
+
   const hiddenAyahSet = useMemo(() => {
     const set = new Set<AyahKey>();
     for (const [key, event] of Object.entries(userData.hiddenAyahs ?? {})) {
-      if (event.on) set.add(key as AyahKey);
+      if (isHiddenAyahActive(event, hiddenNowMs)) set.add(key as AyahKey);
     }
     return set;
-  }, [userData.hiddenAyahs]);
+  }, [userData.hiddenAyahs, hiddenNowMs]);
 
   const blurSet = useMemo(() => {
     const mode = isTasmiBlurActive ? "tasmi" : userData.settings.hifzBlur ? "all" : "off";
@@ -2009,6 +2081,7 @@ export function App({
   }, [tasmiStarting, modelLoading]);
 
   return (
+    <LanguageProvider language={userData.settings.language}>
     <div
       className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${!flowMode && !scrollMode ? "app-shell--swipe" : ""} ${uses1441Letters && !userData.settings.tajweed ? "app-shell--plain-1441" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
@@ -2096,6 +2169,9 @@ export function App({
         }}
         onOpenManageData={() => setManageDataOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
+        language={userData.settings.language}
+        onChangeLanguage={handleChangeLanguage}
+        hasActionableAlert={syncError !== null}
         halaqahConnected={(userData.halaqahs?.length ?? 0) > 0}
         syncConnected={syncConfig !== null}
         onMenuOpenChange={setTopMenuOpen}
@@ -2215,6 +2291,7 @@ export function App({
         <MushafSpread
           rightPageEntry={rightPageEntry}
           leftPageEntry={leftPageEntry}
+          allPages={mushafMap.pages}
           pageUrls={pageUrls}
           selectedAyah={selected?.ayah ?? null}
           locatedAyah={locatedAyah}
@@ -2692,6 +2769,7 @@ export function App({
         pageNav={userData.settings.pageNav}
         letterStyle={uses1441Letters ? "1441" : "1405"}
         theme={userData.settings.theme}
+        language={userData.settings.language}
         hifzBlur={
           tasmiActive && tasmiState?.mode === "memorization"
             ? tasmiBlurEnabled
@@ -2702,6 +2780,8 @@ export function App({
         tajweed={userData.settings.tajweed}
         halaqahConnected={(userData.halaqahs?.length ?? 0) > 0}
         syncConnected={syncConfig !== null}
+        syncError={syncError}
+        onChangeLanguage={handleChangeLanguage}
         onChangeReadingMode={(nextMode) => persistUser(userStore.updateSettings({ readingMode: nextMode }))}
         onChangeFlowFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
         onChangeSpreadMode={handleChangeSpreadMode}
@@ -2767,6 +2847,7 @@ export function App({
         </div>
       )}
     </div>
+    </LanguageProvider>
   );
 }
 

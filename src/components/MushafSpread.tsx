@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
-import { getAdjacentPages, mapKeyToDirection } from "../state/reader-logic";
+import { getAdjacentPages, getVisiblePages, mapKeyToDirection, turnPage } from "../state/reader-logic";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { SelectedWord } from "../services/word-translations";
 import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
@@ -8,6 +8,8 @@ import { isCrossOriginHttpUrl, MushafPage } from "./MushafPage";
 export interface MushafSpreadProps {
   rightPageEntry: PageEntry;
   leftPageEntry: PageEntry | null;
+  /** Full page table used to render neighboring pages right beside the active spread while swiping. */
+  allPages?: PageEntry[];
   pageUrls: Record<number, string>;
   selectedAyah: AyahKey | null;
   locatedAyah?: AyahKey | null;
@@ -45,6 +47,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 export function MushafSpread({
   rightPageEntry,
   leftPageEntry,
+  allPages,
   pageUrls,
   selectedAyah,
   locatedAyah = null,
@@ -140,11 +143,35 @@ export function MushafSpread({
   }, [isModalOpen, onClearSelection, onToggleFocus, onTogglePalette, onTurnPage]);
 
   const isDouble = leftPageEntry !== null;
+  const effectiveSpread = isDouble ? "double" : "single";
 
-  // Page turns slide like a book app: the page follows the finger, and on release either slides off
-  // (the next one slides in from the other side) or springs back. RTL mushaf: dragging right turns
-  // to the next page, so the next page comes in from the left.
-  const spreadRef = useRef<HTMLDivElement>(null);
+  const nextSpread = useMemo(() => {
+    if (!allPages || !canGoNext) return null;
+    const target = turnPage(rightPageEntry.page, "next", effectiveSpread);
+    if (target === rightPageEntry.page) return null;
+    const vis = getVisiblePages(target, effectiveSpread);
+    const right = allPages[vis.rightPage - 1];
+    if (!right) return null;
+    const left = vis.leftPage ? (allPages[vis.leftPage - 1] ?? null) : null;
+    return { right, left };
+  }, [allPages, canGoNext, rightPageEntry.page, effectiveSpread]);
+
+  const prevSpread = useMemo(() => {
+    if (!allPages || !canGoPrev) return null;
+    const target = turnPage(rightPageEntry.page, "prev", effectiveSpread);
+    if (target === rightPageEntry.page) return null;
+    const vis = getVisiblePages(target, effectiveSpread);
+    const right = allPages[vis.rightPage - 1];
+    if (!right) return null;
+    const left = vis.leftPage ? (allPages[vis.leftPage - 1] ?? null) : null;
+    return { right, left };
+  }, [allPages, canGoPrev, rightPageEntry.page, effectiveSpread]);
+
+  // Page turns slide like a physical book: adjacent spreads sit beside the active spread so dragging
+  // immediately reveals the next or previous page with no blank gap. RTL mushaf: dragging right reveals
+  // the next page on the left; dragging left reveals the previous page on the right.
+  const NEIGHBOR_GAP_PX = 16;
+  const trackRef = useRef<HTMLDivElement>(null);
   const touchStartRef = useRef<{
     x: number;
     y: number;
@@ -152,23 +179,23 @@ export function MushafSpread({
     axis: "x" | "y" | null;
     offset: number;
   } | null>(null);
-  /** Which way (+1 right, -1 left) the old page just left, so the new one enters from the other side. */
-  const exitRef = useRef<1 | -1 | null>(null);
+  /** True when the track already slid the neighboring page cleanly into center on touch release. */
+  const settledFromDragRef = useRef(false);
   const prevPageRef = useRef(rightPageEntry.page);
 
   const prefersReducedMotion = () =>
     typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
 
   const slideIn = (from: 1 | -1) => {
-    const el = spreadRef.current;
+    const el = trackRef.current;
     if (!el) return;
     for (const animation of el.getAnimations()) animation.cancel();
     el.style.transform = "";
     if (prefersReducedMotion() || typeof el.animate !== "function") return;
-    const width = el.offsetWidth;
+    const width = (el.offsetWidth || 320) + NEIGHBOR_GAP_PX;
     el.animate(
       [{ transform: `translateX(${from * width}px)` }, { transform: "translateX(0)" }],
-      { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+      { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
     );
   };
 
@@ -177,16 +204,18 @@ export function MushafSpread({
     const page = rightPageEntry.page;
     prevPageRef.current = page;
     if (prev === page) return;
-    const exited = exitRef.current;
-    exitRef.current = null;
-    if (exited !== null) {
-      slideIn(exited === 1 ? -1 : 1);
+    const el = trackRef.current;
+    if (settledFromDragRef.current) {
+      settledFromDragRef.current = false;
+      if (el) {
+        for (const animation of el.getAnimations()) animation.cancel();
+        el.style.transform = "";
+      }
       return;
     }
     // Turns from the keyboard, the arrows or the reciter: slide only for a neighbouring page, not a jump.
     const delta = page - prev;
     if (Math.abs(delta) > 2) {
-      const el = spreadRef.current;
       if (el) {
         for (const animation of el.getAnimations()) animation.cancel();
         el.style.transform = "";
@@ -201,7 +230,7 @@ export function MushafSpread({
       touchStartRef.current = null;
       return;
     }
-    const el = spreadRef.current;
+    const el = trackRef.current;
     if (el) for (const animation of el.getAnimations()) animation.finish();
     const touch = event.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, t: Date.now(), axis: null, offset: 0 };
@@ -209,7 +238,7 @@ export function MushafSpread({
 
   const handleTouchMove = (event: ReactTouchEvent) => {
     const start = touchStartRef.current;
-    const el = spreadRef.current;
+    const el = trackRef.current;
     if (!start || !el || isModalOpen || event.touches.length !== 1) return;
     const touch = event.touches[0];
     const dx = touch.clientX - start.x;
@@ -225,7 +254,7 @@ export function MushafSpread({
   };
 
   const springBack = (from: number) => {
-    const el = spreadRef.current;
+    const el = trackRef.current;
     if (!el) return;
     el.style.transform = "";
     if (from === 0 || typeof el.animate !== "function") return;
@@ -238,12 +267,12 @@ export function MushafSpread({
   const handleTouchEnd = (event: ReactTouchEvent) => {
     const start = touchStartRef.current;
     touchStartRef.current = null;
-    const el = spreadRef.current;
+    const el = trackRef.current;
     if (!start || !el || start.axis !== "x") return;
     const touch = event.changedTouches[0];
     const dx = touch ? touch.clientX - start.x : start.offset;
     const elapsed = Date.now() - start.t;
-    const width = el.offsetWidth;
+    const width = el.offsetWidth || 320;
     const allowed = dx > 0 ? canGoNext : canGoPrev;
     const commit =
       !isModalOpen && allowed && (Math.abs(dx) > width * 0.22 || (Math.abs(dx) > 40 && elapsed < 300));
@@ -252,14 +281,15 @@ export function MushafSpread({
       return;
     }
     const sign: 1 | -1 = dx > 0 ? 1 : -1;
+    const direction = sign === 1 ? "next" : "prev";
+    const hasNeighbor = sign === 1 ? Boolean(nextSpread) : Boolean(prevSpread);
     const turn = () => {
-      exitRef.current = sign;
-      onTurnPage(sign === 1 ? "next" : "prev");
-      // If the turn did not happen, bring the page back rather than leave it off screen.
+      settledFromDragRef.current = hasNeighbor;
+      onTurnPage(direction);
       window.setTimeout(() => {
-        if (exitRef.current === sign) {
-          exitRef.current = null;
-          slideIn(sign);
+        if (settledFromDragRef.current) {
+          settledFromDragRef.current = false;
+          if (trackRef.current) trackRef.current.style.transform = "";
         }
       }, 400);
     };
@@ -268,11 +298,11 @@ export function MushafSpread({
       turn();
       return;
     }
-    const end = sign * width;
-    const remaining = Math.max(0.3, 1 - Math.abs(start.offset) / width);
+    const end = sign * (width + NEIGHBOR_GAP_PX);
+    const remaining = Math.max(0.25, 1 - Math.abs(start.offset) / (width + NEIGHBOR_GAP_PX));
     const exit = el.animate(
       [{ transform: `translateX(${start.offset}px)` }, { transform: `translateX(${end}px)` }],
-      { duration: 180 * remaining, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" },
+      { duration: 210 * remaining, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" },
     );
     el.style.transform = `translateX(${end}px)`;
     exit.onfinish = () => {
@@ -311,17 +341,83 @@ export function MushafSpread({
         ‹
       </button>
 
-      <div
-        ref={spreadRef}
-        className={`mushaf-spread ${isDouble ? "mushaf-spread--double" : "mushaf-spread--single"}`}
-      >
-        {leftPageEntry && (
+      <div ref={trackRef} className="mushaf-track">
+        {nextSpread && (
+          <div className="mushaf-neighbor mushaf-neighbor--left" aria-hidden="true">
+            <div className={`mushaf-spread ${isDouble ? "mushaf-spread--double" : "mushaf-spread--single"}`}>
+              {nextSpread.left && (
+                <MushafPage
+                  key={nextSpread.left.page}
+                  pageEntry={nextSpread.left}
+                  imageUrl={pageUrls[nextSpread.left.page] ?? null}
+                  glyphLoader={glyphLoader}
+                  side="left"
+                  selectedAyah={null}
+                  locatedAyah={null}
+                  playingAyah={playingAyah}
+                  highlights={highlights}
+                  bookmarks={bookmarks}
+                  blurSet={blurSet}
+                  blurLevel={blurLevel}
+                  revealedSet={revealedSet}
+                  mistakeAyahs={mistakeAyahs}
+                  wordTranslation={false}
+                  onSelectAyah={() => {}}
+                />
+              )}
+              <MushafPage
+                key={nextSpread.right.page}
+                pageEntry={nextSpread.right}
+                imageUrl={pageUrls[nextSpread.right.page] ?? null}
+                glyphLoader={glyphLoader}
+                side={isDouble ? "right" : "single"}
+                selectedAyah={null}
+                locatedAyah={null}
+                playingAyah={playingAyah}
+                highlights={highlights}
+                bookmarks={bookmarks}
+                blurSet={blurSet}
+                blurLevel={blurLevel}
+                revealedSet={revealedSet}
+                mistakeAyahs={mistakeAyahs}
+                wordTranslation={false}
+                onSelectAyah={() => {}}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className={`mushaf-spread ${isDouble ? "mushaf-spread--double" : "mushaf-spread--single"}`}>
+          {leftPageEntry && (
+            <MushafPage
+              key={leftPageEntry.page}
+              pageEntry={leftPageEntry}
+              imageUrl={pageUrls[leftPageEntry.page] ?? null}
+              glyphLoader={glyphLoader}
+              side="left"
+              selectedAyah={selectedAyah}
+              locatedAyah={locatedAyah}
+              playingAyah={playingAyah}
+              playingWordRange={playingWordRange}
+              highlights={highlights}
+              bookmarks={bookmarks}
+              blurSet={blurSet}
+              blurLevel={blurLevel}
+              revealedSet={revealedSet}
+              mistakeAyahs={mistakeAyahs}
+              wordTranslation={wordTranslation}
+              onSelectAyah={onSelectAyah}
+              onPeekAyah={onPeekAyah}
+              onRetryPage={onRetryPage}
+            />
+          )}
+
           <MushafPage
-            key={leftPageEntry.page}
-            pageEntry={leftPageEntry}
-            imageUrl={pageUrls[leftPageEntry.page] ?? null}
+            key={rightPageEntry.page}
+            pageEntry={rightPageEntry}
+            imageUrl={pageUrls[rightPageEntry.page] ?? null}
             glyphLoader={glyphLoader}
-            side="left"
+            side={isDouble ? "right" : "single"}
             selectedAyah={selectedAyah}
             locatedAyah={locatedAyah}
             playingAyah={playingAyah}
@@ -329,36 +425,60 @@ export function MushafSpread({
             highlights={highlights}
             bookmarks={bookmarks}
             blurSet={blurSet}
+            blurLevel={blurLevel}
             revealedSet={revealedSet}
             mistakeAyahs={mistakeAyahs}
-          wordTranslation={wordTranslation}
+            wordTranslation={wordTranslation}
             onSelectAyah={onSelectAyah}
             onPeekAyah={onPeekAyah}
             onRetryPage={onRetryPage}
           />
-        )}
+        </div>
 
-        <MushafPage
-          key={rightPageEntry.page}
-          pageEntry={rightPageEntry}
-          imageUrl={pageUrls[rightPageEntry.page] ?? null}
-          glyphLoader={glyphLoader}
-          side={isDouble ? "right" : "single"}
-          selectedAyah={selectedAyah}
-          locatedAyah={locatedAyah}
-          playingAyah={playingAyah}
-          playingWordRange={playingWordRange}
-          highlights={highlights}
-          bookmarks={bookmarks}
-          blurSet={blurSet}
-          blurLevel={blurLevel}
-          revealedSet={revealedSet}
-          mistakeAyahs={mistakeAyahs}
-          wordTranslation={wordTranslation}
-          onSelectAyah={onSelectAyah}
-          onPeekAyah={onPeekAyah}
-          onRetryPage={onRetryPage}
-        />
+        {prevSpread && (
+          <div className="mushaf-neighbor mushaf-neighbor--right" aria-hidden="true">
+            <div className={`mushaf-spread ${isDouble ? "mushaf-spread--double" : "mushaf-spread--single"}`}>
+              {prevSpread.left && (
+                <MushafPage
+                  key={prevSpread.left.page}
+                  pageEntry={prevSpread.left}
+                  imageUrl={pageUrls[prevSpread.left.page] ?? null}
+                  glyphLoader={glyphLoader}
+                  side="left"
+                  selectedAyah={null}
+                  locatedAyah={null}
+                  playingAyah={playingAyah}
+                  highlights={highlights}
+                  bookmarks={bookmarks}
+                  blurSet={blurSet}
+                  blurLevel={blurLevel}
+                  revealedSet={revealedSet}
+                  mistakeAyahs={mistakeAyahs}
+                  wordTranslation={false}
+                  onSelectAyah={() => {}}
+                />
+              )}
+              <MushafPage
+                key={prevSpread.right.page}
+                pageEntry={prevSpread.right}
+                imageUrl={pageUrls[prevSpread.right.page] ?? null}
+                glyphLoader={glyphLoader}
+                side={isDouble ? "right" : "single"}
+                selectedAyah={null}
+                locatedAyah={null}
+                playingAyah={playingAyah}
+                highlights={highlights}
+                bookmarks={bookmarks}
+                blurSet={blurSet}
+                blurLevel={blurLevel}
+                revealedSet={revealedSet}
+                mistakeAyahs={mistakeAyahs}
+                wordTranslation={false}
+                onSelectAyah={() => {}}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <button

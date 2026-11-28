@@ -15,6 +15,7 @@ import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/m
 import { ERROR_CLASS_LABELS, formatErrorClass } from "../services/tasmi-logic";
 import type { NewMurajaahInput } from "../services/user-store";
 import { GlassSelect } from "./GlassSelect";
+import { useI18n } from "../i18n";
 
 export type TasmiSummaryTab = "summary" | "history" | "schedule" | "progress";
 
@@ -157,6 +158,7 @@ export function TasmiSummaryModal({
   onToggleArchiveHistory,
   onSubmitToHalaqah,
 }: TasmiSummaryModalProps) {
+  const { tr } = useI18n();
   const [tab, setTab] = useState<TasmiSummaryTab>(initialTab);
   const [historyFilter, setHistoryFilter] = useState<"active" | "archived">("active");
   const [scheduleFilter, setScheduleFilter] = useState<"active" | "archived">("active");
@@ -307,15 +309,15 @@ export function TasmiSummaryModal({
       <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Evaluasi Tasmi&apos;</h2>
+            <h2 className="tasmi-sheet__title">{tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}</h2>
             <p className="tasmi-sheet__subtitle">
-              Tinjau catatan bacaan dan dengarkan murottal untuk koreksi
+              {tr("Tinjau catatan bacaan dan dengarkan murottal untuk koreksi", "Review recitation notes and listen to murottal for correction")}
             </p>
           </div>
           <button
             type="button"
             className="ayah-popover__close"
-            aria-label="Tutup"
+            aria-label={tr("Tutup", "Close")}
             onClick={onClose}
           >
             ×
@@ -332,7 +334,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("summary")}
           >
-            Ringkasan
+            {tr("Ringkasan", "Summary")}
           </button>
           <button
             type="button"
@@ -343,7 +345,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("history")}
           >
-            Riwayat ({activeHistory.length})
+            {tr("Riwayat", "History")} ({activeHistory.length})
           </button>
           <button
             type="button"
@@ -354,7 +356,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("schedule")}
           >
-            Jadwal ({activeMurajaahCount})
+            {tr("Jadwal", "Schedule")} ({activeMurajaahCount})
           </button>
           {catalog && mushafMap && (
             <button
@@ -366,7 +368,7 @@ export function TasmiSummaryModal({
               }`}
               onClick={() => setTab("progress")}
             >
-              Progres
+              {tr("Progres", "Progress")}
             </button>
           )}
         </div>

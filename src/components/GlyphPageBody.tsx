@@ -7,6 +7,7 @@ import {
   type SelectedWord,
 } from "../services/word-translations";
 import { useLongPress } from "../state/useLongPress";
+import { useI18n } from "../i18n";
 import { SurahBanner } from "./SurahBanner";
 
 const wordLoader = createWordTranslationLoader();
@@ -58,6 +59,7 @@ export function GlyphPageBody({
   onSelectAyah,
   onPeekAyah,
 }: GlyphPageBodyProps) {
+  const { tr } = useI18n();
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
   /** Word under the pointer / last tapped, as "line-index"; used when translation mode highlights single words. */
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
@@ -427,7 +429,11 @@ export function GlyphPageBody({
         >
           <span className="word-tip__tr">{tipInfo.transliteration}</span>
           <span className="word-tip__id">{tipInfo.translation}</span>
-          {tip.touch && <span className="word-tip__hint">Tahan kata untuk menu ayat</span>}
+          {tip.touch && (
+            <span className="word-tip__hint">
+              {tr("Tahan kata untuk menu ayat", "Hold word for ayah menu")}
+            </span>
+          )}
         </div>
       )}
     </div>
