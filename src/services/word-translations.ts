@@ -1,7 +1,9 @@
-import wordsUrl from "../data/word-translations.json?url";
+import type { AppLanguage } from "../data/types";
+import wordsIdUrl from "../data/word-translations.json?url";
+import wordsEnUrl from "../data/word-translations-en.json?url";
 
 export interface WordInfo {
-  /** Indonesian gloss of the word. */
+  /** Word-by-word gloss in the active language. */
   translation: string;
   transliteration: string;
   position: number;
@@ -41,39 +43,45 @@ export function parsePageWords(raw: unknown): PageWords {
 }
 
 export interface WordTranslationLoader {
-  load(page: number): Promise<PageWords>;
+  load(page: number, lang?: AppLanguage): Promise<PageWords>;
 }
+
+const BUNDLED_URLS: Record<AppLanguage, string> = {
+  id: wordsIdUrl,
+  en: wordsEnUrl,
+};
 
 /** Fetches word-by-word glosses per mushaf page (QCF v1 codes) and keeps them in memory. */
 export function createWordTranslationLoader(
   fetcher: typeof fetch = globalThis.fetch.bind(globalThis),
 ): WordTranslationLoader {
-  const cache = new Map<number, Promise<PageWords>>();
-  let bundled: Promise<Record<string, Record<string, [string, string]>> | null> | null = null;
-  const loadBundled = () =>
-    (bundled ??= fetch(wordsUrl)
+  const cache = new Map<string, Promise<PageWords>>();
+  const bundled: Partial<Record<AppLanguage, Promise<Record<string, Record<string, [string, string]>> | null>>> = {};
+  const loadBundled = (lang: AppLanguage) =>
+    (bundled[lang] ??= fetch(BUNDLED_URLS[lang])
       .then((res) => (res.ok ? res.json() : null))
       .catch(() => null));
   return {
-    load(page) {
-      const hit = cache.get(page);
+    load(page, lang: AppLanguage = "id") {
+      const key = `${lang}:${page}`;
+      const hit = cache.get(key);
       if (hit) return hit;
-      const p = loadBundled().then((all): PageWords | Promise<PageWords> => {
+      const p = loadBundled(lang).then((all): PageWords | Promise<PageWords> => {
         const entry: Record<string, [string, string]> | undefined = all?.[String(page)];
-        if (!entry) return fetchPage(page);
+        if (!entry) return fetchPage(page, lang, key);
         const out: PageWords = new Map();
         for (const [code, [translation, transliteration]] of Object.entries(entry)) {
           out.set(code, { translation, transliteration, position: 0 });
         }
         return out;
       });
-      cache.set(page, p);
+      cache.set(key, p);
       return p;
     },
   };
 
-  function fetchPage(page: number): Promise<PageWords> {
-    const url = `https://api.quran.com/api/v4/verses/by_page/${page}?words=true&language=id&word_fields=code_v1,transliteration&per_page=50&mushaf=2`;
+  function fetchPage(page: number, lang: AppLanguage, cacheKey: string): Promise<PageWords> {
+    const url = `https://api.quran.com/api/v4/verses/by_page/${page}?words=true&language=${lang}&word_fields=code_v1,transliteration&per_page=50&mushaf=2`;
     return fetcher(url)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status} fetching word translations`);
@@ -81,7 +89,7 @@ export function createWordTranslationLoader(
       })
       .then(parsePageWords)
       .catch((err) => {
-        cache.delete(page);
+        cache.delete(cacheKey);
         throw err;
       });
   }

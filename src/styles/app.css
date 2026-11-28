@@ -663,8 +663,10 @@ textarea:focus-visible {
   filter: blur(7px);
 }
 
-/* Tajweed fonts paint their own colors (COLRv1), so `color` cannot mark the spoken word: underline it instead. */
-.glyph-page--tajweed .glyph-word--playing-word {
+/* Tajweed fonts paint their own colors (COLRv1), so `color` cannot mark the spoken word: underline it when
+   tajweed colors are active. When tajweed is off (1441 plain letters), switch the spoken word to a solid
+   highlight palette so the glyph itself changes color just like 1405 letters, without an underline. */
+.app-shell:not(.app-shell--plain-1441) .glyph-page--tajweed .glyph-word--playing-word {
   box-shadow: inset 0 -0.09em 0 var(--playing-word-color);
 }
 
@@ -693,6 +695,18 @@ textarea:focus-visible {
 
 :root[data-theme="dark"] .app-shell.app-shell--plain-1441 {
   font-palette: --kafi-plain-dark;
+}
+
+.app-shell.app-shell--plain-1441 .glyph-word--playing-word {
+  font-palette: --kafi-plain-playing-light;
+}
+
+:root[data-theme="sepia"] .app-shell.app-shell--plain-1441 .glyph-word--playing-word {
+  font-palette: --kafi-plain-playing-sepia;
+}
+
+:root[data-theme="dark"] .app-shell.app-shell--plain-1441 .glyph-word--playing-word {
+  font-palette: --kafi-plain-playing-dark;
 }
 
 .mushaf-page__img {

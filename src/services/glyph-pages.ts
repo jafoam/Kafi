@@ -409,9 +409,11 @@ const TAJWEED_PALETTE_OVERRIDES = {
   dark: tajweedOverrides("dark"),
 } as const;
 
-/** The 1441 letters without tajweed: every rule color, and the ink itself, in the theme's text color. */
-function plainOverrides(theme: "light" | "sepia" | "dark"): Record<number, string> {
-  const ink = { light: "#1a2220", sepia: "#2b2318", dark: "#e8ecea" }[theme];
+const PLAYING_WORD_INK = { light: "#b45309", sepia: "#a16207", dark: "#facc15" } as const;
+
+/** The 1441 letters without tajweed: every rule color, and the ink itself, in a single uniform color. */
+function plainOverrides(theme: "light" | "sepia" | "dark", inkOverride?: string): Record<number, string> {
+  const ink = inkOverride ?? { light: "#1a2220", sepia: "#2b2318", dark: "#e8ecea" }[theme];
   const colors = tajweedOverrides(theme);
   for (const index of [0, 13, 14]) colors[index] = ink;
   for (const rule of TAJWEED_RULES) for (const index of rule.cpal) colors[index] = ink;
@@ -422,6 +424,12 @@ const PLAIN_PALETTE_OVERRIDES = {
   light: plainOverrides("light"),
   sepia: plainOverrides("sepia"),
   dark: plainOverrides("dark"),
+} as const;
+
+const PLAIN_PLAYING_PALETTE_OVERRIDES = {
+  light: plainOverrides("light", PLAYING_WORD_INK.light),
+  sepia: plainOverrides("sepia", PLAYING_WORD_INK.sepia),
+  dark: plainOverrides("dark", PLAYING_WORD_INK.dark),
 } as const;
 
 /** `font-palette` values for the tajweed fonts in each theme. */
@@ -436,6 +444,13 @@ export const PLAIN_PALETTES = {
   light: "--kafi-plain-light",
   sepia: "--kafi-plain-sepia",
   dark: "--kafi-plain-dark",
+} as const;
+
+/** `font-palette` values for the currently spoken word on 1441 plain letters (matches 1405 tint). */
+export const PLAIN_PLAYING_PALETTES = {
+  light: "--kafi-plain-playing-light",
+  sepia: "--kafi-plain-playing-sepia",
+  dark: "--kafi-plain-playing-dark",
 } as const;
 const tajweedFamilies = new Set<string>();
 let paletteStyle: HTMLStyleElement | null = null;
@@ -460,5 +475,8 @@ function registerTajweedPalette(family: string): void {
     paletteRule(PLAIN_PALETTES.light, families, 0, PLAIN_PALETTE_OVERRIDES.light),
     paletteRule(PLAIN_PALETTES.sepia, families, 0, PLAIN_PALETTE_OVERRIDES.sepia),
     paletteRule(PLAIN_PALETTES.dark, families, 1, PLAIN_PALETTE_OVERRIDES.dark),
+    paletteRule(PLAIN_PLAYING_PALETTES.light, families, 0, PLAIN_PLAYING_PALETTE_OVERRIDES.light),
+    paletteRule(PLAIN_PLAYING_PALETTES.sepia, families, 0, PLAIN_PLAYING_PALETTE_OVERRIDES.sepia),
+    paletteRule(PLAIN_PLAYING_PALETTES.dark, families, 1, PLAIN_PLAYING_PALETTE_OVERRIDES.dark),
   ].join("\n");
 }

@@ -301,7 +301,7 @@ export function FlowReader({
   onToggleFocus,
   onTogglePalette,
 }: FlowReaderProps) {
-  const { tr } = useI18n();
+  const { tr, language } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reportedRef = useRef(currentPage);
   const recentReportsRef = useRef(new Map<number, number>());
@@ -419,6 +419,12 @@ export function FlowReader({
     };
   }, [range.start, range.end, pages.length, glyphLoader, glyphMap]);
 
+  // Reset cached word glosses when switching UI language so word tooltips reload in the active language.
+  useEffect(() => {
+    setWordMap({});
+    setTip(null);
+  }, [language]);
+
   // Load word-by-word translations for mounted pages when enabled.
   useEffect(() => {
     if (!wordTranslation) return;
@@ -427,7 +433,7 @@ export function FlowReader({
     for (let p = range.start; p <= loadEnd; p++) {
       if (wordMap[p]) continue;
       wordLoader
-        .load(p)
+        .load(p, language)
         .then((w) => {
           if (!live) return;
           setWordMap((prev) => (prev[p] ? prev : { ...prev, [p]: w }));
@@ -437,7 +443,7 @@ export function FlowReader({
     return () => {
       live = false;
     };
-  }, [range.start, range.end, pages.length, wordTranslation, wordMap]);
+  }, [range.start, range.end, pages.length, wordTranslation, wordMap, language]);
 
   // Load verse translations for mounted pages when in Translation mode.
   const loadAyahTranslation = useCallback(

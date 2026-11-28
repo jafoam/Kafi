@@ -21,6 +21,8 @@ import { LanguageProvider } from "../src/i18n";
 import { formatDueLabel } from "../src/services/murajaah-srs";
 import { formatErrorClass } from "../src/services/tasmi-logic";
 import { formatBytes } from "../src/services/audio-downloads";
+import { createWordTranslationLoader } from "../src/services/word-translations";
+import { PLAIN_PLAYING_PALETTES } from "../src/services/glyph-pages";
 import { getSurahDisplayName, getSurahEnglishMeaning } from "../src/data/surah-names";
 import { matchesSurahName } from "../src/services/arabic-search";
 import { HIDDEN_AYAH_TTL_MS, isHiddenAyahActive } from "../src/services/user-store";
@@ -1235,5 +1237,67 @@ describe("Gradual blur and recent pages in search", () => {
       tasmiBtn!.click();
     });
     expect(onStartTasmiPassage).toHaveBeenCalledWith({ surah: 1, fromAyah: 1, toAyah: 7 });
+  });
+
+  it("loads English word-by-word translations when language is en and registers plain 1441 playing palettes", async () => {
+    const enWordsJson = JSON.parse(
+      fs.readFileSync("src/data/word-translations-en.json", "utf8"),
+    ) as Record<string, Record<string, [string, string]>>;
+    expect(Object.keys(enWordsJson).length).toBe(604);
+    expect(enWordsJson["1"]["ﭑ"][0]).toBe("In (the) name");
+
+    const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("language=en")) {
+        return new Response(
+          JSON.stringify({
+            verses: [
+              {
+                words: [
+                  {
+                    position: 1,
+                    char_type_name: "word",
+                    code_v1: "ﭑ",
+                    translation: { text: "In (the) name" },
+                    transliteration: { text: "bis'mi" },
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          verses: [
+            {
+              words: [
+                {
+                  position: 1,
+                  char_type_name: "word",
+                  code_v1: "ﭑ",
+                  translation: { text: "dengan nama" },
+                  transliteration: { text: "bis'mi" },
+                },
+              ],
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const loader = createWordTranslationLoader(fetcher as unknown as typeof fetch);
+    const enPage = await loader.load(1, "en");
+    const idPage = await loader.load(1, "id");
+    expect(enPage.get("ﭑ")?.translation).toBe("In (the) name");
+    expect(idPage.get("ﭑ")?.translation).toBe("dengan nama");
+
+    expect(PLAIN_PLAYING_PALETTES.light).toBe("--kafi-plain-playing-light");
+    expect(PLAIN_PLAYING_PALETTES.sepia).toBe("--kafi-plain-playing-sepia");
+    expect(PLAIN_PLAYING_PALETTES.dark).toBe("--kafi-plain-playing-dark");
+    const css = fs.readFileSync("src/styles/app.css", "utf8");
+    expect(css).toContain(".app-shell:not(.app-shell--plain-1441) .glyph-page--tajweed .glyph-word--playing-word");
+    expect(css).toContain(".app-shell.app-shell--plain-1441 .glyph-word--playing-word");
   });
 });
