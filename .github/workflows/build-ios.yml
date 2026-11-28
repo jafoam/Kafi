@@ -49,27 +49,28 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'Kafi membutuhkan mikrofon untuk fitur Tasmi hafalan Al-Quran.'" "$INFO_PLIST" \
               || /usr/libexec/PlistBuddy -c "Set :NSMicrophoneUsageDescription 'Kafi membutuhkan mikrofon untuk fitur Tasmi hafalan Al-Quran.'" "$INFO_PLIST"
           fi
+          PBXPROJ=$(find src-tauri/gen/apple -name "project.pbxproj" | head -n 1)
+          node -e '
+            const fs = require("fs");
+            const p = process.argv[1];
+            let s = fs.readFileSync(p, "utf8");
+            s = s.replace(/CODE_SIGN_STYLE = Automatic;/g, "CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = \"\";");
+            fs.writeFileSync(p, s);
+          ' "$PBXPROJ"
 
       - name: Build unsigned iOS app and package IPA
         env:
           CF_PAGES: "1"
           VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
         run: |
-          XCODEPROJ=$(find src-tauri/gen/apple -maxdepth 2 -name "*.xcodeproj" | head -n 1)
-          SCHEME=$(xcodebuild -list -project "$XCODEPROJ" | awk '/Schemes:/{flag=1;next} flag && /iOS/{print $1; exit}')
-          echo "Project: $XCODEPROJ | Scheme: $SCHEME"
-          xcodebuild \
-            -project "$XCODEPROJ" \
-            -scheme "$SCHEME" \
-            -configuration release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
-            -derivedDataPath build-ios \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build
-          APP_PATH=$(find build-ios/Build/Products -name "*.app" | head -n 1)
+          # Tauri builds Rust + archives Kafi.app; exportArchive is expected to skip/fail without a signing team.
+          npx tauri ios build --ci || true
+          APP_PATH=$(find src-tauri/gen/apple/build -name "*.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app bundle produced under src-tauri/gen/apple/build"
+            find src-tauri/gen/apple/build -maxdepth 4 2>&1 || true
+            exit 1
+          fi
           echo "Built app: $APP_PATH"
           mkdir -p ipa-out/Payload
           cp -R "$APP_PATH" ipa-out/Payload/
