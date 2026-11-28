@@ -83,7 +83,7 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             mkdir -p "$HOME/.android"
-            printf '%s' "$KEYSTORE_B64" | base64 --decode > "$HOME/.android/debug.keystore"
+            printf '%s' "$KEYSTORE_B64" | tr -d '[:space:]' | base64 --decode > "$HOME/.android/debug.keystore"
           fi
 
       - name: Build APK
