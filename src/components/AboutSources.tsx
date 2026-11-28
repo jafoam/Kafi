@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { REPORT_URL, SOURCE_CODE_URL, SOURCE_GROUPS } from "../data/acknowledgements";
+import { REPORT_URL, SOURCE_CODE_URL, SOURCE_GROUPS, SOURCE_GROUPS_EN } from "../data/acknowledgements";
+import { useI18n } from "../i18n";
 
 export interface AboutSourcesProps {
   onClose: () => void;
@@ -9,6 +10,9 @@ const host = (url: string) => url.replace(/^https?:\/\//, "").replace(/\/$/, "")
 
 /** About Kafi: where every part of the mushaf, translations, audio and Tasmi' comes from. */
 export function AboutSources({ onClose }: AboutSourcesProps) {
+  const { isEn, tr } = useI18n();
+  const groups = isEn ? SOURCE_GROUPS_EN : SOURCE_GROUPS;
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -18,11 +22,17 @@ export function AboutSources({ onClose }: AboutSourcesProps) {
   }, [onClose]);
 
   return (
-    <div className="palette-backdrop" role="dialog" aria-modal="true" aria-label="Tentang & Sumber Data" onClick={onClose}>
+    <div
+      className="palette-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr("Tentang & Sumber Data", "About & Data Sources")}
+      onClick={onClose}
+    >
       <div className="about" onClick={(e) => e.stopPropagation()}>
         <div className="about__header">
-          <h2 className="about__title">Tentang & Sumber Data</h2>
-          <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+          <h2 className="about__title">{tr("Tentang & Sumber Data", "About & Data Sources")}</h2>
+          <button type="button" className="ayah-popover__close" aria-label={tr("Tutup", "Close")} onClick={onClose}>
             ×
           </button>
         </div>
@@ -31,12 +41,14 @@ export function AboutSources({ onClose }: AboutSourcesProps) {
           <div className="about__intro">
             <p className="about__app">Kafi</p>
             <p>
-              Aplikasi Al-Qur&apos;an gratis dan open source. Jangan lupakan para kontributor dan penyedia data di
-              bawah ini dalam doa Anda.
+              {tr(
+                "Aplikasi Al-Qur'an gratis dan open source. Jangan lupakan para kontributor dan penyedia data di bawah ini dalam doa Anda.",
+                "A free and open-source Quran app. Please keep the contributors and data providers below in your prayers.",
+              )}
             </p>
           </div>
 
-          {SOURCE_GROUPS.map((group) => (
+          {groups.map((group) => (
             <section key={group.title} className="about__group" aria-label={group.title}>
               <h3 className="about__group-title">{group.title}</h3>
               <ul className="about__list">
@@ -61,18 +73,19 @@ export function AboutSources({ onClose }: AboutSourcesProps) {
             </section>
           ))}
 
-          <section className="about__group" aria-label="Keakuratan teks">
-            <h3 className="about__group-title">Keakuratan teks</h3>
+          <section className="about__group" aria-label={tr("Keakuratan teks", "Text accuracy")}>
+            <h3 className="about__group-title">{tr("Keakuratan teks", "Text accuracy")}</h3>
             <div className="about__note">
               <p>
-                Teks mushaf tidak diketik ulang: setiap halaman digambar dari font Kompleks Raja Fahd. Data mushaf
-                offline diperiksa otomatis terhadap Tanzil, mencakup kelengkapan dan urutan ayat, jumlah kata, awal
-                halaman, dan glyph yang tergambar. Kafi belum ditashih oleh Lajnah Pentashihan Mushaf Al-Qur&apos;an.
+                {tr(
+                  "Teks mushaf tidak diketik ulang: setiap halaman digambar dari font Kompleks Raja Fahd. Data mushaf offline diperiksa otomatis terhadap Tanzil, mencakup kelengkapan dan urutan ayat, jumlah kata, awal halaman, dan glyph yang tergambar. Kafi belum ditashih oleh Lajnah Pentashihan Mushaf Al-Qur'an.",
+                  "The mushaf text is never retyped: every page is rendered from King Fahd Complex fonts. Offline mushaf data is automatically verified against Tanzil for ayah completeness, ordering, word count, page starts, and rendered glyphs. Kafi has not undergone formal tashih certification.",
+                )}
               </p>
               <p>
-                Menemukan kesalahan?{" "}
+                {tr("Menemukan kesalahan?", "Found an issue?")}{" "}
                 <a href={REPORT_URL} target="_blank" rel="noopener noreferrer">
-                  Laporkan di sini
+                  {tr("Laporkan di sini", "Report it here")}
                 </a>
                 .
               </p>
@@ -80,7 +93,7 @@ export function AboutSources({ onClose }: AboutSourcesProps) {
           </section>
 
           <p className="about__footer">
-            Kode sumber:{" "}
+            {tr("Kode sumber:", "Source code:")}{" "}
             <a href={SOURCE_CODE_URL} target="_blank" rel="noopener noreferrer">
               {host(SOURCE_CODE_URL)}
             </a>

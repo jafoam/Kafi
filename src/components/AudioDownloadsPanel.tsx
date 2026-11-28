@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GlassSelect } from "./GlassSelect";
+import { useI18n } from "../i18n";
 import type { LoadProgress } from "@tilawa/core";
 import type { ReciterInfo, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
 import type { TilawaModelStorage } from "../platform/types";
@@ -62,6 +63,8 @@ export function AudioDownloadsPanel({
   onDownloadTilawa,
   onClose,
 }: AudioDownloadsPanelProps) {
+  const { isEn, tr } = useI18n();
+  const locale = isEn ? "en-US" : "id-ID";
   const { state, status, storage, wifiOnly } = downloads;
   const [tab, setTab] = useState<DownloadsTab>(initialTab);
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -101,7 +104,11 @@ export function AudioDownloadsPanel({
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
-          setTilawaError(err instanceof Error ? err.message : "Gagal mengunduh model AI Tasmi'.");
+          setTilawaError(
+            err instanceof Error
+              ? err.message
+              : tr("Gagal mengunduh model AI Tasmi'.", "Failed to download the Tasmi' AI model."),
+          );
         }
       })
       .finally(() => {
@@ -136,7 +143,7 @@ export function AudioDownloadsPanel({
   const download = (numbers: number[]) => {
     const missing = numbers.filter((n) => !isSurahComplete(status?.bySurah.get(n)));
     if (missing.length === 0) {
-      setNotice("Semuanya sudah tersimpan.");
+      setNotice(tr("Semuanya sudah tersimpan.", "Everything is already saved offline."));
       return;
     }
     setNotice(null);
@@ -194,8 +201,14 @@ export function AudioDownloadsPanel({
             >
               <div className="dl-panel__status-text">
                 {job.failed.length > 0
-                  ? `${job.failed.length} surah gagal diunduh untuk ${itemName}. Periksa koneksi lalu coba lagi.`
-                  : `Gagal mengunduh ${itemName}. Periksa koneksi lalu coba lagi.`}
+                  ? tr(
+                      `${job.failed.length} surah gagal diunduh untuk ${itemName}. Periksa koneksi lalu coba lagi.`,
+                      `${job.failed.length} surahs failed to download for ${itemName}. Check your connection and try again.`,
+                    )
+                  : tr(
+                      `Gagal mengunduh ${itemName}. Periksa koneksi lalu coba lagi.`,
+                      `Failed to download ${itemName}. Check your connection and try again.`,
+                    )}
               </div>
               <div className="dl-panel__row">
                 <button
@@ -203,14 +216,14 @@ export function AudioDownloadsPanel({
                   className="dl-btn"
                   onClick={() => textDownloads.start(kind, job.resourceId)}
                 >
-                  Coba lagi
+                  {tr("Coba lagi", "Retry")}
                 </button>
                 <button
                   type="button"
                   className="dl-btn dl-btn--ghost"
                   onClick={() => textDownloads.dismissError(kind, job.resourceId)}
                 >
-                  Tutup
+                  {tr("Tutup", "Close")}
                 </button>
               </div>
             </section>
@@ -220,8 +233,14 @@ export function AudioDownloadsPanel({
         <section className="dl-panel__section">
           <p className="dl-panel__summary">
             {kind === "translation"
-              ? "Unduh seluruh 114 surah terjemahan agar setiap ayat bisa dibaca tanpa internet. Bisa mengunduh beberapa edisi sekaligus."
-              : "Unduh seluruh 114 surah tafsir (Kemenag & tafsir lainnya) agar bisa dibuka tanpa internet. Bisa mengunduh beberapa edisi sekaligus."}
+              ? tr(
+                  "Unduh seluruh 114 surah terjemahan agar setiap ayat bisa dibaca tanpa internet. Bisa mengunduh beberapa edisi sekaligus.",
+                  "Download all 114 surahs of a translation to read offline. You can save multiple editions.",
+                )
+              : tr(
+                  "Unduh seluruh 114 surah tafsir (Kemenag & tafsir lainnya) agar bisa dibuka tanpa internet. Bisa mengunduh beberapa edisi sekaligus.",
+                  "Download all 114 surahs of tafsir to read offline. You can save multiple editions.",
+                )}
           </p>
           <ul className="dl-list">
             {items.map((item) => {
@@ -237,16 +256,22 @@ export function AudioDownloadsPanel({
                   <div className="dl-item__main">
                     <div className="dl-item__name">
                       <span>{item.name}</span>
-                      {item.isActive && <span className="dl-item__badge">Aktif</span>}
+                      {item.isActive && <span className="dl-item__badge">{tr("Aktif", "Active")}</span>}
                     </div>
                     <div className="dl-item__sub">
                       {isCurrent
-                        ? `Mengunduh ${job.done}/${job.total} surah`
+                        ? tr(`Mengunduh ${job.done}/${job.total} surah`, `Downloading ${job.done}/${job.total} surahs`)
                         : complete
-                          ? `Tersimpan · ${total} surah · ${formatBytes(entry?.bytes ?? 0)}`
+                          ? tr(
+                              `Tersimpan · ${total} surah · ${formatBytes(entry?.bytes ?? 0)}`,
+                              `Saved · ${total} surahs · ${formatBytes(entry?.bytes ?? 0)}`,
+                            )
                           : cached > 0
-                            ? `${cached}/${total} surah · ${formatBytes(entry?.bytes ?? 0)}`
-                            : `${item.author} · Belum diunduh`}
+                            ? tr(
+                                `${cached}/${total} surah · ${formatBytes(entry?.bytes ?? 0)}`,
+                                `${cached}/${total} surahs · ${formatBytes(entry?.bytes ?? 0)}`,
+                              )
+                            : `${item.author} · ${tr("Belum diunduh", "Not downloaded")}`}
                     </div>
                     <div className="dl-bar dl-bar--thin" aria-hidden="true">
                       <div
@@ -262,7 +287,7 @@ export function AudioDownloadsPanel({
                         className="dl-btn dl-btn--small dl-btn--ghost"
                         onClick={() => textDownloads.cancel(kind, item.id)}
                       >
-                        Batal
+                        {tr("Batal", "Cancel")}
                       </button>
                     ) : (
                       <>
@@ -272,7 +297,7 @@ export function AudioDownloadsPanel({
                             className="dl-btn dl-btn--small"
                             onClick={() => textDownloads.start(kind, item.id)}
                           >
-                            {cached > 0 ? "Lanjut" : "Unduh"}
+                            {cached > 0 ? tr("Lanjut", "Resume") : tr("Unduh", "Download")}
                           </button>
                         )}
                         {cached > 0 && (
@@ -280,9 +305,9 @@ export function AudioDownloadsPanel({
                             type="button"
                             className="dl-btn dl-btn--small dl-btn--ghost"
                             onClick={() => void textDownloads.remove(kind, item.id)}
-                            aria-label={`Hapus unduhan ${item.name}`}
+                            aria-label={tr(`Hapus unduhan ${item.name}`, `Delete download ${item.name}`)}
                           >
-                            Hapus
+                            {tr("Hapus", "Delete")}
                           </button>
                         )}
                       </>
@@ -304,24 +329,30 @@ export function AudioDownloadsPanel({
       : null;
 
   return (
-    <div className="dl-backdrop" role="dialog" aria-modal="true" aria-label="Unduh Offline" onClick={onClose}>
+    <div
+      className="dl-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr("Unduh Offline", "Offline Downloads")}
+      onClick={onClose}
+    >
       <div className="dl-panel" onClick={(e) => e.stopPropagation()}>
         <header className="dl-panel__header">
-          <h2 className="dl-panel__title">Unduh Offline</h2>
-          <button type="button" className="dl-panel__close" onClick={onClose} aria-label="Tutup">
+          <h2 className="dl-panel__title">{tr("Unduh Offline", "Offline Downloads")}</h2>
+          <button type="button" className="dl-panel__close" onClick={onClose} aria-label={tr("Tutup", "Close")}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" />
             </svg>
           </button>
         </header>
 
-        <div className="dl-tabs" role="tablist" aria-label="Jenis konten offline">
+        <div className="dl-tabs" role="tablist" aria-label={tr("Jenis konten offline", "Offline content type")}>
           {(
             [
-              ["audio", "Murottal"],
-              ["translation", "Terjemahan"],
+              ["audio", tr("Murottal", "Audio")],
+              ["translation", tr("Terjemahan", "Translation")],
               ["tafsir", "Tafsir"],
-              ["app", "Mushaf & AI"],
+              ["app", tr("Mushaf & AI", "Mushaf & AI")],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -343,11 +374,14 @@ export function AudioDownloadsPanel({
           {tab === "app" && (
             <section className="dl-panel__section">
               <p className="dl-panel__summary">
-                Kelola halaman mushaf dan model AI Tasmi&apos; agar seluruh fitur bisa dipakai tanpa internet.
+                {tr(
+                  "Kelola halaman mushaf dan model AI Tasmi' agar seluruh fitur bisa dipakai tanpa internet.",
+                  "Manage mushaf pages and the Tasmi' AI model so every feature works offline.",
+                )}
                 {storage && (
                   <span className="dl-panel__storage">
                     {" "}
-                    · Penyimpanan aplikasi {formatBytes(storage.used)} dari {formatBytes(storage.quota)}
+                    · {tr("Penyimpanan aplikasi", "App storage")} {formatBytes(storage.used)} {tr("dari", "of")} {formatBytes(storage.quota)}
                   </span>
                 )}
               </p>
@@ -355,25 +389,40 @@ export function AudioDownloadsPanel({
                 <li className="dl-item">
                   <div className="dl-item__main">
                     <div className="dl-item__name">
-                      <span>Huruf Madinah 1405 (604 halaman)</span>
+                      <span>{tr("Huruf Madinah 1405 (604 halaman)", "Madinah 1405 Script (604 pages)")}</span>
                       {(offlinePages.bundled || offlinePages.status === "done") && (
-                        <span className="dl-item__badge">Siap offline</span>
+                        <span className="dl-item__badge">{tr("Siap offline", "Ready offline")}</span>
                       )}
                     </div>
                     <div className="dl-item__sub">
                       {offlinePages.bundled
-                        ? "Sudah termasuk di dalam paket aplikasi ini."
+                        ? tr("Sudah termasuk di dalam paket aplikasi ini.", "Included in this app bundle.")
                         : !offlinePages.supported
-                          ? "Cache halaman offline tidak didukung di browser ini."
+                          ? tr("Cache halaman offline tidak didukung di browser ini.", "Offline page caching is not supported in this browser.")
                           : offlinePages.status === "running"
-                            ? `Mengunduh ${offlinePages.done}/${offlinePages.total} halaman…`
+                            ? tr(
+                                `Mengunduh ${offlinePages.done}/${offlinePages.total} halaman…`,
+                                `Downloading ${offlinePages.done}/${offlinePages.total} pages…`,
+                              )
                             : offlinePages.status === "done"
-                              ? `Semua ${offlinePages.total} halaman tersimpan offline.`
+                              ? tr(
+                                  `Semua ${offlinePages.total} halaman tersimpan offline.`,
+                                  `All ${offlinePages.total} pages saved offline.`,
+                                )
                               : offlinePages.status === "error"
-                                ? `Sebagian gagal (${offlinePages.done}/${offlinePages.total}). Coba lagi.`
+                                ? tr(
+                                    `Sebagian gagal (${offlinePages.done}/${offlinePages.total}). Coba lagi.`,
+                                    `Some pages failed (${offlinePages.done}/${offlinePages.total}). Try again.`,
+                                  )
                                 : offlinePages.done > 0
-                                  ? `${offlinePages.done}/${offlinePages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar mushaf bisa dibaca tanpa internet.`
-                                  : "Simpan semua 604 halaman huruf 1405 (±47 MB) untuk dibaca tanpa internet."}
+                                  ? tr(
+                                      `${offlinePages.done}/${offlinePages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar mushaf bisa dibaca tanpa internet.`,
+                                      `${offlinePages.done}/${offlinePages.total} pages saved. Download the rest (~47 MB total) to read offline.`,
+                                    )
+                                  : tr(
+                                      "Simpan semua 604 halaman huruf 1405 (±47 MB) untuk dibaca tanpa internet.",
+                                      "Save all 604 pages of the 1405 script (~47 MB) for offline reading.",
+                                    )}
                     </div>
                     {!offlinePages.bundled && offlinePages.supported && (
                       <div className="dl-bar dl-bar--thin" aria-hidden="true">
@@ -394,12 +443,12 @@ export function AudioDownloadsPanel({
                         onClick={offlinePages.toggle}
                       >
                         {offlinePages.status === "running"
-                          ? "Batal"
+                          ? tr("Batal", "Cancel")
                           : offlinePages.status === "error"
-                            ? "Coba lagi"
+                            ? tr("Coba lagi", "Retry")
                             : offlinePages.done > 0
-                              ? "Lanjutkan"
-                              : "Unduh"}
+                              ? tr("Lanjutkan", "Resume")
+                              : tr("Unduh", "Download")}
                       </button>
                     </div>
                   )}
@@ -408,19 +457,36 @@ export function AudioDownloadsPanel({
                 <li className="dl-item">
                   <div className="dl-item__main">
                     <div className="dl-item__name">
-                      <span>Huruf Madinah 1441 (604 halaman)</span>
-                      {tajweedPages.status === "done" && <span className="dl-item__badge">Siap offline</span>}
+                      <span>{tr("Huruf Madinah 1441 (604 halaman)", "Madinah 1441 Script (604 pages)")}</span>
+                      {tajweedPages.status === "done" && (
+                        <span className="dl-item__badge">{tr("Siap offline", "Ready offline")}</span>
+                      )}
                     </div>
                     <div className="dl-item__sub">
                       {tajweedPages.status === "running"
-                        ? `Mengunduh ${tajweedPages.done}/${tajweedPages.total} halaman…`
+                        ? tr(
+                            `Mengunduh ${tajweedPages.done}/${tajweedPages.total} halaman…`,
+                            `Downloading ${tajweedPages.done}/${tajweedPages.total} pages…`,
+                          )
                         : tajweedPages.status === "done"
-                          ? `Semua ${tajweedPages.total} halaman tersimpan offline.`
+                          ? tr(
+                              `Semua ${tajweedPages.total} halaman tersimpan offline.`,
+                              `All ${tajweedPages.total} pages saved offline.`,
+                            )
                           : tajweedPages.status === "error"
-                            ? `Sebagian gagal (${tajweedPages.done}/${tajweedPages.total}). Coba lagi.`
+                            ? tr(
+                                `Sebagian gagal (${tajweedPages.done}/${tajweedPages.total}). Coba lagi.`,
+                                `Some pages failed (${tajweedPages.done}/${tajweedPages.total}). Try again.`,
+                              )
                             : tajweedPages.done > 0
-                              ? `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar huruf 1441 dan tajwid berwarna bisa dipakai tanpa internet.`
-                              : "Dipakai gaya huruf Madinah 1441 dan tajwid berwarna (±47 MB), agar bisa dibaca tanpa internet."}
+                              ? tr(
+                                  `${tajweedPages.done}/${tajweedPages.total} halaman tersimpan. Unduh sisanya (±47 MB total) agar huruf 1441 dan tajwid berwarna bisa dipakai tanpa internet.`,
+                                  `${tajweedPages.done}/${tajweedPages.total} pages saved. Download the rest (~47 MB total) to use the 1441 script and color tajweed offline.`,
+                                )
+                              : tr(
+                                  "Dipakai gaya huruf Madinah 1441 dan tajwid berwarna (±47 MB), agar bisa dibaca tanpa internet.",
+                                  "Used by Madinah 1441 script and color tajweed (~47 MB) for offline reading.",
+                                )}
                     </div>
                     <div className="dl-bar dl-bar--thin" aria-hidden="true">
                       <div
@@ -437,12 +503,12 @@ export function AudioDownloadsPanel({
                         onClick={tajweedPages.toggle}
                       >
                         {tajweedPages.status === "running"
-                          ? "Batal"
+                          ? tr("Batal", "Cancel")
                           : tajweedPages.status === "error"
-                            ? "Coba lagi"
+                            ? tr("Coba lagi", "Retry")
                             : tajweedPages.done > 0
-                              ? "Lanjutkan"
-                              : "Unduh"}
+                              ? tr("Lanjutkan", "Resume")
+                              : tr("Unduh", "Download")}
                       </button>
                     </div>
                   )}
@@ -451,19 +517,24 @@ export function AudioDownloadsPanel({
                 <li className="dl-item">
                   <div className="dl-item__main">
                     <div className="dl-item__name">
-                      <span>Model AI Tasmi&apos;</span>
-                      {tilawaSaved && !tilawaBusy && <span className="dl-item__badge">Tersimpan</span>}
+                      <span>{tr("Model AI Tasmi'", "Tasmi' AI Model")}</span>
+                      {tilawaSaved && !tilawaBusy && (
+                        <span className="dl-item__badge">{tr("Tersimpan", "Saved")}</span>
+                      )}
                     </div>
                     <div className="dl-item__sub">
                       {tilawaBusy
                         ? tilawaPct !== null
-                          ? `Mengunduh model AI… ${tilawaPct}%`
-                          : "Menyiapkan model AI Tasmi'…"
+                          ? tr(`Mengunduh model AI… ${tilawaPct}%`, `Downloading AI model… ${tilawaPct}%`)
+                          : tr("Menyiapkan model AI Tasmi'…", "Preparing Tasmi' AI model…")
                         : tilawaError
                           ? tilawaError
                           : tilawaSaved
-                            ? "Siap menyimak hafalan tanpa internet."
-                            : "Model pengenalan bacaan untuk fitur Tasmi' (setoran hafalan)."}
+                            ? tr("Siap menyimak hafalan tanpa internet.", "Ready to check recitation offline.")
+                            : tr(
+                                "Model pengenalan bacaan untuk fitur Tasmi' (setoran hafalan).",
+                                "Speech recognition model for Tasmi' (memorization recitation check).",
+                              )}
                     </div>
                     {(tilawaBusy || tilawaSaved) && (
                       <div className="dl-bar dl-bar--thin" aria-hidden="true">
@@ -481,16 +552,16 @@ export function AudioDownloadsPanel({
                         className="dl-btn dl-btn--small dl-btn--ghost"
                         onClick={cancelTilawaDownload}
                       >
-                        Batal
+                        {tr("Batal", "Cancel")}
                       </button>
                     ) : tilawaSaved ? (
                       <button
                         type="button"
                         className="dl-btn dl-btn--small dl-btn--ghost"
                         onClick={() => void removeTilawaModel()}
-                        aria-label="Hapus model AI Tasmi'"
+                        aria-label={tr("Hapus model AI Tasmi'", "Delete Tasmi' AI model")}
                       >
-                        Hapus
+                        {tr("Hapus", "Delete")}
                       </button>
                     ) : (
                       <button
@@ -498,7 +569,7 @@ export function AudioDownloadsPanel({
                         className="dl-btn dl-btn--small"
                         onClick={startTilawaDownload}
                       >
-                        Unduh
+                        {tr("Unduh", "Download")}
                       </button>
                     )}
                   </div>
@@ -508,285 +579,329 @@ export function AudioDownloadsPanel({
           )}
           {tab === "audio" && (
             <>
-          <section className="dl-panel__section">
-            <div className="dl-panel__field">
-              <span>Qari</span>
-              <GlassSelect
-                ariaLabel="Pilih Qari"
-                value={reciterId}
-                disabled={busy}
-                options={reciters.map((r) => ({ value: r.id, label: r.name }))}
-                onChange={onChangeReciter}
-              />
-            </div>
+              <section className="dl-panel__section">
+                <div className="dl-panel__field">
+                  <span>{tr("Qari", "Reciter")}</span>
+                  <GlassSelect
+                    ariaLabel={tr("Pilih Qari", "Select Reciter")}
+                    value={reciterId}
+                    disabled={busy}
+                    options={reciters.map((r) => ({ value: r.id, label: r.name }))}
+                    onChange={onChangeReciter}
+                  />
+                </div>
 
-            <p className="dl-panel__summary">
-              {status ? (
-                <>
-                  Tersimpan <strong>{status.cachedAyahs.toLocaleString("id-ID")}</strong> dari{" "}
-                  {status.totalAyahs.toLocaleString("id-ID")} ayat · {formatBytes(status.bytes)}
-                </>
-              ) : (
-                "Membaca unduhan..."
-              )}
-              {storage && (
-                <span className="dl-panel__storage">
-                  {" "}
-                  · Penyimpanan aplikasi {formatBytes(storage.used)} dari {formatBytes(storage.quota)}
-                </span>
-              )}
-            </p>
+                <p className="dl-panel__summary">
+                  {status ? (
+                    <>
+                      {tr("Tersimpan", "Saved")} <strong>{status.cachedAyahs.toLocaleString(locale)}</strong>{" "}
+                      {tr("dari", "of")} {status.totalAyahs.toLocaleString(locale)} {tr("ayat", "ayahs")} ·{" "}
+                      {formatBytes(status.bytes)}
+                    </>
+                  ) : (
+                    tr("Membaca unduhan...", "Reading downloads...")
+                  )}
+                  {storage && (
+                    <span className="dl-panel__storage">
+                      {" "}
+                      · {tr("Penyimpanan aplikasi", "App storage")} {formatBytes(storage.used)} {tr("dari", "of")}{" "}
+                      {formatBytes(storage.quota)}
+                    </span>
+                  )}
+                </p>
 
-            <button
-              type="button"
-              role="switch"
-              aria-checked={wifiOnly}
-              className="dl-panel__check"
-              onClick={() => downloads.setWifiOnly(!wifiOnly)}
-            >
-              <span>Hanya unduh lewat Wi-Fi</span>
-              <span className={`app-menu__switch ${wifiOnly ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
-            </button>
-          </section>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={wifiOnly}
+                  className="dl-panel__check"
+                  onClick={() => downloads.setWifiOnly(!wifiOnly)}
+                >
+                  <span>{tr("Hanya unduh lewat Wi-Fi", "Download over Wi-Fi only")}</span>
+                  <span className={`app-menu__switch ${wifiOnly ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+                </button>
+              </section>
 
-          {segmentDownloads && (
-            <section className="dl-panel__section">
-              <h3 className="dl-panel__heading">Highlight per kata (offline)</h3>
-              {(() => {
-                const segStatus = segmentDownloads.status;
-                const supported = segStatus?.supported ?? false;
-                const segTotal = segStatus?.totalSurahs ?? segmentDownloads.total ?? 114;
-                const segRunning = segmentDownloads.phase === "running";
-                const segCached = segRunning
-                  ? Math.max(segStatus?.cachedSurahs ?? 0, segmentDownloads.done)
-                  : (segStatus?.cachedSurahs ?? 0);
-                const segComplete = supported && !segRunning && segCached >= segTotal;
-                return (
-                  <div className="dl-item">
-                    <div className="dl-item__main">
-                      <div className="dl-item__name">
-                        <span>Penanda waktu per kata</span>
-                        {segComplete && <span className="dl-item__badge">Siap offline</span>}
-                      </div>
-                      <div className="dl-item__sub">
-                        {!segStatus
-                          ? "Memeriksa cache..."
-                          : !supported
-                            ? "Highlight per kata belum tersedia untuk qari ini."
-                            : segRunning
-                              ? `Mengunduh ${segmentDownloads.done}/${segmentDownloads.total} surah`
-                              : segmentDownloads.phase === "error"
-                                ? `${segmentDownloads.failed.length || "Sebagian"} surah gagal diunduh. Coba lagi.`
-                                : segComplete
-                                  ? `Tersimpan · ${segTotal} surah · ${formatBytes(segStatus.bytes)}`
-                                  : segCached > 0
-                                    ? `${segCached}/${segTotal} surah · ${formatBytes(segStatus.bytes)}`
-                                    : "Simpan 114 surah agar sorotan per kata tetap jalan tanpa internet."}
-                      </div>
-                      {supported && (
-                        <div className="dl-bar dl-bar--thin" aria-hidden="true">
-                          <div
-                            className={`dl-bar__fill ${segComplete ? "dl-bar__fill--done" : ""}`}
-                            style={{ width: `${segTotal ? Math.min(100, (segCached / segTotal) * 100) : 0}%` }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {supported && (
-                      <div className="dl-item__actions">
-                        {segRunning ? (
-                          <button
-                            type="button"
-                            className="dl-btn dl-btn--small dl-btn--ghost"
-                            onClick={segmentDownloads.cancel}
-                          >
-                            Batal
-                          </button>
-                        ) : (
-                          <>
-                            {!segComplete && (
-                              <button
-                                type="button"
-                                className="dl-btn dl-btn--small"
-                                onClick={segmentDownloads.start}
-                              >
-                                {segmentDownloads.phase === "error"
-                                  ? "Coba lagi"
-                                  : segCached > 0
-                                    ? "Lanjut"
-                                    : "Unduh"}
-                              </button>
+              {segmentDownloads && (
+                <section className="dl-panel__section">
+                  <h3 className="dl-panel__heading">
+                    {tr("Highlight per kata (offline)", "Word-by-word highlight (offline)")}
+                  </h3>
+                  {(() => {
+                    const segStatus = segmentDownloads.status;
+                    const supported = segStatus?.supported ?? false;
+                    const segTotal = segStatus?.totalSurahs ?? segmentDownloads.total ?? 114;
+                    const segRunning = segmentDownloads.phase === "running";
+                    const segCached = segRunning
+                      ? Math.max(segStatus?.cachedSurahs ?? 0, segmentDownloads.done)
+                      : (segStatus?.cachedSurahs ?? 0);
+                    const segComplete = supported && !segRunning && segCached >= segTotal;
+                    return (
+                      <div className="dl-item">
+                        <div className="dl-item__main">
+                          <div className="dl-item__name">
+                            <span>{tr("Penanda waktu per kata", "Word timing markers")}</span>
+                            {segComplete && (
+                              <span className="dl-item__badge">{tr("Siap offline", "Ready offline")}</span>
                             )}
-                            {segCached > 0 && (
+                          </div>
+                          <div className="dl-item__sub">
+                            {!segStatus
+                              ? tr("Memeriksa cache...", "Checking cache...")
+                              : !supported
+                                ? tr(
+                                    "Highlight per kata belum tersedia untuk qari ini.",
+                                    "Word highlight is not yet available for this reciter.",
+                                  )
+                                : segRunning
+                                  ? tr(
+                                      `Mengunduh ${segmentDownloads.done}/${segmentDownloads.total} surah`,
+                                      `Downloading ${segmentDownloads.done}/${segmentDownloads.total} surahs`,
+                                    )
+                                  : segmentDownloads.phase === "error"
+                                    ? tr(
+                                        `${segmentDownloads.failed.length || "Sebagian"} surah gagal diunduh. Coba lagi.`,
+                                        `${segmentDownloads.failed.length || "Some"} surahs failed to download. Try again.`,
+                                      )
+                                    : segComplete
+                                      ? tr(
+                                          `Tersimpan · ${segTotal} surah · ${formatBytes(segStatus.bytes)}`,
+                                          `Saved · ${segTotal} surahs · ${formatBytes(segStatus.bytes)}`,
+                                        )
+                                      : segCached > 0
+                                        ? tr(
+                                            `${segCached}/${segTotal} surah · ${formatBytes(segStatus.bytes)}`,
+                                            `${segCached}/${segTotal} surahs · ${formatBytes(segStatus.bytes)}`,
+                                          )
+                                        : tr(
+                                            "Simpan 114 surah agar sorotan per kata tetap jalan tanpa internet.",
+                                            "Save all 114 surahs so word highlighting keeps working offline.",
+                                          )}
+                          </div>
+                          {supported && (
+                            <div className="dl-bar dl-bar--thin" aria-hidden="true">
+                              <div
+                                className={`dl-bar__fill ${segComplete ? "dl-bar__fill--done" : ""}`}
+                                style={{ width: `${segTotal ? Math.min(100, (segCached / segTotal) * 100) : 0}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        {supported && (
+                          <div className="dl-item__actions">
+                            {segRunning ? (
                               <button
                                 type="button"
                                 className="dl-btn dl-btn--small dl-btn--ghost"
-                                onClick={() => void segmentDownloads.remove()}
-                                aria-label="Hapus cache highlight per kata"
+                                onClick={segmentDownloads.cancel}
                               >
-                                Hapus
+                                {tr("Batal", "Cancel")}
                               </button>
+                            ) : (
+                              <>
+                                {!segComplete && (
+                                  <button
+                                    type="button"
+                                    className="dl-btn dl-btn--small"
+                                    onClick={segmentDownloads.start}
+                                  >
+                                    {segmentDownloads.phase === "error"
+                                      ? tr("Coba lagi", "Retry")
+                                      : segCached > 0
+                                        ? tr("Lanjut", "Resume")
+                                        : tr("Unduh", "Download")}
+                                  </button>
+                                )}
+                                {segCached > 0 && (
+                                  <button
+                                    type="button"
+                                    className="dl-btn dl-btn--small dl-btn--ghost"
+                                    onClick={() => void segmentDownloads.remove()}
+                                    aria-label={tr("Hapus cache highlight per kata", "Delete word highlight cache")}
+                                  >
+                                    {tr("Hapus", "Delete")}
+                                  </button>
+                                )}
+                              </>
                             )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </section>
+              )}
+
+              {state.phase !== "idle" && (
+                <section className={`dl-panel__status dl-panel__status--${state.phase}`} aria-live="polite">
+                  {state.phase === "running" && (
+                    <>
+                      <div className="dl-panel__status-text">
+                        {tr("Mengunduh", "Downloading")} <strong>{current?.name ?? ""}</strong> {state.done}/{state.total}
+                        {state.queue.length > 0 && (
+                          <>
+                            {" "}
+                            · {state.queue.length} {tr("surah menunggu", "surahs queued")}
                           </>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </section>
-          )}
-
-          {state.phase !== "idle" && (
-            <section className={`dl-panel__status dl-panel__status--${state.phase}`} aria-live="polite">
-              {state.phase === "running" && (
-                <>
-                  <div className="dl-panel__status-text">
-                    Mengunduh <strong>{current?.name ?? ""}</strong> {state.done}/{state.total}
-                    {state.queue.length > 0 && <> · {state.queue.length} surah menunggu</>}
-                  </div>
-                  <div className="dl-bar" aria-hidden="true">
-                    <div className="dl-bar__fill" style={{ width: `${state.total ? (state.done / state.total) * 100 : 0}%` }} />
-                  </div>
-                  <div className="dl-panel__row">
-                    <button type="button" className="dl-btn dl-btn--ghost" onClick={downloads.cancel}>
-                      Batalkan
-                    </button>
-                  </div>
-                </>
-              )}
-              {state.phase === "waiting-wifi" && (
-                <>
-                  <div className="dl-panel__status-text">
-                    Menunggu Wi-Fi · {state.queue.length} surah belum diunduh
-                  </div>
-                  <div className="dl-panel__row">
-                    <button type="button" className="dl-btn" onClick={downloads.resume}>
-                      Lanjut dengan data seluler
-                    </button>
-                    <button type="button" className="dl-btn dl-btn--ghost" onClick={downloads.cancel}>
-                      Batalkan
-                    </button>
-                  </div>
-                </>
-              )}
-              {state.phase === "error" && (
-                <>
-                  <div className="dl-panel__status-text">
-                    {state.failed.length} surah gagal diunduh. Periksa koneksi lalu coba lagi.
-                  </div>
-                  <div className="dl-panel__row">
-                    <button type="button" className="dl-btn" onClick={() => download(state.failed)}>
-                      Coba lagi
-                    </button>
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-
-          <section className="dl-panel__section">
-            <h3 className="dl-panel__heading">Unduh cepat</h3>
-            <div className="dl-panel__quick">
-              <button
-                type="button"
-                className="dl-btn"
-                onClick={() => download([activeSurah])}
-                title={active ? `Unduh Surah ${active.name}` : "Unduh surah ini"}
-              >
-                {active ? active.name : "Surah ini"}
-              </button>
-              <button type="button" className="dl-btn" onClick={() => download(juzSurahs)}>
-                Juz {juzNumber}
-              </button>
-              {juzNumber !== 30 && (
-                <button type="button" className="dl-btn" onClick={() => download(JUZ_AMMA)}>
-                  Juz 30
-                </button>
-              )}
-              <button type="button" className={`dl-btn ${confirm === "all" ? "dl-btn--danger" : ""}`} onClick={askAll}>
-                {confirm === "all" ? "Konfirmasi" : "Semua"}
-              </button>
-            </div>
-            {confirm === "all" && (
-              <p className="dl-panel__warn">
-                Seluruh Al-Quran bisa memakai ratusan MB. Pastikan ruang dan kuota cukup.{" "}
-                <button type="button" className="dl-link" onClick={() => setConfirm(null)}>
-                  Batal
-                </button>
-              </p>
-            )}
-            {notice && <p className="dl-panel__notice">{notice}</p>}
-          </section>
-
-          <section className="dl-panel__section">
-            <h3 className="dl-panel__heading">Per surah</h3>
-            <ul className="dl-list">
-              {surahs.map((surah) => {
-                const entry = status?.bySurah.get(surah.number);
-                const complete = isSurahComplete(entry);
-                const isCurrent = state.current === surah.number && state.phase === "running";
-                const isQueued = queued.has(surah.number);
-                const cached = isCurrent ? Math.max(entry?.cached ?? 0, state.done) : (entry?.cached ?? 0);
-                return (
-                  <li key={surah.number} className="dl-item">
-                    <span className="dl-item__num">{surah.number}</span>
-                    <div className="dl-item__main">
-                      <div className="dl-item__name">
-                        {surah.name}
-                        <span className="dl-item__ar">{surah.arabicName}</span>
+                      <div className="dl-bar" aria-hidden="true">
+                        <div className="dl-bar__fill" style={{ width: `${state.total ? (state.done / state.total) * 100 : 0}%` }} />
                       </div>
-                      <div className="dl-item__sub">
-                        {isCurrent
-                          ? `Mengunduh ${state.done}/${state.total}`
-                          : isQueued
-                            ? "Dalam antrean"
-                            : complete
-                              ? `Tersimpan · ${formatBytes(entry?.bytes ?? 0)}`
-                              : cached > 0
-                                ? `${cached}/${surah.ayahs} ayat`
-                                : `${surah.ayahs} ayat`}
-                      </div>
-                      <div className="dl-bar dl-bar--thin" aria-hidden="true">
-                        <div
-                          className={`dl-bar__fill ${complete ? "dl-bar__fill--done" : ""}`}
-                          style={{ width: `${surah.ayahs ? Math.min(100, (cached / surah.ayahs) * 100) : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="dl-item__actions">
-                      {!complete && !isCurrent && !isQueued && (
-                        <button type="button" className="dl-btn dl-btn--small" onClick={() => download([surah.number])}>
-                          Unduh
+                      <div className="dl-panel__row">
+                        <button type="button" className="dl-btn dl-btn--ghost" onClick={downloads.cancel}>
+                          {tr("Batalkan", "Cancel")}
                         </button>
-                      )}
-                      {cached > 0 && !isCurrent && !isQueued && (
-                        <button
-                          type="button"
-                          className="dl-btn dl-btn--small dl-btn--ghost"
-                          onClick={() => void downloads.removeSurahs([surah.number])}
-                          aria-label={`Hapus unduhan ${surah.name}`}
-                        >
-                          Hapus
+                      </div>
+                    </>
+                  )}
+                  {state.phase === "waiting-wifi" && (
+                    <>
+                      <div className="dl-panel__status-text">
+                        {tr(
+                          `Menunggu Wi-Fi · ${state.queue.length} surah belum diunduh`,
+                          `Waiting for Wi-Fi · ${state.queue.length} surahs remaining`,
+                        )}
+                      </div>
+                      <div className="dl-panel__row">
+                        <button type="button" className="dl-btn" onClick={downloads.resume}>
+                          {tr("Lanjut dengan data seluler", "Continue on mobile data")}
                         </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                        <button type="button" className="dl-btn dl-btn--ghost" onClick={downloads.cancel}>
+                          {tr("Batalkan", "Cancel")}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {state.phase === "error" && (
+                    <>
+                      <div className="dl-panel__status-text">
+                        {tr(
+                          `${state.failed.length} surah gagal diunduh. Periksa koneksi lalu coba lagi.`,
+                          `${state.failed.length} surahs failed to download. Check your connection and try again.`,
+                        )}
+                      </div>
+                      <div className="dl-panel__row">
+                        <button type="button" className="dl-btn" onClick={() => download(state.failed)}>
+                          {tr("Coba lagi", "Retry")}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
 
-          <section className="dl-panel__section">
-            <button
-              type="button"
-              className={`dl-btn dl-btn--ghost ${confirm === "clear" ? "dl-btn--danger" : ""}`}
-              onClick={clearAll}
-              disabled={busy || !status || status.cachedAyahs === 0}
-            >
-              {confirm === "clear" ? "Ketuk lagi: hapus semua unduhan qari ini" : "Hapus semua unduhan qari ini"}
-            </button>
-          </section>
+              <section className="dl-panel__section">
+                <h3 className="dl-panel__heading">{tr("Unduh cepat", "Quick download")}</h3>
+                <div className="dl-panel__quick">
+                  <button
+                    type="button"
+                    className="dl-btn"
+                    onClick={() => download([activeSurah])}
+                    title={
+                      active
+                        ? tr(`Unduh Surah ${active.name}`, `Download Surah ${active.name}`)
+                        : tr("Unduh surah ini", "Download this surah")
+                    }
+                  >
+                    {active ? active.name : tr("Surah ini", "This surah")}
+                  </button>
+                  <button type="button" className="dl-btn" onClick={() => download(juzSurahs)}>
+                    Juz {juzNumber}
+                  </button>
+                  {juzNumber !== 30 && (
+                    <button type="button" className="dl-btn" onClick={() => download(JUZ_AMMA)}>
+                      Juz 30
+                    </button>
+                  )}
+                  <button type="button" className={`dl-btn ${confirm === "all" ? "dl-btn--danger" : ""}`} onClick={askAll}>
+                    {confirm === "all" ? tr("Konfirmasi", "Confirm") : tr("Semua", "All")}
+                  </button>
+                </div>
+                {confirm === "all" && (
+                  <p className="dl-panel__warn">
+                    {tr(
+                      "Seluruh Al-Quran bisa memakai ratusan MB. Pastikan ruang dan kuota cukup.",
+                      "The full Quran can use hundreds of MB. Make sure you have enough storage and data.",
+                    )}{" "}
+                    <button type="button" className="dl-link" onClick={() => setConfirm(null)}>
+                      {tr("Batal", "Cancel")}
+                    </button>
+                  </p>
+                )}
+                {notice && <p className="dl-panel__notice">{notice}</p>}
+              </section>
+
+              <section className="dl-panel__section">
+                <h3 className="dl-panel__heading">{tr("Per surah", "By surah")}</h3>
+                <ul className="dl-list">
+                  {surahs.map((surah) => {
+                    const entry = status?.bySurah.get(surah.number);
+                    const complete = isSurahComplete(entry);
+                    const isCurrent = state.current === surah.number && state.phase === "running";
+                    const isQueued = queued.has(surah.number);
+                    const cached = isCurrent ? Math.max(entry?.cached ?? 0, state.done) : (entry?.cached ?? 0);
+                    return (
+                      <li key={surah.number} className="dl-item">
+                        <span className="dl-item__num">{surah.number}</span>
+                        <div className="dl-item__main">
+                          <div className="dl-item__name">
+                            {surah.name}
+                            <span className="dl-item__ar">{surah.arabicName}</span>
+                          </div>
+                          <div className="dl-item__sub">
+                            {isCurrent
+                              ? tr(`Mengunduh ${state.done}/${state.total}`, `Downloading ${state.done}/${state.total}`)
+                              : isQueued
+                                ? tr("Dalam antrean", "Queued")
+                                : complete
+                                  ? `${tr("Tersimpan", "Saved")} · ${formatBytes(entry?.bytes ?? 0)}`
+                                  : cached > 0
+                                    ? `${cached}/${surah.ayahs} ${tr("ayat", "ayahs")}`
+                                    : `${surah.ayahs} ${tr("ayat", "ayahs")}`}
+                          </div>
+                          <div className="dl-bar dl-bar--thin" aria-hidden="true">
+                            <div
+                              className={`dl-bar__fill ${complete ? "dl-bar__fill--done" : ""}`}
+                              style={{ width: `${surah.ayahs ? Math.min(100, (cached / surah.ayahs) * 100) : 0}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="dl-item__actions">
+                          {!complete && !isCurrent && !isQueued && (
+                            <button type="button" className="dl-btn dl-btn--small" onClick={() => download([surah.number])}>
+                              {tr("Unduh", "Download")}
+                            </button>
+                          )}
+                          {cached > 0 && !isCurrent && !isQueued && (
+                            <button
+                              type="button"
+                              className="dl-btn dl-btn--small dl-btn--ghost"
+                              onClick={() => void downloads.removeSurahs([surah.number])}
+                              aria-label={tr(`Hapus unduhan ${surah.name}`, `Delete download ${surah.name}`)}
+                            >
+                              {tr("Hapus", "Delete")}
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+
+              <section className="dl-panel__section">
+                <button
+                  type="button"
+                  className={`dl-btn dl-btn--ghost ${confirm === "clear" ? "dl-btn--danger" : ""}`}
+                  onClick={clearAll}
+                  disabled={busy || !status || status.cachedAyahs === 0}
+                >
+                  {confirm === "clear"
+                    ? tr("Ketuk lagi: hapus semua unduhan qari ini", "Tap again: delete all downloads for this reciter")
+                    : tr("Hapus semua unduhan qari ini", "Delete all downloads for this reciter")}
+                </button>
+              </section>
             </>
           )}
         </div>

@@ -186,12 +186,7 @@ export function SettingsModal({
     >
       <div className="settings-sheet" onClick={(e) => e.stopPropagation()}>
         <header className="settings-sheet__header">
-          <div className="settings-sheet__heading">
-            <h2 className="settings-sheet__title">{tr("Pengaturan", "Settings")}</h2>
-            <p className="settings-sheet__subtitle">
-              {tr("Tampilan mushaf, bahasa, hafalan, dan data offline", "Mushaf display, language, memorization, and offline data")}
-            </p>
-          </div>
+          <h2 className="settings-sheet__title">{tr("Pengaturan", "Settings")}</h2>
           <button
             type="button"
             className="ayah-popover__close settings-sheet__close"
@@ -211,12 +206,7 @@ export function SettingsModal({
             <div className="settings-card">
               {onChangeLanguage && (
                 <div className="settings-control-row">
-                  <div className="settings-row__text">
-                    <span className="settings-row__title">{tr("Bahasa / Language", "Language / Bahasa")}</span>
-                    <span className="settings-row__sub">
-                      {tr("Bahasa antarmuka dan terjemahan bawaan", "Interface language and default translation")}
-                    </span>
-                  </div>
+                  <span className="settings-row__title">{tr("Bahasa", "Language")}</span>
                   <div className="app-menu__seg-compact">
                     <Segmented
                       label={tr("Pilih bahasa", "Choose language")}
@@ -289,12 +279,7 @@ export function SettingsModal({
               </div>
 
               <div className="settings-control-row">
-                <div className="settings-row__text">
-                  <span className="settings-row__title">{tr("Huruf Madinah", "Madinah Script")}</span>
-                  <span className="settings-row__sub">
-                    {tr("Khat cetak 1405 H atau 1441 H", "1405 H or 1441 H print calligraphy")}
-                  </span>
-                </div>
+                <span className="settings-row__title">{tr("Huruf Madinah", "Madinah Script")}</span>
                 <div className="app-menu__seg-compact">
                   <Segmented
                     label={tr("Gaya huruf", "Script style")}
@@ -308,7 +293,7 @@ export function SettingsModal({
               {readingMode === "mushaf" && (
                 <>
                   <div className="settings-control-row">
-                    <span className="settings-row__title">{tr("Pindah halaman", "Page navigation")}</span>
+                    <span className="settings-row__title">{tr("Pindah halaman", "Page nav")}</span>
                     <div className="app-menu__seg-compact">
                       <Segmented
                         label={tr("Pindah halaman", "Page navigation")}
@@ -340,12 +325,7 @@ export function SettingsModal({
                 className="settings-row"
                 onClick={onToggleTajweed}
               >
-                <span className="settings-row__text">
-                  <span className="settings-row__title">{tr("Tajwid Warna", "Color Tajweed")}</span>
-                  <span className="settings-row__sub">
-                    {tr("Warna hukum tajwid pada khat Madinah 1441", "Color-coded tajweed rules on Madinah 1441 script")}
-                  </span>
-                </span>
+                <span className="settings-row__title">{tr("Tajwid Warna (1441)", "Color Tajweed (1441)")}</span>
                 <span className={`settings-switch ${tajweed ? "settings-switch--on" : ""}`} aria-hidden="true" />
               </button>
 
@@ -356,12 +336,7 @@ export function SettingsModal({
                 className="settings-row"
                 onClick={onToggleWordTranslation}
               >
-                <span className="settings-row__text">
-                  <span className="settings-row__title">{tr("Terjemah Kata", "Word-by-Word")}</span>
-                  <span className="settings-row__sub">
-                    {tr("Tampilkan arti kata saat diketuk", "Show word meaning when tapped")}
-                  </span>
-                </span>
+                <span className="settings-row__title">{tr("Terjemah Kata", "Word-by-Word")}</span>
                 <span
                   className={`settings-switch ${wordTranslation ? "settings-switch--on" : ""}`}
                   aria-hidden="true"
@@ -375,12 +350,7 @@ export function SettingsModal({
                 className="settings-row"
                 onClick={onToggleHifzBlur}
               >
-                <span className="settings-row__text">
-                  <span className="settings-row__title">{tr("Sembunyikan Ayat", "Hide Ayahs")}</span>
-                  <span className="settings-row__sub">
-                    {tr("Mode hafalan, ketuk ayat untuk mengintip", "Memorization blur, tap an ayah to peek")}
-                  </span>
-                </span>
+                <span className="settings-row__title">{tr("Sembunyikan Ayat", "Hide Ayahs")}</span>
                 <span className={`settings-switch ${hifzBlur ? "settings-switch--on" : ""}`} aria-hidden="true" />
               </button>
 

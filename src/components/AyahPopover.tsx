@@ -37,11 +37,11 @@ function htmlToPlainText(html: string): string {
 
 const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-const HIGHLIGHT_COLORS: { color: HighlightColor; label: string }[] = [
-  { color: "amber", label: "Kuning" },
-  { color: "emerald", label: "Hijau" },
-  { color: "sky", label: "Biru" },
-  { color: "rose", label: "Merah Muda" },
+const HIGHLIGHT_COLORS: { color: HighlightColor; id: string; en: string }[] = [
+  { color: "amber", id: "Kuning", en: "Yellow" },
+  { color: "emerald", id: "Hijau", en: "Green" },
+  { color: "sky", id: "Biru", en: "Blue" },
+  { color: "rose", id: "Merah Muda", en: "Rose" },
 ];
 
 export function AyahPopover({
@@ -64,7 +64,7 @@ export function AyahPopover({
   isHidden = false,
   onToggleHidden,
 }: AyahPopoverProps) {
-  const { tr } = useI18n();
+  const { lang, tr } = useI18n();
   const ayahNum = ayah.split(":")[1] ?? "";
   const popoverRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number }>(() => ({
@@ -175,7 +175,7 @@ export function AyahPopover({
         ref={popoverRef}
         className="ayah-popover"
         role="dialog"
-        aria-label={`Aksi untuk ${surahName} ayat ${ayahNum}`}
+        aria-label={tr(`Aksi untuk ${surahName} ayat ${ayahNum}`, `Actions for ${surahName} ayah ${ayahNum}`)}
         style={{ left, top, maxHeight }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -183,21 +183,21 @@ export function AyahPopover({
         <span className="ayah-popover__title">
           {surahName} : {ayahNum}
         </span>
-        <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+        <button type="button" className="ayah-popover__close" aria-label={tr("Tutup", "Close")} onClick={onClose}>
           ×
         </button>
       </div>
 
       {tasmiMistakes && tasmiMistakes.length > 0 && (
-        <div className="ayah-popover__mistakes" aria-label="Catatan kesalahan Tasmi'">
+        <div className="ayah-popover__mistakes" aria-label={tr("Catatan kesalahan Tasmi'", "Tasmi' mistake notes")}>
           <div className="ayah-popover__mistakes-title">
-            Catatan Tasmi&apos; ({tasmiMistakes.length})
+            {tr("Catatan Tasmi'", "Tasmi' Notes")} ({tasmiMistakes.length})
           </div>
           <ul className="ayah-popover__mistakes-list">
             {tasmiMistakes.map((m) => (
               <li key={m.id} className="ayah-popover__mistake-row">
                 <span className="ayah-popover__mistake-badge">
-                  {formatErrorClass(m.errorClass)}
+                  {formatErrorClass(m.errorClass, lang)}
                 </span>
                 {m.wordText && (
                   <span className="ayah-popover__mistake-word" dir="rtl" lang="ar">
@@ -205,7 +205,9 @@ export function AyahPopover({
                   </span>
                 )}
                 {typeof m.word === "number" && m.word > 0 && (
-                  <span className="ayah-popover__mistake-pos">kata {m.word}</span>
+                  <span className="ayah-popover__mistake-pos">
+                    {tr("kata", "word")} {m.word}
+                  </span>
                 )}
               </li>
             ))}
@@ -288,27 +290,30 @@ export function AyahPopover({
           </button>
         </div>
 
-        <div className="hl-swatches" role="group" aria-label="Warna Sorotan">
-          {HIGHLIGHT_COLORS.map((item) => (
-            <button
-              key={item.color}
-              type="button"
-              className={`hl-swatch hl-swatch--${item.color} ${
-                highlightColor === item.color ? "hl-swatch--active" : ""
-              }`}
-              aria-label={`Sorot ${item.label}`}
-              aria-pressed={highlightColor === item.color}
-              onClick={() =>
-                onSetHighlight(ayah, highlightColor === item.color ? null : item.color)
-              }
-            />
-          ))}
+        <div className="hl-swatches" role="group" aria-label={tr("Warna Sorotan", "Highlight Color")}>
+          {HIGHLIGHT_COLORS.map((item) => {
+            const label = tr(item.id, item.en);
+            return (
+              <button
+                key={item.color}
+                type="button"
+                className={`hl-swatch hl-swatch--${item.color} ${
+                  highlightColor === item.color ? "hl-swatch--active" : ""
+                }`}
+                aria-label={`${tr("Sorot", "Highlight")} ${label}`}
+                aria-pressed={highlightColor === item.color}
+                onClick={() =>
+                  onSetHighlight(ayah, highlightColor === item.color ? null : item.color)
+                }
+              />
+            );
+          })}
           {highlightColor && (
             <button
               type="button"
               className="hl-swatch hl-swatch--clear"
-              aria-label="Hapus sorotan"
-              title="Hapus sorotan"
+              aria-label={tr("Hapus sorotan", "Remove highlight")}
+              title={tr("Hapus sorotan", "Remove highlight")}
               onClick={() => onSetHighlight(ayah, null)}
             >
               ×

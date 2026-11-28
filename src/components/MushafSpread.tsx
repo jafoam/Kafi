@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, type TouchEvent as ReactTouchEvent } from "react";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
+import { useI18n } from "../i18n";
 import { getAdjacentPages, getVisiblePages, mapKeyToDirection, turnPage } from "../state/reader-logic";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { SelectedWord } from "../services/word-translations";
@@ -74,6 +75,7 @@ export function MushafSpread({
   onToggleFocus,
   onTogglePalette,
 }: MushafSpreadProps) {
+  const { tr } = useI18n();
   const prefetchedRef = useRef<Set<number>>(new Set());
   const stageRef = useRef<HTMLElement>(null);
 
@@ -330,8 +332,8 @@ export function MushafSpread({
       <button
         type="button"
         className="turn-btn turn-btn--left"
-        aria-label="Halaman berikutnya"
-        title="Halaman berikutnya (←)"
+        aria-label={tr("Halaman berikutnya", "Next page")}
+        title={tr("Halaman berikutnya (←)", "Next page (←)")}
         disabled={!canGoNext}
         onClick={(e) => {
           e.stopPropagation();
@@ -484,8 +486,8 @@ export function MushafSpread({
       <button
         type="button"
         className="turn-btn turn-btn--right"
-        aria-label="Halaman sebelumnya"
-        title="Halaman sebelumnya (→)"
+        aria-label={tr("Halaman sebelumnya", "Previous page")}
+        title={tr("Halaman sebelumnya (→)", "Previous page (→)")}
         disabled={!canGoPrev}
         onClick={(e) => {
           e.stopPropagation();

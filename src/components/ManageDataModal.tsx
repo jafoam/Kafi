@@ -35,11 +35,18 @@ type ManageSection =
   | "hidden"
   | "halaqah";
 
-const HIGHLIGHT_LABELS: Record<HighlightColor, string> = {
+const HIGHLIGHT_LABELS_ID: Record<HighlightColor, string> = {
   amber: "Kuning",
   emerald: "Hijau",
   sky: "Biru",
   rose: "Merah Muda",
+};
+
+const HIGHLIGHT_LABELS_EN: Record<HighlightColor, string> = {
+  amber: "Yellow",
+  emerald: "Green",
+  sky: "Blue",
+  rose: "Rose",
 };
 
 export function ManageDataModal({
@@ -58,7 +65,9 @@ export function ManageDataModal({
   onDeleteMurajaah,
   onRemoveHalaqah,
 }: ManageDataModalProps) {
-  const { tr } = useI18n();
+  const { lang, isEn, tr } = useI18n();
+  const highlightLabels = isEn ? HIGHLIGHT_LABELS_EN : HIGHLIGHT_LABELS_ID;
+  const locale = isEn ? "en-US" : "id-ID";
   const [section, setSection] = useState<ManageSection>("tasmi");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -157,7 +166,7 @@ export function ManageDataModal({
           </button>
         </div>
 
-        <div className="manage-data__tabs" role="tablist" aria-label="Kategori data">
+        <div className="manage-data__tabs" role="tablist" aria-label={tr("Kategori data", "Data category")}>
           {sections.map((s) => (
             <button
               key={s.id}
@@ -185,7 +194,7 @@ export function ManageDataModal({
                 className={`app-menu__seg ${!showArchived ? "app-menu__seg--active" : ""}`}
                 onClick={() => setShowArchived(false)}
               >
-                Aktif
+                {tr("Aktif", "Active")}
               </button>
               <button
                 type="button"
@@ -194,7 +203,7 @@ export function ManageDataModal({
                 className={`app-menu__seg ${showArchived ? "app-menu__seg--active" : ""}`}
                 onClick={() => setShowArchived(true)}
               >
-                Arsip
+                {tr("Arsip", "Archived")}
               </button>
             </div>
           )}
@@ -202,7 +211,9 @@ export function ManageDataModal({
           {section === "tasmi" &&
             (visibleTasmi.length === 0 ? (
               <div className="tasmi-summary__empty">
-                {showArchived ? "Tidak ada riwayat Tasmi' di arsip." : "Belum ada riwayat Tasmi' aktif."}
+                {showArchived
+                  ? tr("Tidak ada riwayat Tasmi' di arsip.", "No archived Tasmi' history.")
+                  : tr("Belum ada riwayat Tasmi' aktif.", "No active Tasmi' history yet.")}
               </div>
             ) : (
               <div className="manage-data__list">
@@ -215,8 +226,10 @@ export function ManageDataModal({
                           {surahName(item.surah)} : {item.fromAyah}–{item.toAyah}
                         </strong>
                         <span className="tasmi-sheet__option-scope">
-                          {item.mistakes.length === 0 ? "Lancar" : `${item.mistakes.length} catatan`} ·{" "}
-                          {new Date(item.startedAt).toLocaleDateString("id-ID")}
+                          {item.mistakes.length === 0
+                            ? tr("Lancar", "Smooth")
+                            : `${item.mistakes.length} ${tr("catatan", "notes")}`}{" "}
+                          · {new Date(item.startedAt).toLocaleDateString(locale)}
                         </span>
                       </div>
                       <div className="manage-data__actions">
@@ -225,14 +238,14 @@ export function ManageDataModal({
                           className="tasmi-sheet__history-btn"
                           onClick={() => onToggleArchiveTasmi(item.id, !archived)}
                         >
-                          {archived ? "Pulihkan" : "Arsip"}
+                          {archived ? tr("Pulihkan", "Restore") : tr("Arsip", "Archive")}
                         </button>
                         <button
                           type="button"
                           className="manage-data__del-btn"
                           onClick={() => onDeleteTasmi(item.id)}
                         >
-                          Hapus
+                          {tr("Hapus", "Delete")}
                         </button>
                       </div>
                     </div>
@@ -244,7 +257,9 @@ export function ManageDataModal({
           {section === "schedule" &&
             (visibleCards.length === 0 ? (
               <div className="tasmi-summary__empty">
-                {showArchived ? "Tidak ada jadwal di arsip." : "Belum ada jadwal muraja'ah aktif."}
+                {showArchived
+                  ? tr("Tidak ada jadwal di arsip.", "No archived schedules.")
+                  : tr("Belum ada jadwal muraja'ah aktif.", "No active muraja'ah schedules yet.")}
               </div>
             ) : (
               <div className="manage-data__list">
@@ -257,8 +272,9 @@ export function ManageDataModal({
                           {surahName(card.surah)} : {card.fromAyah}–{card.toAyah}
                         </strong>
                         <span className="tasmi-sheet__option-scope">
-                          {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · tiap {card.stabilityDays} hari ·{" "}
-                          {formatDueLabel(card.dueAt)}
+                          {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
+                          {tr(`tiap ${card.stabilityDays} hari`, `every ${card.stabilityDays} days`)} ·{" "}
+                          {formatDueLabel(card.dueAt, undefined, lang)}
                         </span>
                       </div>
                       <div className="manage-data__actions">
@@ -267,14 +283,14 @@ export function ManageDataModal({
                           className="tasmi-sheet__history-btn"
                           onClick={() => onToggleArchiveMurajaah(card.id, !archived)}
                         >
-                          {archived ? "Pulihkan" : "Arsip"}
+                          {archived ? tr("Pulihkan", "Restore") : tr("Arsip", "Archive")}
                         </button>
                         <button
                           type="button"
                           className="manage-data__del-btn"
                           onClick={() => onDeleteMurajaah(card.id)}
                         >
-                          Hapus
+                          {tr("Hapus", "Delete")}
                         </button>
                       </div>
                     </div>
@@ -285,7 +301,9 @@ export function ManageDataModal({
 
           {section === "bookmarks" &&
             (userData.bookmarks.length === 0 ? (
-              <div className="tasmi-summary__empty">Belum ada bookmark tersimpan.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Belum ada bookmark tersimpan.", "No saved bookmarks yet.")}
+              </div>
             ) : (
               <div className="manage-data__list">
                 {userData.bookmarks.map((ayah) => (
@@ -305,7 +323,7 @@ export function ManageDataModal({
                       className="manage-data__del-btn"
                       onClick={() => onToggleBookmark(ayah)}
                     >
-                      Hapus
+                      {tr("Hapus", "Delete")}
                     </button>
                   </div>
                 ))}
@@ -314,7 +332,9 @@ export function ManageDataModal({
 
           {section === "notes" &&
             (noteEntries.length === 0 ? (
-              <div className="tasmi-summary__empty">Belum ada catatan ayat.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Belum ada catatan ayat.", "No ayah notes yet.")}
+              </div>
             ) : (
               <div className="manage-data__list">
                 {noteEntries.map(([ayah, text]) => (
@@ -335,7 +355,7 @@ export function ManageDataModal({
                       className="manage-data__del-btn"
                       onClick={() => onDeleteNote(ayah)}
                     >
-                      Hapus
+                      {tr("Hapus", "Delete")}
                     </button>
                   </div>
                 ))}
@@ -344,7 +364,9 @@ export function ManageDataModal({
 
           {section === "highlights" &&
             (highlightEntries.length === 0 ? (
-              <div className="tasmi-summary__empty">Belum ada sorotan ayat.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Belum ada sorotan ayat.", "No ayah highlights yet.")}
+              </div>
             ) : (
               <div className="manage-data__list">
                 {highlightEntries.map(([ayah, color]) => (
@@ -358,14 +380,16 @@ export function ManageDataModal({
                       }}
                     >
                       <strong>{formatAyah(ayah)}</strong>
-                      <span className="tasmi-sheet__option-scope">Warna: {HIGHLIGHT_LABELS[color]}</span>
+                      <span className="tasmi-sheet__option-scope">
+                        {tr("Warna:", "Color:")} {highlightLabels[color]}
+                      </span>
                     </button>
                     <button
                       type="button"
                       className="manage-data__del-btn"
                       onClick={() => onDeleteHighlight(ayah)}
                     >
-                      Hapus
+                      {tr("Hapus", "Delete")}
                     </button>
                   </div>
                 ))}
@@ -374,7 +398,9 @@ export function ManageDataModal({
 
           {section === "hidden" &&
             (hiddenKeys.length === 0 ? (
-              <div className="tasmi-summary__empty">Tidak ada ayat yang disembunyikan secara manual.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Tidak ada ayat yang disembunyikan secara manual.", "No manually hidden ayahs.")}
+              </div>
             ) : (
               <div className="manage-data__list">
                 {hiddenKeys.map((ayah) => (
@@ -394,7 +420,7 @@ export function ManageDataModal({
                       className="tasmi-sheet__history-btn"
                       onClick={() => onUnhideAyah(ayah)}
                     >
-                      Tampilkan
+                      {tr("Tampilkan", "Show")}
                     </button>
                   </div>
                 ))}
@@ -403,7 +429,9 @@ export function ManageDataModal({
 
           {section === "halaqah" &&
             (halaqahs.length === 0 ? (
-              <div className="tasmi-summary__empty">Belum tergabung di halaqah mana pun.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Belum tergabung di halaqah mana pun.", "Not joined to any halaqah yet.")}
+              </div>
             ) : (
               <div className="manage-data__list">
                 {halaqahs.map((h) => (
@@ -411,7 +439,7 @@ export function ManageDataModal({
                     <div className="manage-data__info">
                       <strong>{h.name}</strong>
                       <span className="tasmi-sheet__option-scope">
-                        {h.code} · sebagai {h.displayName}
+                        {h.code} · {tr("sebagai", "as")} {h.displayName}
                       </span>
                     </div>
                     <button
@@ -419,7 +447,7 @@ export function ManageDataModal({
                       className="manage-data__del-btn"
                       onClick={() => onRemoveHalaqah(h.code)}
                     >
-                      Hapus
+                      {tr("Hapus", "Remove")}
                     </button>
                   </div>
                 ))}

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { GlassSelect } from "./GlassSelect";
 import type { AyahKey, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
+import { useI18n } from "../i18n";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { QuranApi } from "../services/quran-api";
 import { parseAyahKey } from "../services/audio-controller";
 
 /**
- * A full-screen reader for translation and tafsir: one ayah per panel, swiped sideways like the
+ * A full-screen reader for translation and tafsir: one ayah per panel, swiped sideways like
  * a book page by page, each panel scrolling on its own for long tafsir.
  */
 
@@ -92,6 +93,7 @@ function ReaderBody({
   onPlayAyah,
   onClose,
 }: TranslationReaderProps) {
+  const { tr } = useI18n();
   const [prefs, setPrefs] = useState<ReaderPrefs>(readPrefs);
   const [current, setCurrent] = useState<AyahKey>(startAyah);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -284,9 +286,9 @@ function ReaderBody({
           </div>
         ) : state.status === "error" ? (
           <div className="study-drawer__error">
-            <p>Tidak dapat dimuat. Periksa koneksi internet.</p>
+            <p>{tr("Tidak dapat dimuat. Periksa koneksi internet.", "Could not load. Check your internet connection.")}</p>
             <button type="button" className="study-drawer__retry-btn" onClick={() => retry(id)}>
-              Coba lagi
+              {tr("Coba lagi", "Retry")}
             </button>
           </div>
         ) : (
@@ -294,7 +296,9 @@ function ReaderBody({
             className={`reader__text ${arabic ? "reader__text--arabic" : ""}`}
             dir={arabic ? "rtl" : "ltr"}
             lang={arabic ? "ar" : undefined}
-            dangerouslySetInnerHTML={{ __html: state.html || "<p>Tidak tersedia untuk ayat ini.</p>" }}
+            dangerouslySetInnerHTML={{
+              __html: state.html || `<p>${tr("Tidak tersedia untuk ayat ini.", "Not available for this ayah.")}</p>`,
+            }}
           />
         )}
       </section>
@@ -302,23 +306,28 @@ function ReaderBody({
   };
 
   return (
-    <div className="reader" role="dialog" aria-modal="true" aria-label="Baca terjemahan dan tafsir">
+    <div
+      className="reader"
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr("Baca terjemahan dan tafsir", "Read translation and tafsir")}
+    >
       <header className="reader__bar">
-        <button type="button" className="reader__icon-btn" onClick={() => onClose(current)} aria-label="Tutup">
+        <button type="button" className="reader__icon-btn" onClick={() => onClose(current)} aria-label={tr("Tutup", "Close")}>
           ×
         </button>
         <div className="reader__heading">
           <span className="reader__surah">{surahInfo?.name ?? `Surah ${surah}`}</span>
           <span className="reader__count">
-            Ayat {ayah} / {total}
+            {tr("Ayat", "Ayah")} {ayah} / {total}
           </span>
         </div>
         <button
           type="button"
           className="reader__icon-btn"
           onClick={() => onPlayAyah(current)}
-          aria-label={`Putar ayat ${ayah}`}
-          title="Putar dari ayat ini"
+          aria-label={tr(`Putar ayat ${ayah}`, `Play ayah ${ayah}`)}
+          title={tr("Putar dari ayat ini", "Play from this ayah")}
         >
           ▶
         </button>
@@ -327,19 +336,19 @@ function ReaderBody({
           className={`reader__icon-btn ${settingsOpen ? "reader__icon-btn--on" : ""}`}
           onClick={() => setSettingsOpen((v) => !v)}
           aria-expanded={settingsOpen}
-          aria-label="Pengaturan tampilan"
-          title="Pengaturan tampilan"
+          aria-label={tr("Pengaturan tampilan", "Display settings")}
+          title={tr("Pengaturan tampilan", "Display settings")}
         >
           Aa
         </button>
       </header>
 
-      <div className="reader__views" role="tablist" aria-label="Tampilkan">
+      <div className="reader__views" role="tablist" aria-label={tr("Tampilkan", "Show")}>
         {(
           [
-            ["terjemahan", "Terjemahan"],
+            ["terjemahan", tr("Terjemahan", "Translation")],
             ["tafsir", "Tafsir"],
-            ["keduanya", "Keduanya"],
+            ["keduanya", tr("Keduanya", "Both")],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -358,9 +367,9 @@ function ReaderBody({
       {settingsOpen && (
         <div className="reader__settings">
           <div className="reader__setting">
-            <span>Terjemahan</span>
+            <span>{tr("Terjemahan", "Translation")}</span>
             <GlassSelect
-              ariaLabel="Pilih Terjemahan"
+              ariaLabel={tr("Pilih Terjemahan", "Select Translation")}
               value={String(translationId)}
               options={translations.map((t) => ({ value: String(t.id), label: t.name }))}
               onChange={(val) => onChangeTranslation(Number(val))}
@@ -369,7 +378,7 @@ function ReaderBody({
           <div className="reader__setting">
             <span>Tafsir</span>
             <GlassSelect
-              ariaLabel="Pilih Tafsir"
+              ariaLabel={tr("Pilih Tafsir", "Select Tafsir")}
               value={tafsirId}
               options={tafsirs.map((t) => ({ value: t.id, label: t.name }))}
               onChange={onChangeTafsir}
@@ -382,7 +391,7 @@ function ReaderBody({
             className="reader__setting reader__setting--check"
             onClick={() => updatePrefs({ arabic: !prefs.arabic })}
           >
-            <span>Tampilkan teks Arab</span>
+            <span>{tr("Tampilkan teks Arab", "Show Arabic text")}</span>
             <span className={`app-menu__switch ${prefs.arabic ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
           </button>
         </div>
@@ -394,7 +403,7 @@ function ReaderBody({
           const near = Math.abs(n - ayah) <= LOAD_WINDOW;
           const runs = glyphs.get(key);
           return (
-            <article key={key} className="reader__panel" aria-hidden={n !== ayah} aria-label={`Ayat ${n}`}>
+            <article key={key} className="reader__panel" aria-hidden={n !== ayah} aria-label={`${tr("Ayat", "Ayah")} ${n}`}>
               {near && (
                 <div className="reader__panel-inner">
                   {prefs.arabic && (
@@ -409,7 +418,11 @@ function ReaderBody({
                     </p>
                   )}
                   {showTranslation &&
-                    renderBlock(`t:${translationId}:${key}`, translations.find((t) => t.id === translationId)?.name ?? "Terjemahan", false)}
+                    renderBlock(
+                      `t:${translationId}:${key}`,
+                      translations.find((t) => t.id === translationId)?.name ?? tr("Terjemahan", "Translation"),
+                      false,
+                    )}
                   {showTafsir && renderBlock(`f:${tafsirId}:${key}`, activeTafsir?.name ?? "Tafsir", tafsirArabic)}
                 </div>
               )}
@@ -425,7 +438,7 @@ function ReaderBody({
           onClick={() => step(-1)}
           disabled={surah === 1 && ayah === 1}
         >
-          ‹ Sebelumnya
+          {tr("‹ Sebelumnya", "‹ Previous")}
         </button>
         <button
           type="button"
@@ -433,7 +446,9 @@ function ReaderBody({
           onClick={() => step(1)}
           disabled={surah === 114 && ayah === total}
         >
-          {ayah === total && surah < 114 ? "Surah berikutnya ›" : "Berikutnya ›"}
+          {ayah === total && surah < 114
+            ? tr("Surah berikutnya ›", "Next surah ›")
+            : tr("Berikutnya ›", "Next ›")}
         </button>
       </footer>
     </div>

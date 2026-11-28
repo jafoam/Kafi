@@ -67,6 +67,15 @@ export const ERROR_CLASS_LABELS: Record<string, string> = {
   wrong_passage: "Salah ingat ayat",
 };
 
+export const ERROR_CLASS_LABELS_EN: Record<string, string> = {
+  wrong_word: "Wrong word",
+  omitted_word: "Omitted word",
+  added_word: "Extra word",
+  skipped_passage: "Skipped ayah",
+  peeked: "Peeked ayah",
+  wrong_passage: "Wrong passage",
+};
+
 /** How many ayahs past either end of the declared passage still count as nearby (not a jump). */
 const NEARBY_AYAHS = 2;
 
@@ -78,14 +87,16 @@ function inPassage(word: WordRef, passage: DeclaredPassage, margin = 0): boolean
   );
 }
 
-export function formatErrorClass(errorClass: string): string {
-  return ERROR_CLASS_LABELS[errorClass] ?? errorClass;
+export function formatErrorClass(errorClass: string, lang: "id" | "en" = "id"): string {
+  const table = lang === "en" ? ERROR_CLASS_LABELS_EN : ERROR_CLASS_LABELS;
+  return table[errorClass] ?? errorClass;
 }
 
 export function buildPageTasmiCandidates(
   pages: PageEntry[],
   surahs: SurahInfo[],
   glyphAyahs?: Record<number, AyahKey[]>,
+  lang: "id" | "en" = "id",
 ): TasmiPassageOption[] {
   const surahByNum = new Map<number, SurahInfo>();
   for (const s of surahs) surahByNum.set(s.number, s);
@@ -138,7 +149,7 @@ export function buildPageTasmiCandidates(
         arabicName: info?.arabicName ?? "",
         fromAyah: range.fromAyah,
         toAyah: range.toAyah,
-        scopeLabel: `Hal. ${page.page} (${range.fromAyah}–${range.toAyah})`,
+        scopeLabel: `${lang === "en" ? "Page" : "Hal."} ${page.page} (${range.fromAyah}–${range.toAyah})`,
       });
 
       const spread = spreadRanges.get(surahNum);
@@ -169,7 +180,10 @@ export function buildPageTasmiCandidates(
         arabicName: info?.arabicName ?? "",
         fromAyah: spread.fromAyah,
         toAyah: spread.toAyah,
-        scopeLabel: `2 Halaman · Hal. ${firstPage}–${lastPage} (${spread.fromAyah}–${spread.toAyah})`,
+        scopeLabel:
+          lang === "en"
+            ? `2 Pages · p. ${firstPage}–${lastPage} (${spread.fromAyah}–${spread.toAyah})`
+            : `2 Halaman · Hal. ${firstPage}–${lastPage} (${spread.fromAyah}–${spread.toAyah})`,
       });
     }
   }
@@ -515,6 +529,7 @@ export function computeBlurMask(
 
 export function buildMistakeBadges(
   mistakes: TasmiMistakeRecord[],
+  lang: "id" | "en" = "id",
 ): Map<AyahKey, MistakeBadge> {
   const map = new Map<AyahKey, MistakeBadge>();
   for (const m of mistakes) {
@@ -525,7 +540,7 @@ export function buildMistakeBadges(
       if (!prev.wordText && m.wordText) prev.wordText = m.wordText;
     } else {
       map.set(key, {
-        errorClass: formatErrorClass(m.errorClass),
+        errorClass: formatErrorClass(m.errorClass, lang),
         count: 1,
         wordText: m.wordText,
       });

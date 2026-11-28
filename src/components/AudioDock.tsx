@@ -3,6 +3,7 @@ import { useBackClose } from "../state/useBackClose";
 import type { AyahKey, ReciterInfo, SurahInfo } from "../data/types";
 import type { AudioState, PlaybackScope, RepeatCount } from "../services/audio-controller";
 import { PlaybackMenu, scopeLabel } from "./PlaybackMenu";
+import { useI18n } from "../i18n";
 
 export interface AudioDockProps {
   audioState: AudioState;
@@ -62,6 +63,7 @@ export function AudioDock({
   onOpenTasmi,
   onPopupChange,
 }: AudioDockProps) {
+  const { lang, tr } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [reciterOpen, setReciterOpen] = useState(false);
   useEffect(() => {
@@ -87,14 +89,14 @@ export function AudioDock({
     <div className="audio-dock-zone">
       <section
         className={`audio-dock ${hidden ? "audio-dock--hidden" : ""}`}
-        aria-label="Pemutar Murottal"
+        aria-label={tr("Pemutar Murottal", "Audio Player")}
       >
         <div className="audio-dock__info">
           <button
             type="button"
             className="audio-dock__ayah-btn"
             onClick={onOpenStudy}
-            title="Buka Terjemahan, Tafsir & Catatan"
+            title={tr("Buka Terjemahan, Tafsir & Catatan", "Open Translation, Tafsir & Notes")}
           >
             <span className="audio-dock__ayah-title">
               {surahName} : {ayahNum}
@@ -103,10 +105,10 @@ export function AudioDock({
 
           {audioState.error ? (
             <span className="audio-dock__sub-status audio-dock__sub-status--error">
-              Gagal memuat
+              {tr("Gagal memuat", "Failed to load")}
             </span>
           ) : audioState.isTalaqqiPause ? (
-            <span className="audio-dock__sub-status">Tirukan…</span>
+            <span className="audio-dock__sub-status">{tr("Tirukan…", "Repeat…")}</span>
           ) : audioState.isBismillah ? (
             <span className="audio-dock__sub-status">Basmalah</span>
           ) : (
@@ -148,8 +150,8 @@ export function AudioDock({
             type="button"
             className="audio-dock__icon-btn"
             onClick={onPrev}
-            aria-label="Ayat sebelumnya"
-            title="Ayat sebelumnya"
+            aria-label={tr("Ayat sebelumnya", "Previous ayah")}
+            title={tr("Ayat sebelumnya", "Previous ayah")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" />
@@ -160,8 +162,8 @@ export function AudioDock({
             type="button"
             className="audio-dock__play-btn"
             onClick={onTogglePlay}
-            aria-label={audioState.isPlaying ? "Jeda murottal" : "Putar murottal"}
-            title={audioState.isPlaying ? "Jeda (Spasi)" : "Putar (Spasi)"}
+            aria-label={audioState.isPlaying ? tr("Jeda murottal", "Pause recitation") : tr("Putar murottal", "Play recitation")}
+            title={audioState.isPlaying ? tr("Jeda (Spasi)", "Pause (Space)") : tr("Putar (Spasi)", "Play (Space)")}
           >
             {audioState.isLoading ? (
               <span className="audio-dock__spinner" aria-hidden="true" />
@@ -180,8 +182,8 @@ export function AudioDock({
             type="button"
             className="audio-dock__icon-btn"
             onClick={onNext}
-            aria-label="Ayat berikutnya"
-            title="Ayat berikutnya"
+            aria-label={tr("Ayat berikutnya", "Next ayah")}
+            title={tr("Ayat berikutnya", "Next ayah")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M16 6h2v12h-2V6zM6 18l8.5-6L6 6v12z" />
@@ -194,8 +196,8 @@ export function AudioDock({
             type="button"
             className={`audio-dock__pill-btn audio-dock__repeat-btn ${audioState.repeatCount !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onCycleRepeat}
-            aria-label={`Ulang ayat: ${formatRepeat(audioState.repeatCount)}`}
-            title="Ulang ayat"
+            aria-label={`${tr("Ulang ayat", "Repeat ayah")}: ${formatRepeat(audioState.repeatCount)}`}
+            title={tr("Ulang ayat", "Repeat ayah")}
           >
             <svg className="audio-dock__pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M17 2l4 4-4 4" />
@@ -203,7 +205,7 @@ export function AudioDock({
               <path d="M7 22l-4-4 4-4" />
               <path d="M21 13v2a3 3 0 0 1-3 3H3" />
             </svg>
-            <span className="audio-dock__pill-label">Ulang </span>
+            <span className="audio-dock__pill-label">{tr("Ulang ", "Repeat ")}</span>
             {formatRepeat(audioState.repeatCount)}
           </button>
 
@@ -216,22 +218,22 @@ export function AudioDock({
             }}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
-            aria-label="Mode putar, ulang ayat, dan kecepatan"
-            title="Mode putar: ulang surah, halaman, juz, ulang ayat, dan kecepatan"
+            aria-label={tr("Mode putar, ulang ayat, dan kecepatan", "Playback mode, repeat, and speed")}
+            title={tr("Mode putar: ulang surah, halaman, juz, ulang ayat, dan kecepatan", "Playback mode: loop surah, page, juz, repeat, and speed")}
           >
             <svg className="audio-dock__pill-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M4 7h11M4 12h11M4 17h7" />
               <path d="m17 14 4 3-4 3z" fill="currentColor" />
             </svg>
-            <span className="audio-dock__pill-text">{scopeLabel(audioState.scope)}</span>
+            <span className="audio-dock__pill-text">{scopeLabel(audioState.scope, lang)}</span>
           </button>
 
           <button
             type="button"
             className={`audio-dock__pill-btn audio-dock__speed-btn ${audioState.speed !== 1 ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onCycleSpeed}
-            aria-label={`Kecepatan: ${audioState.speed}x`}
-            title="Kecepatan bacaan"
+            aria-label={`${tr("Kecepatan", "Speed")}: ${audioState.speed}x`}
+            title={tr("Kecepatan bacaan", "Playback speed")}
           >
             {audioState.speed}×
           </button>
@@ -240,21 +242,21 @@ export function AudioDock({
             type="button"
             className={`audio-dock__pill-btn audio-dock__download-btn ${isSurahDownloaded ? "audio-dock__pill-btn--active" : ""}`}
             onClick={onDownloadSurah}
-            title={isSurahDownloaded ? "Surah tersimpan offline" : "Unduh audio surah untuk offline"}
+            title={isSurahDownloaded ? tr("Surah tersimpan offline", "Surah saved offline") : tr("Unduh audio surah untuk offline", "Download surah audio for offline")}
           >
             {isDownloading
               ? `${downloadProgress.done}/${downloadProgress.total}`
               : isSurahDownloaded
-                ? "Tersimpan offline"
-                : "Unduh Surah"}
+                ? tr("Tersimpan offline", "Saved offline")
+                : tr("Unduh Surah", "Download Surah")}
           </button>
 
           <button
             type="button"
             className="audio-dock__tasmi-btn"
             onClick={onOpenTasmi}
-            aria-label="Mulai Tasmi'"
-            title="Mulai Tasmi' (setoran hafalan)"
+            aria-label={tr("Mulai Tasmi'", "Start Tasmi'")}
+            title={tr("Mulai Tasmi' (setoran hafalan)", "Start Tasmi' (memorization recitation)")}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
@@ -268,12 +270,12 @@ export function AudioDock({
           <button
             type="button"
             className="playback-menu__backdrop"
-            aria-label="Tutup daftar qari"
+            aria-label={tr("Tutup daftar qari", "Close reciter list")}
             onClick={() => setReciterOpen(false)}
           />
-          <div className="reciter-menu" role="dialog" aria-label="Pilih Qari">
-            <div className="playback-menu__title">Pilih Qari</div>
-            <div className="reciter-menu__list" role="radiogroup" aria-label="Daftar Qari">
+          <div className="reciter-menu" role="dialog" aria-label={tr("Pilih Qari", "Choose Reciter")}>
+            <div className="playback-menu__title">{tr("Pilih Qari", "Choose Reciter")}</div>
+            <div className="reciter-menu__list" role="radiogroup" aria-label={tr("Daftar Qari", "Reciter list")}>
               {reciters.map((r) => {
                 const active = r.id === audioState.reciterId;
                 return (

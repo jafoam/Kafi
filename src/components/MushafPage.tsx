@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../i18n";
 import { useLongPress } from "../state/useLongPress";
 import type { AyahKey, HifzBlurLevel, HighlightColor, MistakeBadge, PageEntry } from "../data/types";
 import type { GlyphPageData, GlyphPageLoader } from "../services/glyph-pages";
@@ -59,6 +60,7 @@ export function MushafPage({
   onPeekAyah,
   onRetryPage,
 }: MushafPageProps) {
+  const { tr } = useI18n();
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -141,7 +143,7 @@ export function MushafPage({
           className="mushaf-page__img"
           src={imageUrl}
           crossOrigin={isCrossOriginHttpUrl(imageUrl) ? "anonymous" : undefined}
-          alt={`Halaman Mushaf ${pageEntry.page}`}
+          alt={tr(`Halaman Mushaf ${pageEntry.page}`, `Mushaf Page ${pageEntry.page}`)}
           draggable={false}
           onLoad={() => setImgLoaded(true)}
           onError={() => {
@@ -157,7 +159,9 @@ export function MushafPage({
           role="status"
           onClick={(event) => event.stopPropagation()}
         >
-          <p className="mushaf-page__error-text">Halaman belum tersedia offline</p>
+          <p className="mushaf-page__error-text">
+            {tr("Halaman belum tersedia offline", "Page not available offline")}
+          </p>
           <button
             type="button"
             className="mushaf-page__retry-btn"
@@ -168,7 +172,7 @@ export function MushafPage({
               onRetryPage?.(pageEntry.page);
             }}
           >
-            Coba lagi
+            {tr("Coba lagi", "Retry")}
           </button>
         </div>
       )}
@@ -234,8 +238,14 @@ export function MushafPage({
                 aria-label={
                   isFirstBox
                     ? isBlurred
-                      ? `Intip Surah ${segment.surah} Ayat ${segment.ayah}`
-                      : `Surah ${segment.surah} Ayat ${segment.ayah}`
+                      ? tr(
+                          `Intip Surah ${segment.surah} Ayat ${segment.ayah}`,
+                          `Peek Surah ${segment.surah} Ayah ${segment.ayah}`,
+                        )
+                      : tr(
+                          `Surah ${segment.surah} Ayat ${segment.ayah}`,
+                          `Surah ${segment.surah} Ayah ${segment.ayah}`,
+                        )
                     : undefined
                 }
                 aria-hidden={isFirstBox ? undefined : true}

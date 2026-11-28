@@ -372,6 +372,11 @@ export function App({
     toastTimerRef.current = window.setTimeout(() => setToast(null), 2400);
   }, []);
 
+  const trApp = useCallback(
+    (id: string, en: string) => (userDataRef.current.settings.language === "en" ? en : id),
+    [],
+  );
+
   const persistUser = useCallback(
     (promise: Promise<UserData>) => {
       void promise
@@ -379,10 +384,10 @@ export function App({
           if (mountedRef.current) setUserData(next);
         })
         .catch(() => {
-          if (mountedRef.current) showToast("Gagal menyimpan data lokal");
+          if (mountedRef.current) showToast(trApp("Gagal menyimpan data lokal", "Failed to save local data"));
         });
     },
-    [showToast],
+    [showToast, trApp],
   );
 
   useEffect(() => {
@@ -416,18 +421,23 @@ export function App({
         setSyncConfig(nextCfg);
         await platform.kvSet(SYNC_CONFIG_KEY, JSON.stringify(nextCfg));
         if (!silent) {
-          showToast(result.pulled ? "Data tersinkron antar perangkat" : "Data terunggah ke sync");
+          showToast(
+            result.pulled
+              ? trApp("Data tersinkron antar perangkat", "Data synced across devices")
+              : trApp("Data terunggah ke sync", "Data uploaded to sync"),
+          );
         }
       } catch (err) {
         if (!mountedRef.current) return;
-        const message = err instanceof Error ? err.message : "Gagal menyinkronkan data.";
+        const message =
+          err instanceof Error ? err.message : trApp("Gagal menyinkronkan data.", "Failed to sync data.");
         if (!silent) setSyncError(message);
       } finally {
         syncInFlightRef.current = false;
         if (mountedRef.current && !silent) setSyncing(false);
       }
     },
-    [userStore, audioController, platform, showToast],
+    [userStore, audioController, platform, showToast, trApp],
   );
 
   // Open Halaqah modal automatically when launched from an invite link (?halaqah=HLQ-XXXX-XXXX)
@@ -466,12 +476,12 @@ export function App({
         }
       })
       .catch(() => {
-        if (active) showToast("Gagal memuat data lokal");
+        if (active) showToast(trApp("Gagal memuat data lokal", "Failed to load local data"));
       });
     return () => {
       active = false;
     };
-  }, [userStore, platform, audioController, showToast, executeSync]);
+  }, [userStore, platform, audioController, showToast, executeSync, trApp]);
 
   // Debounced background sync whenever local userData changes while connected
   useEffect(() => {
@@ -993,9 +1003,9 @@ export function App({
     const done = textDownloads.lastCompleted;
     if (!done || done.seq === prevTextSeqRef.current) return;
     prevTextSeqRef.current = done.seq;
-    const label = done.kind === "tafsir" ? "Tafsir" : "Terjemahan";
-    showToast(`${label} tersimpan offline`);
-  }, [textDownloads.lastCompleted, showToast]);
+    const label = done.kind === "tafsir" ? "Tafsir" : trApp("Terjemahan", "Translation");
+    showToast(trApp(`${label} tersimpan offline`, `${label} saved offline`));
+  }, [textDownloads.lastCompleted, showToast, trApp]);
 
   // Tell the reader when a download finishes.
   const previousPhaseRef = useRef(downloads.state.phase);
@@ -1006,11 +1016,11 @@ export function App({
     const done = downloads.state.finished;
     if (done.length === 1) {
       const name = catalog.surahs.find((s) => s.number === done[0])?.name;
-      showToast(`${name ?? "Surah"} tersimpan offline`);
+      showToast(trApp(`${name ?? "Surah"} tersimpan offline`, `${name ?? "Surah"} saved offline`));
     } else if (done.length > 1) {
-      showToast(`${done.length} surah tersimpan offline`);
+      showToast(trApp(`${done.length} surah tersimpan offline`, `${done.length} surahs saved offline`));
     }
-  }, [downloads.state.phase, downloads.state.finished, showToast]);
+  }, [downloads.state.phase, downloads.state.finished, showToast, trApp]);
 
   const handleToggleHifzBlur = useCallback(() => {
     const next = !userData.settings.hifzBlur;
@@ -1151,14 +1161,14 @@ export function App({
         };
         audio.onerror = () => {
           cleanup();
-          reject(new Error("Gagal memutar audio pemicu"));
+          reject(new Error(trApp("Gagal memutar audio pemicu", "Failed to play prompt audio")));
         };
         void audio.play().catch((err) => {
           cleanup();
           reject(err);
         });
       }),
-    [],
+    [trApp],
   );
 
   const startTasmiSession = useCallback(
@@ -1236,7 +1246,7 @@ export function App({
         tasmiStateRef.current = null;
         setTasmiState(null);
         if (abort.signal.aborted) return;
-        const message = err instanceof Error ? err.message : "Gagal memulai Tasmi'.";
+        const message = err instanceof Error ? err.message : trApp("Gagal memulai Tasmi'.", "Failed to start Tasmi'.");
         setTasmiError(message);
         setTasmiSheetOpen(true);
       } finally {
@@ -1253,6 +1263,7 @@ export function App({
       rightPage,
       leftPage,
       navigateToPage,
+      trApp,
     ],
   );
 
@@ -1337,11 +1348,21 @@ export function App({
             await playSinglePromptAudio(match.url, audioState.speed, promptAbort.signal);
           } catch {
             if (mountedRef.current && !promptAbort.signal.aborted && seq === randomRoundSeqRef.current) {
-              showToast("Gagal memutar audio pemicu — lanjutkan bacaan");
+              showToast(
+                trApp(
+                  "Gagal memutar audio pemicu; lanjutkan bacaan",
+                  "Failed to play prompt audio; continue reciting",
+                ),
+              );
             }
           }
         } else {
-          showToast("Audio pemicu tidak tersedia offline — lanjutkan bacaan");
+          showToast(
+            trApp(
+              "Audio pemicu tidak tersedia offline; lanjutkan bacaan",
+              "Prompt audio unavailable offline; continue reciting",
+            ),
+          );
         }
 
         if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
@@ -1367,7 +1388,7 @@ export function App({
         if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
         setModelLoading(null);
         if (abort.signal.aborted) return;
-        const message = err instanceof Error ? err.message : "Gagal memulai Uji Acak.";
+        const message = err instanceof Error ? err.message : trApp("Gagal memulai Uji Acak.", "Failed to start Random Test.");
         setTasmiError(message);
         showToast(message);
       } finally {
@@ -1389,6 +1410,7 @@ export function App({
       quranApi,
       playSinglePromptAudio,
       showToast,
+      trApp,
     ],
   );
 
@@ -1490,7 +1512,12 @@ export function App({
               }
             }
           } else {
-            showToast("Audio murottal tidak tersedia offline — langsung Tasmi' ulang");
+            showToast(
+              trApp(
+                "Audio murottal tidak tersedia offline; langsung Tasmi' ulang",
+                "Reciter audio unavailable offline; starting Tasmi' directly",
+              ),
+            );
           }
 
           if (!mountedRef.current || promptAbort.signal.aborted || seq !== randomRoundSeqRef.current) {
@@ -1522,7 +1549,8 @@ export function App({
         if (!mountedRef.current || seq !== randomRoundSeqRef.current) return;
         setModelLoading(null);
         if (abort.signal.aborted) return;
-        const message = err instanceof Error ? err.message : "Gagal memulai Latih Kesalahan.";
+        const message =
+          err instanceof Error ? err.message : trApp("Gagal memulai Latih Kesalahan.", "Failed to start Mistake Drill.");
         setTasmiError(message);
         showToast(message);
       } finally {
@@ -1544,6 +1572,7 @@ export function App({
       quranApi,
       playSinglePromptAudio,
       showToast,
+      trApp,
     ],
   );
 
@@ -1568,7 +1597,7 @@ export function App({
     setLastTasmiMistakes(finalState?.confirmedMistakes ?? []);
 
     if (wasDrill) {
-      showToast("Latih Kesalahan selesai");
+      showToast(trApp("Latih Kesalahan selesai", "Mistake Drill finished"));
       return;
     }
 
@@ -1590,26 +1619,36 @@ export function App({
       persistUser(userStore.addTasmiHistory(record));
       setSummaryModal({ open: true, tab: "summary", record });
     } else if (finalState) {
-      showToast("Sesi Baca Bebas selesai");
+      showToast(trApp("Sesi Baca Bebas selesai", "Free Recite session finished"));
     }
-  }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast]);
+  }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast, trApp]);
 
   const handleDrillNext = useCallback(() => {
     if (!errorDrill) return;
     const hasMistake = (tasmiStateRef.current?.confirmedMistakes.length ?? 0) > 0;
     const wasPeeked = tasmiPeekedAyahsRef.current.has(errorDrill.ayah);
     if (hasMistake || wasPeeked) {
-      showToast("Masih ada catatan/intipan — ulangi ayat ini sampai bersih");
+      showToast(
+        trApp(
+          "Masih ada catatan/intipan; ulangi ayat ini sampai bersih",
+          "Still has notes or peeks; repeat this ayah until clean",
+        ),
+      );
       void runDrillStep(errorDrill.ayahs, errorDrill.index, false);
       return;
     }
     if (errorDrill.index + 1 < errorDrill.ayahs.length) {
       void runDrillStep(errorDrill.ayahs, errorDrill.index + 1, false);
     } else {
-      showToast("Alhamdulillah, semua ayat kesalahan sudah bersih!");
+      showToast(
+        trApp(
+          "Alhamdulillah, semua ayat kesalahan sudah bersih!",
+          "Alhamdulillah, all mistake ayahs are now clean!",
+        ),
+      );
       void handleStopTasmi();
     }
-  }, [errorDrill, runDrillStep, handleStopTasmi, showToast]);
+  }, [errorDrill, runDrillStep, handleStopTasmi, showToast, trApp]);
 
   const handleOpenTasmiHistory = useCallback(() => {
     void ensureWordLookup();
@@ -1960,10 +1999,10 @@ export function App({
   const effectiveMistakeAyahs = useMemo(() => {
     if (mistakeAyahs) return mistakeAyahs;
     if (activeMistakes.length > 0) {
-      return buildMistakeBadges(activeMistakes);
+      return buildMistakeBadges(activeMistakes, userData.settings.language);
     }
     return undefined;
-  }, [mistakeAyahs, activeMistakes]);
+  }, [mistakeAyahs, activeMistakes, userData.settings.language]);
 
   const archivedTasmiIds = useMemo(() => {
     const set = new Set<string>();
@@ -2067,18 +2106,25 @@ export function App({
 
   const tasmiStartingStatus = useMemo(() => {
     if (!tasmiStarting) return null;
+    const isEn = userData.settings.language === "en";
     if (modelLoading) {
       const pct = Math.round(modelLoading.fraction * 100);
       if (modelLoading.stage === "model") {
         return modelLoading.fromCache
-          ? `Memuat model dari cache (${pct}%)…`
-          : `Mengunduh model suara (${pct}%)…`;
+          ? isEn
+            ? `Loading model from cache (${pct}%)…`
+            : `Memuat model dari cache (${pct}%)…`
+          : isEn
+            ? `Downloading speech model (${pct}%)…`
+            : `Mengunduh model suara (${pct}%)…`;
       }
-      if (modelLoading.stage === "warmup") return "Menyiapkan mesin Tasmi'…";
-      return "Menyiapkan teks Al-Qur'an…";
+      if (modelLoading.stage === "warmup") {
+        return isEn ? "Warming up Tasmi' engine…" : "Menyiapkan mesin Tasmi'…";
+      }
+      return isEn ? "Preparing Quran text…" : "Menyiapkan teks Al-Qur'an…";
     }
-    return "Membuka mikrofon…";
-  }, [tasmiStarting, modelLoading]);
+    return isEn ? "Opening microphone…" : "Membuka mikrofon…";
+  }, [tasmiStarting, modelLoading, userData.settings.language]);
 
   return (
     <LanguageProvider language={userData.settings.language}>
@@ -2621,26 +2667,34 @@ export function App({
         }}
         onAddMurajaahCard={(input) => {
           persistUser(userStore.addMurajaahCard(input));
-          showToast("Jadwal muraja'ah ditambahkan");
+          showToast(trApp("Jadwal muraja'ah ditambahkan", "Muraja'ah schedule added"));
         }}
         onMarkMurajaahReviewed={(id) => {
           persistUser(userStore.markMurajaahReviewed(id));
-          showToast("Jadwal ditandai selesai");
+          showToast(trApp("Jadwal ditandai selesai", "Schedule marked done"));
         }}
         onDeleteMurajaahCard={(id) => {
           persistUser(userStore.deleteMurajaahCard(id));
-          showToast("Jadwal dihapus");
+          showToast(trApp("Jadwal dihapus", "Schedule deleted"));
         }}
         onToggleArchiveMurajaahCard={(id, archived) => {
           persistUser(userStore.setMurajaahArchived(id, archived));
-          showToast(archived ? "Jadwal diarsipkan" : "Jadwal dipulihkan");
+          showToast(
+            archived
+              ? trApp("Jadwal diarsipkan", "Schedule archived")
+              : trApp("Jadwal dipulihkan", "Schedule restored"),
+          );
         }}
         onDeleteHistory={(id) => {
           persistUser(userStore.deleteTasmiHistory(id));
         }}
         onToggleArchiveHistory={(id, archived) => {
           persistUser(userStore.setTasmiArchived(id, archived));
-          showToast(archived ? "Riwayat diarsipkan" : "Riwayat dipulihkan");
+          showToast(
+            archived
+              ? trApp("Riwayat diarsipkan", "History archived")
+              : trApp("Riwayat dipulihkan", "History restored"),
+          );
         }}
         onSubmitToHalaqah={async (membership, rec) => {
           try {
@@ -2648,9 +2702,13 @@ export function App({
               membership,
               report: buildReportFromTasmi(rec),
             });
-            showToast(`Setoran terkirim ke ${membership.name}`);
+            showToast(trApp(`Setoran terkirim ke ${membership.name}`, `Report sent to ${membership.name}`));
           } catch (err) {
-            showToast(err instanceof Error ? err.message : "Gagal mengirim ke halaqah");
+            showToast(
+              err instanceof Error
+                ? err.message
+                : trApp("Gagal mengirim ke halaqah", "Failed to send to halaqah"),
+            );
             throw err;
           }
         }}
@@ -2709,23 +2767,31 @@ export function App({
         onUnhideAyah={(ayah) => persistUser(userStore.setAyahHidden(ayah, false))}
         onToggleArchiveTasmi={(id, archived) => {
           persistUser(userStore.setTasmiArchived(id, archived));
-          showToast(archived ? "Riwayat diarsipkan" : "Riwayat dipulihkan");
+          showToast(
+            archived
+              ? trApp("Riwayat diarsipkan", "History archived")
+              : trApp("Riwayat dipulihkan", "History restored"),
+          );
         }}
         onDeleteTasmi={(id) => {
           persistUser(userStore.deleteTasmiHistory(id));
-          showToast("Riwayat dihapus");
+          showToast(trApp("Riwayat dihapus", "History deleted"));
         }}
         onToggleArchiveMurajaah={(id, archived) => {
           persistUser(userStore.setMurajaahArchived(id, archived));
-          showToast(archived ? "Jadwal diarsipkan" : "Jadwal dipulihkan");
+          showToast(
+            archived
+              ? trApp("Jadwal diarsipkan", "Schedule archived")
+              : trApp("Jadwal dipulihkan", "Schedule restored"),
+          );
         }}
         onDeleteMurajaah={(id) => {
           persistUser(userStore.deleteMurajaahCard(id));
-          showToast("Jadwal dihapus");
+          showToast(trApp("Jadwal dihapus", "Schedule deleted"));
         }}
         onRemoveHalaqah={(code) => {
           persistUser(userStore.removeHalaqah(code));
-          showToast("Halaqah dihapus dari daftar");
+          showToast(trApp("Halaqah dihapus dari daftar", "Halaqah removed from list"));
         }}
       />
 
@@ -2747,7 +2813,7 @@ export function App({
           setSyncConfig(null);
           setSyncError(null);
           void platform.kvSet(SYNC_CONFIG_KEY, "").catch(() => undefined);
-          showToast("Sync antar perangkat diputus");
+          showToast(trApp("Sync antar perangkat diputus", "Cross-device sync disconnected"));
         }}
         onExportBackup={async () => {
           const now = new Date();
@@ -2756,7 +2822,7 @@ export function App({
         onImportBackup={async (data) => {
           const saved = await userStore.replaceWith((current) => mergeBackup(current, data));
           if (mountedRef.current) setUserData(saved);
-          showToast("Cadangan digabungkan");
+          showToast(trApp("Cadangan digabungkan", "Backup merged"));
         }}
       />
 

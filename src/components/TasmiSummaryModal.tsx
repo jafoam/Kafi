@@ -12,7 +12,7 @@ import type {
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import { computeHafalanProgress, computeHafalanStreak } from "../services/hafalan-stats";
 import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/murajaah-srs";
-import { ERROR_CLASS_LABELS, formatErrorClass } from "../services/tasmi-logic";
+import { ERROR_CLASS_LABELS, ERROR_CLASS_LABELS_EN, formatErrorClass } from "../services/tasmi-logic";
 import type { NewMurajaahInput } from "../services/user-store";
 import { GlassSelect } from "./GlassSelect";
 import { useI18n } from "../i18n";
@@ -69,9 +69,9 @@ function formatDuration(sec: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, lang: "id" | "en" = "id"): string {
   try {
-    return new Intl.DateTimeFormat("id-ID", {
+    return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -82,32 +82,39 @@ function formatDate(iso: string): string {
   }
 }
 
-function evaluateRecord(record: TasmiSessionRecord): {
+function evaluateRecord(
+  record: TasmiSessionRecord,
+  lang: "id" | "en" = "id",
+): {
   label: string;
   tone: "clean" | "warn" | "muted";
   emptyNote: string;
   progressText: string | null;
 } {
+  const isEn = lang === "en";
   const totalAyahs = Math.max(1, record.toAyah - record.fromAyah + 1);
   const hasCounts = typeof record.recitedWords === "number" || typeof record.recitedAyahs === "number";
   const words = record.recitedWords ?? 0;
   const ayahs = record.recitedAyahs ?? 0;
   const progressText = hasCounts
-    ? `${ayahs}/${totalAyahs} ayat · ${words} kata terbaca`
+    ? isEn
+      ? `${ayahs}/${totalAyahs} ayahs · ${words} words recited`
+      : `${ayahs}/${totalAyahs} ayat · ${words} kata terbaca`
     : null;
 
   if (hasCounts && words === 0 && ayahs === 0) {
     return {
-      label: "Belum ada bacaan",
+      label: isEn ? "No recitation yet" : "Belum ada bacaan",
       tone: "muted",
-      emptyNote:
-        "Belum ada bacaan yang terdeteksi pada sesi ini. Pastikan mikrofon aktif dan bacalah dengan suara yang jelas.",
+      emptyNote: isEn
+        ? "No recitation was detected in this session. Make sure your microphone is enabled and recite clearly."
+        : "Belum ada bacaan yang terdeteksi pada sesi ini. Pastikan mikrofon aktif dan bacalah dengan suara yang jelas.",
       progressText,
     };
   }
   if (record.mistakes.length > 0) {
     return {
-      label: `${record.mistakes.length} catatan`,
+      label: isEn ? `${record.mistakes.length} notes` : `${record.mistakes.length} catatan`,
       tone: "warn",
       emptyNote: "",
       progressText,
@@ -115,16 +122,20 @@ function evaluateRecord(record: TasmiSessionRecord): {
   }
   if (hasCounts && ayahs < totalAyahs) {
     return {
-      label: `${ayahs}/${totalAyahs} ayat`,
+      label: isEn ? `${ayahs}/${totalAyahs} ayahs` : `${ayahs}/${totalAyahs} ayat`,
       tone: "muted",
-      emptyNote: `Terbaca ${ayahs} dari ${totalAyahs} ayat (${words} kata) tanpa kesalahan terkonfirmasi.`,
+      emptyNote: isEn
+        ? `Recited ${ayahs} of ${totalAyahs} ayahs (${words} words) with no confirmed mistakes.`
+        : `Terbaca ${ayahs} dari ${totalAyahs} ayat (${words} kata) tanpa kesalahan terkonfirmasi.`,
       progressText,
     };
   }
   return {
-    label: "Lancar",
+    label: isEn ? "Smooth" : "Lancar",
     tone: "clean",
-    emptyNote: "Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.",
+    emptyNote: isEn
+      ? "Alhamdulillah, no memorization mistakes were confirmed in this session."
+      : "Alhamdulillah, tidak ada kesalahan hafalan yang terkonfirmasi pada sesi ini.",
     progressText,
   };
 }
@@ -158,7 +169,8 @@ export function TasmiSummaryModal({
   onToggleArchiveHistory,
   onSubmitToHalaqah,
 }: TasmiSummaryModalProps) {
-  const { tr } = useI18n();
+  const { lang, isEn, tr } = useI18n();
+  const errorClassLabels = isEn ? ERROR_CLASS_LABELS_EN : ERROR_CLASS_LABELS;
   const [tab, setTab] = useState<TasmiSummaryTab>(initialTab);
   const [historyFilter, setHistoryFilter] = useState<"active" | "archived">("active");
   const [scheduleFilter, setScheduleFilter] = useState<"active" | "archived">("active");
@@ -176,7 +188,7 @@ export function TasmiSummaryModal({
   const [submittingHalaqah, setSubmittingHalaqah] = useState(false);
   const [submittedRecordId, setSubmittedRecordId] = useState<string | null>(null);
 
-  const streak = useMemo(() => computeHafalanStreak(history), [history]);
+  const streak = useMemo(() => computeHafalanStreak(history, undefined, lang), [history, lang]);
   const progressMap = useMemo(() => {
     if (!catalog || !mushafMap || tab !== "progress") return null;
     return computeHafalanProgress(murajaahCards, history, catalog, mushafMap);
@@ -303,7 +315,7 @@ export function TasmiSummaryModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Ringkasan & Riwayat Tasmi'"
+      aria-label={tr("Ringkasan & Riwayat Tasmi'", "Tasmi' Summary & History")}
       onClick={onClose}
     >
       <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
@@ -376,21 +388,21 @@ export function TasmiSummaryModal({
         <div className="tasmi-summary__body">
           {tab === "summary" ? (
             activeRecord ? (() => {
-              const status = evaluateRecord(activeRecord);
+              const status = evaluateRecord(activeRecord, lang);
               return (
               <>
                 <div className="tasmi-summary__hero">
                   <div>
                     <div className="tasmi-summary__surah">
-                      {surahByNum.get(activeRecord.surah)?.name ?? `Surah ${activeRecord.surah}`} ·
-                      Ayat {activeRecord.fromAyah}–{activeRecord.toAyah}
+                      {surahByNum.get(activeRecord.surah)?.name ?? `Surah ${activeRecord.surah}`} ·{" "}
+                      {tr("Ayat", "Ayah")} {activeRecord.fromAyah}–{activeRecord.toAyah}
                     </div>
                     <div className="tasmi-summary__meta">
-                      Durasi {formatDuration(activeRecord.durationSec)} ·{" "}
-                      {formatDate(activeRecord.startedAt)}
+                      {tr("Durasi", "Duration")} {formatDuration(activeRecord.durationSec)} ·{" "}
+                      {formatDate(activeRecord.startedAt, lang)}
                       {status.progressText ? ` · ${status.progressText}` : ""}
                       {activeRecord.peekedAyahs && activeRecord.peekedAyahs.length > 0
-                        ? ` · ${activeRecord.peekedAyahs.length} diintip`
+                        ? ` · ${activeRecord.peekedAyahs.length} ${tr("diintip", "peeked")}`
                         : ""}
                     </div>
                   </div>
@@ -401,9 +413,12 @@ export function TasmiSummaryModal({
 
                 {activeCard && (
                   <div className="tasmi-summary__schedule-note">
-                    Jadwal {activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} berikutnya:{" "}
-                    <strong>{formatDueLabel(activeCard.dueAt)}</strong> (interval{" "}
-                    {activeCard.stabilityDays} hari)
+                    {tr(
+                      `Jadwal ${activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} berikutnya:`,
+                      `Next ${activeCard.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} review:`,
+                    )}{" "}
+                    <strong>{formatDueLabel(activeCard.dueAt, undefined, lang)}</strong> (
+                    {tr(`interval ${activeCard.stabilityDays} hari`, `${activeCard.stabilityDays}-day interval`)})
                   </div>
                 )}
 
@@ -413,7 +428,7 @@ export function TasmiSummaryModal({
                     className="tasmi-summary__drill-btn"
                     onClick={() => onStartDrill(drillAyahs)}
                   >
-                    Latih Kesalahan ({drillAyahs.length} ayat)
+                    {tr(`Latih Kesalahan (${drillAyahs.length} ayat)`, `Drill Mistakes (${drillAyahs.length} ayahs)`)}
                   </button>
                 )}
 
@@ -421,7 +436,7 @@ export function TasmiSummaryModal({
                   <div className="halaqah-submit-row">
                     {halaqahs.length > 1 && (
                       <GlassSelect
-                        ariaLabel="Pilih Halaqah"
+                        ariaLabel={tr("Pilih Halaqah", "Select Halaqah")}
                         value={selectedHalaqahCode || halaqahs[0].code}
                         options={halaqahs.map((h) => ({ value: h.code, label: h.name }))}
                         onChange={setSelectedHalaqahCode}
@@ -442,10 +457,10 @@ export function TasmiSummaryModal({
                       }}
                     >
                       {submittedRecordId === activeRecord.id
-                        ? "✓ Terkirim ke Halaqah"
+                        ? tr("✓ Terkirim ke Halaqah", "✓ Sent to Halaqah")
                         : submittingHalaqah
-                          ? "Mengirim…"
-                          : `Kirim ke Halaqah${halaqahs.length === 1 ? ` (${halaqahs[0].name})` : ""}`}
+                          ? tr("Mengirim…", "Sending…")
+                          : `${tr("Kirim ke Halaqah", "Send to Halaqah")}${halaqahs.length === 1 ? ` (${halaqahs[0].name})` : ""}`}
                     </button>
                   </div>
                 )}
@@ -454,7 +469,7 @@ export function TasmiSummaryModal({
                   {BREAKDOWN_CLASSES.map((cls) => (
                     <div key={cls} className="tasmi-summary__stat">
                       <span className="tasmi-summary__stat-val">{breakdown[cls] ?? 0}</span>
-                      <span className="tasmi-summary__stat-lbl">{ERROR_CLASS_LABELS[cls]}</span>
+                      <span className="tasmi-summary__stat-lbl">{errorClassLabels[cls]}</span>
                     </div>
                   ))}
                 </div>
@@ -472,11 +487,11 @@ export function TasmiSummaryModal({
                         <div key={m.id} className="tasmi-summary__mistake">
                           <div className="tasmi-summary__mistake-head">
                             <span className="tasmi-summary__mistake-badge">
-                              {formatErrorClass(m.errorClass)}
+                              {formatErrorClass(m.errorClass, lang)}
                             </span>
                             <span className="tasmi-summary__mistake-loc">
                               {surahName} : {m.ayah}
-                              {m.word ? ` (kata ${m.word})` : ""}
+                              {m.word ? ` (${tr("kata", "word")} ${m.word})` : ""}
                             </span>
                           </div>
 
@@ -514,14 +529,14 @@ export function TasmiSummaryModal({
                               className="tasmi-summary__play-btn"
                               onClick={() => onPlayAyah(ayahKey)}
                             >
-                              ▶ Dengar Murottal
+                              {tr("▶ Dengar Murottal", "▶ Play Audio")}
                             </button>
                             <button
                               type="button"
                               className="tasmi-summary__jump-btn"
                               onClick={() => onJumpToAyah(ayahKey)}
                             >
-                              Buka Ayat
+                              {tr("Buka Ayat", "Open Ayah")}
                             </button>
                           </div>
                         </div>
@@ -532,17 +547,26 @@ export function TasmiSummaryModal({
               </>
               );
             })() : (
-              <div className="tasmi-summary__empty">Belum ada sesi Tasmi&apos; yang selesai.</div>
+              <div className="tasmi-summary__empty">
+                {tr("Belum ada sesi Tasmi' yang selesai.", "No completed Tasmi' sessions yet.")}
+              </div>
             )
           ) : tab === "history" ? (
             history.length === 0 ? (
               <div className="tasmi-summary__empty">
-                Riwayat Tasmi&apos; masih kosong. Selesaikan satu sesi untuk menyimpannya di sini.
+                {tr(
+                  "Riwayat Tasmi' masih kosong. Selesaikan satu sesi untuk menyimpannya di sini.",
+                  "Your Tasmi' history is empty. Finish a session to save it here.",
+                )}
               </div>
             ) : (
               <div className="tasmi-summary__history-list">
                 {archivedHistory.length > 0 && (
-                  <div className="app-menu__segmented tasmi-summary__history-filter" role="tablist" aria-label="Filter riwayat Tasmi'">
+                  <div
+                    className="app-menu__segmented tasmi-summary__history-filter"
+                    role="tablist"
+                    aria-label={tr("Filter riwayat Tasmi'", "Filter Tasmi' history")}
+                  >
                     <button
                       type="button"
                       role="tab"
@@ -550,7 +574,7 @@ export function TasmiSummaryModal({
                       className={`app-menu__seg ${historyFilter === "active" ? "app-menu__seg--active" : ""}`}
                       onClick={() => setHistoryFilter("active")}
                     >
-                      Aktif ({activeHistory.length})
+                      {tr("Aktif", "Active")} ({activeHistory.length})
                     </button>
                     <button
                       type="button"
@@ -559,31 +583,34 @@ export function TasmiSummaryModal({
                       className={`app-menu__seg ${historyFilter === "archived" ? "app-menu__seg--active" : ""}`}
                       onClick={() => setHistoryFilter("archived")}
                     >
-                      Arsip ({archivedHistory.length})
+                      {tr("Arsip", "Archived")} ({archivedHistory.length})
                     </button>
                   </div>
                 )}
 
                 {(onDeleteHistory || onToggleArchiveHistory) && visibleHistory.length > 0 && (
                   <p className="tasmi-summary__history-hint">
-                    Geser ke kiri atau ketuk ikon untuk arsipkan atau hapus riwayat.
+                    {tr(
+                      "Geser ke kiri atau ketuk ikon untuk arsipkan atau hapus riwayat.",
+                      "Swipe left or tap an icon to archive or delete history.",
+                    )}
                   </p>
                 )}
 
                 {visibleHistory.length === 0 ? (
                   <div className="tasmi-summary__empty">
-                    Semua riwayat saat ini berada di Arsip.
+                    {tr("Semua riwayat saat ini berada di Arsip.", "All history entries are currently archived.")}
                   </div>
                 ) : (
                   visibleHistory.map((item) => {
                     const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
                     const isArchived = Boolean(archivedIds?.has(item.id));
-                    const status = evaluateRecord(item);
+                    const status = evaluateRecord(item, lang);
                     return (
                       <SwipeableHistoryRow
                         key={item.id}
-                        title={`${sName} · Ayat ${item.fromAyah}–${item.toAyah}`}
-                        sub={`${formatDate(item.startedAt)} · ${formatDuration(item.durationSec)}`}
+                        title={`${sName} · ${tr("Ayat", "Ayah")} ${item.fromAyah}–${item.toAyah}`}
+                        sub={`${formatDate(item.startedAt, lang)} · ${formatDuration(item.durationSec)}`}
                         scoreLabel={status.label}
                         scoreTone={status.tone}
                         archived={isArchived}
@@ -617,26 +644,35 @@ export function TasmiSummaryModal({
               <div className="streak-card">
                 <div className="streak-card__stats">
                   <div className="streak-card__stat">
-                    <span className="streak-card__val">{streak.currentStreak} hari</span>
-                    <span className="streak-card__lbl">Streak aktif</span>
-                  </div>
-                  <div className="streak-card__stat">
-                    <span className="streak-card__val">{streak.longestStreak} hari</span>
-                    <span className="streak-card__lbl">Rekor terbaik</span>
+                    <span className="streak-card__val">
+                      {streak.currentStreak} {tr("hari", "days")}
+                    </span>
+                    <span className="streak-card__lbl">{tr("Streak aktif", "Current streak")}</span>
                   </div>
                   <div className="streak-card__stat">
                     <span className="streak-card__val">
-                      {streak.todaySessions} sesi · {streak.todayMinutes} mnt
+                      {streak.longestStreak} {tr("hari", "days")}
                     </span>
-                    <span className="streak-card__lbl">Hari ini ({streak.todayAyahs} ayat)</span>
+                    <span className="streak-card__lbl">{tr("Rekor terbaik", "Best streak")}</span>
+                  </div>
+                  <div className="streak-card__stat">
+                    <span className="streak-card__val">
+                      {tr(
+                        `${streak.todaySessions} sesi · ${streak.todayMinutes} mnt`,
+                        `${streak.todaySessions} sessions · ${streak.todayMinutes} min`,
+                      )}
+                    </span>
+                    <span className="streak-card__lbl">
+                      {tr(`Hari ini (${streak.todayAyahs} ayat)`, `Today (${streak.todayAyahs} ayahs)`)}
+                    </span>
                   </div>
                 </div>
-                <div className="streak-card__week" aria-label="Aktivitas 7 hari terakhir">
+                <div className="streak-card__week" aria-label={tr("Aktivitas 7 hari terakhir", "Last 7 days activity")}>
                   {streak.weekDays.map((d) => (
                     <div
                       key={d.dateKey}
                       className={`streak-card__day ${d.active ? "streak-card__day--active" : ""}`}
-                      title={`${d.label}: ${d.sessions} sesi`}
+                      title={`${d.label}: ${d.sessions} ${tr("sesi", "sessions")}`}
                     >
                       <span className="streak-card__day-dot" />
                       <span className="streak-card__day-lbl">{d.label}</span>
@@ -647,10 +683,14 @@ export function TasmiSummaryModal({
 
               <div className="progress-map__header">
                 <div className="progress-map__summary">
-                  <strong>{progressMap.summary.memorizedPages}/604</strong> hal ·{" "}
-                  <strong>{progressMap.summary.memorizedAyahs}</strong> ayat tersentuh
+                  <strong>{progressMap.summary.memorizedPages}/604</strong> {tr("hal", "pages")} ·{" "}
+                  <strong>{progressMap.summary.memorizedAyahs}</strong> {tr("ayat tersentuh", "ayahs covered")}
                 </div>
-                <div className="app-menu__segmented" role="tablist" aria-label="Tampilan peta hafalan">
+                <div
+                  className="app-menu__segmented"
+                  role="tablist"
+                  aria-label={tr("Tampilan peta hafalan", "Memorization map view")}
+                >
                   {(["juz", "surah", "page"] as const).map((v) => (
                     <button
                       key={v}
@@ -660,17 +700,17 @@ export function TasmiSummaryModal({
                       className={`app-menu__seg ${mapView === v ? "app-menu__seg--active" : ""}`}
                       onClick={() => setMapView(v)}
                     >
-                      {v === "juz" ? "30 Juz" : v === "surah" ? "114 Surah" : "604 Hal"}
+                      {v === "juz" ? "30 Juz" : v === "surah" ? "114 Surah" : tr("604 Hal", "604 Pages")}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="progress-map__legend">
-                <span><i className="pm-dot pm-dot--smooth" /> Lancar</span>
+                <span><i className="pm-dot pm-dot--smooth" /> {tr("Lancar", "Smooth")}</span>
                 <span><i className="pm-dot pm-dot--ziyadah" /> Ziyadah</span>
-                <span><i className="pm-dot pm-dot--needs_review" /> Perlu ulang</span>
-                <span><i className="pm-dot pm-dot--none" /> Belum</span>
+                <span><i className="pm-dot pm-dot--needs_review" /> {tr("Perlu ulang", "Needs review")}</span>
+                <span><i className="pm-dot pm-dot--none" /> {tr("Belum", "Not yet")}</span>
               </div>
 
               {mapView === "juz" && (
@@ -680,7 +720,7 @@ export function TasmiSummaryModal({
                       key={j.juz}
                       type="button"
                       className={`pm-cell pm-cell--${j.status}`}
-                      title={`Juz ${j.juz}: ${j.coveredAyahs}/${j.totalAyahs} ayat (Hal. ${j.page})`}
+                      title={`Juz ${j.juz}: ${j.coveredAyahs}/${j.totalAyahs} ${tr("ayat", "ayahs")} (${tr("Hal.", "p.")} ${j.page})`}
                       onClick={() => {
                         onJumpToPage?.(j.page);
                         onClose();
@@ -688,7 +728,7 @@ export function TasmiSummaryModal({
                     >
                       <span className="pm-cell__num">Juz {j.juz}</span>
                       <span className="pm-cell__sub">
-                        {j.coveredAyahs > 0 ? `${j.coveredAyahs}/${j.totalAyahs}` : `Hal. ${j.page}`}
+                        {j.coveredAyahs > 0 ? `${j.coveredAyahs}/${j.totalAyahs}` : `${tr("Hal.", "p.")} ${j.page}`}
                       </span>
                     </button>
                   ))}
@@ -702,7 +742,7 @@ export function TasmiSummaryModal({
                       key={s.surah}
                       type="button"
                       className={`pm-cell pm-cell--${s.status}`}
-                      title={`${s.surah}. ${s.name}: ${s.coveredAyahs}/${s.totalAyahs} ayat`}
+                      title={`${s.surah}. ${s.name}: ${s.coveredAyahs}/${s.totalAyahs} ${tr("ayat", "ayahs")}`}
                       onClick={() => {
                         onJumpToPage?.(s.page);
                         onClose();
@@ -726,7 +766,7 @@ export function TasmiSummaryModal({
                       key={p.page}
                       type="button"
                       className={`pm-page-dot pm-cell--${p.status}`}
-                      title={`Halaman ${p.page}: ${p.coveredAyahs}/${p.totalAyahs} ayat`}
+                      title={`${tr("Halaman", "Page")} ${p.page}: ${p.coveredAyahs}/${p.totalAyahs} ${tr("ayat", "ayahs")}`}
                       onClick={() => {
                         onJumpToPage?.(p.page);
                         onClose();
@@ -755,10 +795,14 @@ export function TasmiSummaryModal({
                       className="tasmi-sheet__start-btn schedule-add-toggle"
                       onClick={() => setAddingSchedule((v) => !v)}
                     >
-                      {addingSchedule ? "Tutup Form" : "+ Tambah Jadwal Sendiri"}
+                      {addingSchedule ? tr("Tutup Form", "Close Form") : tr("+ Tambah Jadwal Sendiri", "+ Add Custom Schedule")}
                     </button>
                     {archivedSched.length > 0 && (
-                      <div className="app-menu__segmented" role="tablist" aria-label="Filter jadwal">
+                      <div
+                        className="app-menu__segmented"
+                        role="tablist"
+                        aria-label={tr("Filter jadwal", "Filter schedules")}
+                      >
                         <button
                           type="button"
                           role="tab"
@@ -766,7 +810,7 @@ export function TasmiSummaryModal({
                           className={`app-menu__seg ${scheduleFilter === "active" ? "app-menu__seg--active" : ""}`}
                           onClick={() => setScheduleFilter("active")}
                         >
-                          Aktif ({activeSched.length})
+                          {tr("Aktif", "Active")} ({activeSched.length})
                         </button>
                         <button
                           type="button"
@@ -775,7 +819,7 @@ export function TasmiSummaryModal({
                           className={`app-menu__seg ${scheduleFilter === "archived" ? "app-menu__seg--active" : ""}`}
                           onClick={() => setScheduleFilter("archived")}
                         >
-                          Arsip ({archivedSched.length})
+                          {tr("Arsip", "Archived")} ({archivedSched.length})
                         </button>
                       </div>
                     )}
@@ -802,7 +846,7 @@ export function TasmiSummaryModal({
                     }}
                   >
                     <GlassSelect
-                      ariaLabel="Pilih Surah jadwal"
+                      ariaLabel={tr("Pilih Surah jadwal", "Select Surah for schedule")}
                       value={String(schedSurah)}
                       options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
                       onChange={(val) => {
@@ -815,7 +859,7 @@ export function TasmiSummaryModal({
                     />
                     <div className="schedule-form__row">
                       <label className="tasmi-sheet__field">
-                        <span>Dari ayat</span>
+                        <span>{tr("Dari ayat", "From ayah")}</span>
                         <input
                           type="number"
                           min={1}
@@ -825,7 +869,7 @@ export function TasmiSummaryModal({
                         />
                       </label>
                       <label className="tasmi-sheet__field">
-                        <span>Sampai ayat</span>
+                        <span>{tr("Sampai ayat", "To ayah")}</span>
                         <input
                           type="number"
                           min={1}
@@ -837,7 +881,7 @@ export function TasmiSummaryModal({
                     </div>
                     <div className="schedule-form__row">
                       <GlassSelect
-                        ariaLabel="Jenis hafalan"
+                        ariaLabel={tr("Jenis hafalan", "Memorization type")}
                         value={schedKind}
                         options={[
                           { value: "murajaah", label: "Muraja'ah" },
@@ -846,14 +890,14 @@ export function TasmiSummaryModal({
                         onChange={(v) => setSchedKind(v as TasmiSessionKind)}
                       />
                       <GlassSelect
-                        ariaLabel="Interval ulang"
+                        ariaLabel={tr("Interval ulang", "Review interval")}
                         value={String(schedInterval)}
                         options={[
-                          { value: "1", label: "Tiap 1 hari" },
-                          { value: "3", label: "Tiap 3 hari" },
-                          { value: "7", label: "Tiap 7 hari" },
-                          { value: "14", label: "Tiap 14 hari" },
-                          { value: "30", label: "Tiap 30 hari" },
+                          { value: "1", label: tr("Tiap 1 hari", "Every 1 day") },
+                          { value: "3", label: tr("Tiap 3 hari", "Every 3 days") },
+                          { value: "7", label: tr("Tiap 7 hari", "Every 7 days") },
+                          { value: "14", label: tr("Tiap 14 hari", "Every 14 days") },
+                          { value: "30", label: tr("Tiap 30 hari", "Every 30 days") },
                         ]}
                         onChange={(v) => setSchedInterval(Number(v))}
                       />
@@ -861,12 +905,12 @@ export function TasmiSummaryModal({
                     <input
                       type="text"
                       className="palette__input"
-                      placeholder="Catatan jadwal (opsional, mis. Ba'da Subuh)"
+                      placeholder={tr("Catatan jadwal (opsional, mis. Ba'da Subuh)", "Schedule note (optional, e.g. After Fajr)")}
                       value={schedNote}
                       onChange={(e) => setSchedNote(e.target.value)}
                     />
                     <button type="submit" className="tasmi-sheet__start-btn">
-                      Simpan Jadwal
+                      {tr("Simpan Jadwal", "Save Schedule")}
                     </button>
                   </form>
                 )}
@@ -874,8 +918,11 @@ export function TasmiSummaryModal({
                 {visibleSched.length === 0 ? (
                   <div className="tasmi-summary__empty">
                     {scheduleFilter === "archived"
-                      ? "Belum ada jadwal di arsip."
-                      : "Belum ada jadwal muraja'ah. Tambahkan jadwalmu sendiri di atas."}
+                      ? tr("Belum ada jadwal di arsip.", "No archived schedules yet.")
+                      : tr(
+                          "Belum ada jadwal muraja'ah. Tambahkan jadwalmu sendiri di atas.",
+                          "No muraja'ah schedule yet. Add your own schedule above.",
+                        )}
                   </div>
                 ) : (
                   visibleSched.map((card) => {
@@ -889,16 +936,19 @@ export function TasmiSummaryModal({
                         <div className="schedule-card__top">
                           <div>
                             <div className="tasmi-summary__history-title">
-                              {sName} · Ayat {card.fromAyah}–{card.toAyah}
+                              {sName} · {tr("Ayat", "Ayah")} {card.fromAyah}–{card.toAyah}
                             </div>
                             <div className="tasmi-summary__history-sub">
-                              {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · Tiap {card.stabilityDays} hari
-                              {card.reps > 0 ? ` · ${card.reps}× selesai` : " · Belum disetor"}
+                              {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
+                              {tr(`Tiap ${card.stabilityDays} hari`, `Every ${card.stabilityDays} days`)}
+                              {card.reps > 0
+                                ? ` · ${card.reps}× ${tr("selesai", "done")}`
+                                : ` · ${tr("Belum disetor", "Not recited yet")}`}
                               {card.note ? ` · ${card.note}` : ""}
                             </div>
                           </div>
                           <span className={`tasmi-summary__score tasmi-summary__score--${badgeTone}`}>
-                            {formatDueLabel(card.dueAt)}
+                            {formatDueLabel(card.dueAt, undefined, lang)}
                           </span>
                         </div>
                         <div className="schedule-card__actions">
@@ -917,7 +967,7 @@ export function TasmiSummaryModal({
                               className="tasmi-sheet__history-btn"
                               onClick={() => onMarkMurajaahReviewed(card.id)}
                             >
-                              ✓ Selesai
+                              {tr("✓ Selesai", "✓ Done")}
                             </button>
                           )}
                           {onToggleArchiveMurajaahCard && (
@@ -926,7 +976,7 @@ export function TasmiSummaryModal({
                               className="tasmi-sheet__history-btn"
                               onClick={() => onToggleArchiveMurajaahCard(card.id, !isArchived)}
                             >
-                              {isArchived ? "Pulihkan" : "Arsip"}
+                              {isArchived ? tr("Pulihkan", "Restore") : tr("Arsip", "Archive")}
                             </button>
                           )}
                           {onDeleteMurajaahCard && (
@@ -935,7 +985,7 @@ export function TasmiSummaryModal({
                               className="manage-data__del-btn"
                               onClick={() => onDeleteMurajaahCard(card.id)}
                             >
-                              Hapus
+                              {tr("Hapus", "Delete")}
                             </button>
                           )}
                         </div>
@@ -975,6 +1025,7 @@ function SwipeableHistoryRow({
   onToggleArchive,
   onDelete,
 }: SwipeableHistoryRowProps) {
+  const { tr } = useI18n();
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const justDraggedRef = useRef(false);
@@ -1044,7 +1095,8 @@ function SwipeableHistoryRow({
     setOffset(offset <= -revealWidth / 2 ? -revealWidth : 0);
   };
 
-  const archiveLabel = archived ? "Pulihkan" : "Arsipkan";
+  const archiveLabel = archived ? tr("Pulihkan", "Restore") : tr("Arsipkan", "Archive");
+  const deleteLabel = tr("Hapus", "Delete");
 
   return (
     <div className="tasmi-history-swipe">
@@ -1058,7 +1110,7 @@ function SwipeableHistoryRow({
                 setOffset(0);
                 onToggleArchive();
               }}
-              aria-label={`${archiveLabel} riwayat ${title}`}
+              aria-label={`${archiveLabel} ${tr("riwayat", "history")} ${title}`}
               tabIndex={offset < 0 ? 0 : -1}
             >
               {archiveLabel}
@@ -1069,10 +1121,10 @@ function SwipeableHistoryRow({
               type="button"
               className="tasmi-history-swipe__action tasmi-history-swipe__action--delete"
               onClick={onDelete}
-              aria-label={`Hapus riwayat ${title}`}
+              aria-label={`${deleteLabel} ${tr("riwayat", "history")} ${title}`}
               tabIndex={offset < 0 ? 0 : -1}
             >
-              Hapus
+              {deleteLabel}
             </button>
           )}
         </div>
@@ -1124,7 +1176,7 @@ function SwipeableHistoryRow({
                 type="button"
                 className="tasmi-history-swipe__icon-btn"
                 onClick={onToggleArchive}
-                aria-label={`${archiveLabel} riwayat ${title}`}
+                aria-label={`${archiveLabel} ${tr("riwayat", "history")} ${title}`}
                 title={archiveLabel}
               >
                 {archived ? (
@@ -1146,8 +1198,8 @@ function SwipeableHistoryRow({
                 type="button"
                 className="tasmi-history-swipe__icon-btn tasmi-history-swipe__icon-btn--danger"
                 onClick={onDelete}
-                aria-label={`Hapus riwayat ${title}`}
-                title="Hapus"
+                aria-label={`${deleteLabel} ${tr("riwayat", "history")} ${title}`}
+                title={deleteLabel}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 6h18" />

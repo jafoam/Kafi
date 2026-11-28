@@ -16,7 +16,10 @@ import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
 import { TopBar } from "../src/components/TopBar";
 import { SettingsModal } from "../src/components/SettingsModal";
+import { PlaybackMenu } from "../src/components/PlaybackMenu";
 import { LanguageProvider } from "../src/i18n";
+import { formatDueLabel } from "../src/services/murajaah-srs";
+import { formatErrorClass } from "../src/services/tasmi-logic";
 import { HIDDEN_AYAH_TTL_MS, isHiddenAyahActive } from "../src/services/user-store";
 import type { QuranApi } from "../src/services/quran-api";
 
@@ -1019,5 +1022,91 @@ describe("Gradual blur and recent pages in search", () => {
     expect(
       isHiddenAyahActive({ on: false, at: new Date(now).toISOString() }, now),
     ).toBe(false);
+  });
+
+  it("renders PlaybackMenu, TasmiSheet, RecitationRibbon, and helpers in English when language is en", () => {
+    const pmEl = mount(
+      <LanguageProvider language="en">
+        <PlaybackMenu
+          open={true}
+          scope={DEFAULT_SCOPE}
+          repeatCount={1}
+          speed={1}
+          talaqqi={false}
+          activeAyah="1:1"
+          surahName="Al-Fatihah"
+          surahNumber={1}
+          surahAyahCount={7}
+          onChangeScope={() => {}}
+          onChangeRepeat={() => {}}
+          onChangeSpeed={() => {}}
+          onToggleTalaqqi={() => {}}
+          onClose={() => {}}
+        />
+      </LanguageProvider>,
+    );
+    expect(pmEl.textContent).toContain("Playback mode");
+    expect(pmEl.textContent).toContain("Full Surah");
+    expect(pmEl.textContent).toContain("Talaqqi (Repeat Pause)");
+    expect(pmEl.textContent).not.toContain("Mode putar");
+
+    const tsEl = mount(
+      <LanguageProvider language="en">
+        <TasmiSheet
+          open={true}
+          visiblePages={[mushafMap.pages[0]]}
+          surahs={catalog.surahs}
+          initialAyah="1:1"
+          historyCount={0}
+          loadingProgress={null}
+          isStarting={false}
+          error={null}
+          onClose={() => {}}
+          onCancelLoad={() => {}}
+          onStartFree={() => {}}
+          onStartMemorization={() => {}}
+          onOpenHistory={() => {}}
+          onOpenGuide={() => {}}
+        />
+      </LanguageProvider>,
+    );
+    expect(tsEl.textContent).toContain("Session type");
+    expect(tsEl.textContent).toContain("Passage");
+    expect(tsEl.textContent).toContain("Full surah");
+    expect(tsEl.textContent).toContain("Hide ayahs");
+    expect(tsEl.textContent).toContain("Start Tasmi'");
+    expect(tsEl.textContent).not.toContain("Jenis setoran");
+    expect(tsEl.textContent).not.toContain("Cakupan");
+
+    const rrEl = mount(
+      <LanguageProvider language="en">
+        <RecitationRibbon
+          state={{
+            mode: "free",
+            passage: null,
+            trackerState: "locked",
+            activeAyah: "1:1",
+            activeWord: { surah: 1, ayah: 1, word: 1 },
+            expectedWord: null,
+            revealedAyahs: new Set(),
+            recitedWords: new Set(),
+            mistakesById: new Map(),
+            confirmedMistakes: [{ id: "m1", errorClass: "wrong_word", surah: 1, ayah: 1, word: 1 }],
+            lastErrorAt: null,
+          }}
+          surahs={catalog.surahs}
+          blurActive={false}
+          isPeeking={false}
+          getAyahWords={() => ["بِسْمِ"]}
+          onStop={() => {}}
+        />
+      </LanguageProvider>,
+    );
+    expect(rrEl.textContent).toContain("Free Recite · Locked");
+    expect(rrEl.textContent).toContain("1 notes");
+    expect(rrEl.textContent).toContain("Done");
+
+    expect(formatDueLabel("2026-11-28T15:00:00Z", Date.parse("2026-11-28T15:00:00Z"), "en")).toBe("Today");
+    expect(formatErrorClass("wrong_word", "en")).toBe("Wrong word");
   });
 });

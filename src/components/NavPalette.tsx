@@ -120,7 +120,7 @@ export function NavPalette({
     }
     setVoiceError(null);
     setVoiceState("loading");
-    setVoiceStatus("Menyiapkan pencarian suara…");
+    setVoiceStatus(tr("Menyiapkan pencarian suara…", "Preparing voice search…"));
     const abort = new AbortController();
     voiceAbortRef.current = abort;
     try {
@@ -130,16 +130,21 @@ export function NavPalette({
         setVoiceStatus(
           p.stage === "model"
             ? p.fromCache
-              ? `Memuat model (${pct}%)…`
-              : `Mengunduh model suara (${pct}%)…`
-            : "Menyiapkan mesin suara…",
+              ? tr(`Memuat model (${pct}%)…`, `Loading model (${pct}%)…`)
+              : tr(`Mengunduh model suara (${pct}%)…`, `Downloading speech model (${pct}%)…`)
+            : tr("Menyiapkan mesin suara…", "Preparing speech engine…"),
         );
       }, abort.signal);
       if (abort.signal.aborted) return;
 
       voiceActiveRef.current = true;
       setVoiceState("listening");
-      setVoiceStatus("Bacakan potongan ayat… otomatis lompat saat dikenali");
+      setVoiceStatus(
+        tr(
+          "Bacakan potongan ayat… otomatis lompat saat dikenali",
+          "Recite part of an ayah… jumps automatically once recognized",
+        ),
+      );
 
       await tilawaController.startFree((event: EngineEvent) => {
         if (abort.signal.aborted || !voiceActiveRef.current) return;
@@ -152,11 +157,15 @@ export function NavPalette({
       });
     } catch (err) {
       if (!abort.signal.aborted) {
-        setVoiceError(err instanceof Error ? err.message : "Gagal memulai pencarian suara.");
+        setVoiceError(
+          err instanceof Error
+            ? err.message
+            : tr("Gagal memulai pencarian suara.", "Failed to start voice search."),
+        );
       }
       stopVoiceSearch();
     }
-  }, [tilawaController, voiceState, stopVoiceSearch, onJumpToAyah, onClose]);
+  }, [tilawaController, voiceState, stopVoiceSearch, onJumpToAyah, onClose, tr]);
 
   const surahByNumber = useMemo(() => {
     const map = new Map<number, Catalog["surahs"][number]>();
@@ -200,7 +209,9 @@ export function NavPalette({
         if (!cancelled) setSearchEngine(engine);
       })
       .catch(() => {
-        if (!cancelled) setSearchError("Gagal memuat indeks pencarian ayat.");
+        if (!cancelled) {
+          setSearchError(tr("Gagal memuat indeks pencarian ayat.", "Failed to load ayah search index."));
+        }
       })
       .finally(() => {
         if (!cancelled) setSearchLoading(false);
@@ -208,7 +219,7 @@ export function NavPalette({
     return () => {
       cancelled = true;
     };
-  }, [open, tab, searchEngine, catalog]);
+  }, [open, tab, searchEngine, catalog, tr]);
 
   const filteredSurahs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -229,16 +240,17 @@ export function NavPalette({
 
   const recentItems = useMemo(() => {
     const pages = recentPages.length > 0 ? recentPages : [currentPage];
+    const pagePrefix = tr("Hal.", "p.");
     return pages.slice(0, 5).map((p) => {
       const entry = mushafMap.pages[p - 1];
       const surahId = entry?.surahs?.[0];
       const surahName = surahId ? surahByNumber.get(surahId)?.name : undefined;
       return {
         page: p,
-        label: surahName ? `${surahName} · Hal. ${p}` : `Hal. ${p}`,
+        label: surahName ? `${surahName} · ${pagePrefix} ${p}` : `${pagePrefix} ${p}`,
       };
     });
-  }, [recentPages, currentPage, mushafMap.pages, surahByNumber]);
+  }, [recentPages, currentPage, mushafMap.pages, surahByNumber, tr]);
 
   const savedEntries = useMemo(
     () =>
@@ -264,7 +276,7 @@ export function NavPalette({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Navigasi Mushaf"
+      aria-label={tr("Navigasi Mushaf", "Mushaf Navigation")}
       onClick={onClose}
     >
       <div className="palette" onClick={(e) => e.stopPropagation()}>
@@ -362,7 +374,7 @@ export function NavPalette({
                     <div>
                       <div className="palette__item-title">{surah.name}</div>
                       <div className="palette__item-sub">
-                        {surah.ayahs} ayat · Hal. {surah.page}
+                        {surah.ayahs} {tr("ayat", "ayahs")} · {tr("Hal.", "p.")} {surah.page}
                       </div>
                     </div>
                   </div>
@@ -370,7 +382,7 @@ export function NavPalette({
                 </button>
               ))}
               {filteredSurahs.length === 0 && (
-                <div className="palette__empty">Surah tidak ditemukan.</div>
+                <div className="palette__empty">{tr("Surah tidak ditemukan.", "No matching surah found.")}</div>
               )}
             </div>
           )}
@@ -393,7 +405,9 @@ export function NavPalette({
                     <div className="palette__item-sub">
                       {startSurah?.name ?? `Surah ${juz.startSurah}`} : {juz.startAyah}
                     </div>
-                    <div className="palette__item-sub">Halaman {juz.page}</div>
+                    <div className="palette__item-sub">
+                      {tr("Halaman", "Page")} {juz.page}
+                    </div>
                   </button>
                 );
               })}
@@ -421,10 +435,10 @@ export function NavPalette({
                   className="palette__input"
                   value={pageInput}
                   onChange={(e) => setPageInput(e.target.value)}
-                  aria-label="Nomor halaman (1 sampai 604)"
+                  aria-label={tr("Nomor halaman (1 sampai 604)", "Page number (1 to 604)")}
                 />
                 <button type="submit" className="palette__submit">
-                  Buka
+                  {tr("Buka", "Go")}
                 </button>
               </div>
               <div className="palette__quick-links">
@@ -449,7 +463,7 @@ export function NavPalette({
             <div className="palette__list">
               {!query.trim() && recentItems.length > 0 && (
                 <div className="palette__recent">
-                  <div className="palette__section-label">Terakhir dibaca</div>
+                  <div className="palette__section-label">{tr("Terakhir dibaca", "Recently read")}</div>
                   <div className="palette__quick-links">
                     {recentItems.map((item) => (
                       <button
@@ -468,19 +482,26 @@ export function NavPalette({
                 </div>
               )}
               {searchLoading && (
-                <div className="palette__empty">Memuat indeks pencarian ayat...</div>
+                <div className="palette__empty">
+                  {tr("Memuat indeks pencarian ayat...", "Loading ayah search index...")}
+                </div>
               )}
               {searchError && <div className="palette__empty">{searchError}</div>}
               {!searchLoading && !searchError && !query.trim() && (
                 <div className="palette__empty">
-                  Ketik kata kunci Arab seperti &ldquo;الرحمن&rdquo; atau nama surah untuk mencari.
+                  {tr(
+                    'Ketik kata kunci Arab seperti "الرحمن" atau nama surah untuk mencari.',
+                    'Type Arabic keywords like "الرحمن" or a surah name to search.',
+                  )}
                 </div>
               )}
               {!searchLoading &&
                 !searchError &&
                 query.trim().length > 0 &&
                 searchHits.length === 0 && (
-                  <div className="palette__empty">Tidak ada ayat atau surah yang cocok.</div>
+                  <div className="palette__empty">
+                    {tr("Tidak ada ayat atau surah yang cocok.", "No matching ayahs or surahs found.")}
+                  </div>
                 )}
               {searchHits.map((hit, idx) =>
                 hit.type === "surah" ? (
@@ -497,7 +518,9 @@ export function NavPalette({
                       <span className="palette__num">{hit.surah}</span>
                       <div>
                         <div className="palette__item-title">{hit.name}</div>
-                        <div className="palette__item-sub">Surah · Hal. {hit.page}</div>
+                        <div className="palette__item-sub">
+                          Surah · {tr("Hal.", "p.")} {hit.page}
+                        </div>
                       </div>
                     </div>
                     <span className="palette__arabic">{hit.arabicName}</span>
@@ -528,7 +551,10 @@ export function NavPalette({
             <div className="palette__list">
               {savedEntries.length === 0 && (
                 <div className="palette__empty">
-                  Belum ada bookmark. Ketuk ayat pada mushaf untuk menandainya.
+                  {tr(
+                    "Belum ada bookmark. Ketuk ayat pada mushaf untuk menandainya.",
+                    "No bookmarks yet. Tap an ayah on the mushaf to bookmark it.",
+                  )}
                 </div>
               )}
               {savedEntries.map((entry) => (
@@ -552,7 +578,7 @@ export function NavPalette({
                       {entry.surahName} : {entry.ayahNum}
                     </div>
                     <div className="palette__item-sub">
-                      Hal. {entry.page}
+                      {tr("Hal.", "p.")} {entry.page}
                       {entry.note ? ` · ${entry.note}` : ""}
                     </div>
                   </button>
@@ -561,7 +587,7 @@ export function NavPalette({
                     className="palette__chip"
                     onClick={() => onToggleBookmark(entry.key)}
                   >
-                    Hapus
+                    {tr("Hapus", "Remove")}
                   </button>
                 </div>
               ))}

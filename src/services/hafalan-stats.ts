@@ -229,6 +229,7 @@ export function computeHafalanProgress(
 }
 
 const DAY_LABELS_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"] as const;
+const DAY_LABELS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 export function toLocalDateKey(ms: number): string {
   const d = new Date(ms);
@@ -241,6 +242,7 @@ export function toLocalDateKey(ms: number): string {
 export function computeHafalanStreak(
   tasmiHistory: readonly TasmiSessionRecord[],
   nowMs: number = Date.now(),
+  lang: "id" | "en" = "id",
 ): HafalanStreak {
   const byDay = new Map<string, { sessions: number; durationSec: number; ayahs: number }>();
   let validSessions = 0;
@@ -301,6 +303,7 @@ export function computeHafalanStreak(
 
   // Last 7 days (oldest -> today)
   const weekDays: StreakDay[] = [];
+  const dayLabels = lang === "en" ? DAY_LABELS_EN : DAY_LABELS_ID;
   for (let offset = 6; offset >= 0; offset -= 1) {
     const d = new Date(todayDate.getTime());
     d.setDate(d.getDate() - offset);
@@ -308,7 +311,7 @@ export function computeHafalanStreak(
     const stats = byDay.get(key);
     weekDays.push({
       dateKey: key,
-      label: DAY_LABELS_ID[d.getDay()],
+      label: dayLabels[d.getDay()],
       active: Boolean(stats),
       sessions: stats?.sessions ?? 0,
     });

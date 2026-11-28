@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AyahKey, SurahInfo } from "../data/types";
+import { useI18n } from "../i18n";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { TasmiLiveState } from "../services/tasmi-logic";
 
@@ -43,11 +44,18 @@ interface QcfGlyph {
   fontFamily: string;
 }
 
-const TRACKER_LABELS: Record<TasmiLiveState["trackerState"], string> = {
+const TRACKER_LABELS_ID: Record<TasmiLiveState["trackerState"], string> = {
   acquiring: "Mendengarkan…",
   locked: "Terkunci",
   ambiguous: "Mencari posisi…",
   lost: "Mencari ulang…",
+};
+
+const TRACKER_LABELS_EN: Record<TasmiLiveState["trackerState"], string> = {
+  acquiring: "Listening…",
+  locked: "Locked",
+  ambiguous: "Finding position…",
+  lost: "Re-syncing…",
 };
 
 export function RecitationRibbon({
@@ -68,6 +76,8 @@ export function RecitationRibbon({
   onDrillNext,
   onStop,
 }: RecitationRibbonProps) {
+  const { isEn, tr } = useI18n();
+  const trackerLabels = isEn ? TRACKER_LABELS_EN : TRACKER_LABELS_ID;
   const [manualExpand, setManualExpand] = useState(false);
   const [qcfWords, setQcfWords] = useState<{ ayah: AyahKey; glyphs: QcfGlyph[] } | null>(null);
 
@@ -185,13 +195,16 @@ export function RecitationRibbon({
                 ? startingStatus
                 : errorDrill
                   ? errorDrill.phase === "listen"
-                    ? `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · Dengarkan ${errorDrill.loop}/${errorDrill.totalLoops}…`
-                    : `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · ${TRACKER_LABELS[state.trackerState]}`
-                : randomPrompt
-                  ? randomPrompt.playing
-                    ? "Uji Acak · Membacakan pemicu…"
-                    : `Uji Acak · ${TRACKER_LABELS[state.trackerState]}`
-                  : `${state.mode === "memorization" ? "Tasmi'" : "Baca Bebas"} · ${TRACKER_LABELS[state.trackerState]}`}
+                    ? tr(
+                        `Latih Kesalahan (${errorDrill.index + 1}/${errorDrill.total}) · Dengarkan ${errorDrill.loop}/${errorDrill.totalLoops}…`,
+                        `Mistake Drill (${errorDrill.index + 1}/${errorDrill.total}) · Listen ${errorDrill.loop}/${errorDrill.totalLoops}…`,
+                      )
+                    : `${tr("Latih Kesalahan", "Mistake Drill")} (${errorDrill.index + 1}/${errorDrill.total}) · ${trackerLabels[state.trackerState]}`
+                  : randomPrompt
+                    ? randomPrompt.playing
+                      ? tr("Uji Acak · Membacakan pemicu…", "Random Test · Playing prompt…")
+                      : `${tr("Uji Acak", "Random Test")} · ${trackerLabels[state.trackerState]}`
+                    : `${state.mode === "memorization" ? "Tasmi'" : tr("Baca Bebas", "Free Recite")} · ${trackerLabels[state.trackerState]}`}
             </span>
             {activeWord ? (
               <span className="recitation-ribbon__loc">
@@ -204,7 +217,7 @@ export function RecitationRibbon({
             ) : null}
             {state.confirmedMistakes.length > 0 && (
               <span className="recitation-ribbon__mistake-pill">
-                {state.confirmedMistakes.length} catatan
+                {state.confirmedMistakes.length} {tr("catatan", "notes")}
               </span>
             )}
           </div>
@@ -216,7 +229,7 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={() => setManualExpand((prev) => !prev)}
               >
-                {manualExpand ? "Sembunyikan kata" : "Tampilkan kata"}
+                {manualExpand ? tr("Sembunyikan kata", "Hide words") : tr("Tampilkan kata", "Show words")}
               </button>
             )}
             {errorDrill && errorDrill.phase === "listen" && onDrillSkipListen && (
@@ -225,7 +238,7 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={onDrillSkipListen}
               >
-                Mulai Tasmi&apos;
+                {tr("Mulai Tasmi'", "Start Tasmi'")}
               </button>
             )}
             {errorDrill && errorDrill.phase === "recite" && onDrillRepeat && (
@@ -234,7 +247,7 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={onDrillRepeat}
               >
-                Ulangi
+                {tr("Ulangi", "Repeat")}
               </button>
             )}
             {errorDrill && errorDrill.phase === "recite" && onDrillNext && (
@@ -243,7 +256,9 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={onDrillNext}
               >
-                {errorDrill.index + 1 < errorDrill.total ? "Ayat berikut" : "Selesai drill"}
+                {errorDrill.index + 1 < errorDrill.total
+                  ? tr("Ayat berikut", "Next ayah")
+                  : tr("Selesai drill", "Finish drill")}
               </button>
             )}
             {onReplayPrompt && (
@@ -252,7 +267,7 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={onReplayPrompt}
               >
-                Putar lagi
+                {tr("Putar lagi", "Replay")}
               </button>
             )}
             {onNextRandom && (
@@ -261,7 +276,7 @@ export function RecitationRibbon({
                 className="recitation-ribbon__toggle-btn"
                 onClick={onNextRandom}
               >
-                Acak lagi
+                {tr("Acak lagi", "Next random")}
               </button>
             )}
             <button
@@ -269,7 +284,7 @@ export function RecitationRibbon({
               className="recitation-ribbon__stop-btn"
               onClick={onStop}
             >
-              {startingStatus ? "Batalkan" : "Selesai"}
+              {startingStatus ? tr("Batalkan", "Cancel") : tr("Selesai", "Done")}
             </button>
           </div>
         </div>

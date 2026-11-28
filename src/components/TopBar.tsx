@@ -94,18 +94,6 @@ export interface TopBarProps {
   onMenuOpenChange?: (open: boolean) => void;
 }
 
-const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
-  { value: "auto", label: "Otomatis" },
-  { value: "single", label: "1 Halaman" },
-  { value: "double", label: "2 Halaman" },
-];
-
-const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
-  { value: "swipe", label: "Geser" },
-  { value: "scroll", label: "Gulir" },
-  { value: "scroll-page", label: "Per hal." },
-];
-
 /** Both keep the same pages and lines; only the calligraphy changes. */
 const LETTER_STYLE_OPTIONS: { value: LetterStyle; label: string }[] = [
   { value: "1405", label: "1405" },
@@ -392,6 +380,7 @@ function InstallGuide({
   platform: PwaInstall["platform"];
   onClose: () => void;
 }) {
+  const { tr } = useI18n();
   const [release, setRelease] = useState<LatestReleaseInfo | null>(null);
 
   useEffect(() => {
@@ -412,41 +401,68 @@ function InstallGuide({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  const assetLabel = (asset: DirectAsset) => {
+    switch (asset.kind) {
+      case "android":
+        return tr("Unduh Android (.apk)", "Download Android (.apk)");
+      case "mac":
+        return tr("Unduh macOS (.dmg)", "Download macOS (.dmg)");
+      case "windows":
+        return tr("Unduh Windows (.exe)", "Download Windows (.exe)");
+      case "linux":
+        return tr("Unduh Linux", "Download Linux");
+    }
+  };
+
   return (
     <>
-      <button type="button" className="app-menu__backdrop" aria-label="Tutup panduan instal" onClick={onClose} />
-      <div className="app-menu install-guide" role="dialog" aria-label="Instal Kafi">
+      <button
+        type="button"
+        className="app-menu__backdrop"
+        aria-label={tr("Tutup panduan instal", "Close install guide")}
+        onClick={onClose}
+      />
+      <div className="app-menu install-guide" role="dialog" aria-label={tr("Instal Kafi", "Install Kafi")}>
         <div className="install-guide__head">
-          <strong className="install-guide__title">Instal Kafi ke Layar Utama</strong>
+          <strong className="install-guide__title">
+            {tr("Instal Kafi ke Layar Utama", "Install Kafi to Home Screen")}
+          </strong>
           <p className="install-guide__sub">
-            Buka layar penuh tanpa bilah browser agar halaman mushaf tampil lebih besar dan lega.
+            {tr(
+              "Buka layar penuh tanpa bilah browser agar halaman mushaf tampil lebih besar dan lega.",
+              "Open fullscreen without browser bars so mushaf pages have more room.",
+            )}
           </p>
         </div>
 
         {platform === "ios" ? (
           <ol className="install-guide__steps">
             <li>
-              Ketuk ikon <strong>Bagikan</strong>{" "}
+              {tr("Ketuk ikon", "Tap the")} <strong>{tr("Bagikan", "Share")}</strong>{" "}
               <svg className="install-guide__share-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3v12m0-12 4 4m-4-4-4 4" />
                 <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
               </svg>{" "}
-              di bilah bawah Safari.
+              {tr("di bilah bawah Safari.", "icon in Safari's bottom bar.")}
             </li>
             <li>
-              Geser ke bawah lalu pilih <strong>Tambahkan ke Layar Utama</strong>.
+              {tr("Geser ke bawah lalu pilih", "Scroll down and choose")}{" "}
+              <strong>{tr("Tambahkan ke Layar Utama", "Add to Home Screen")}</strong>.
             </li>
             <li>
-              Ketuk <strong>Tambah</strong> di pojok kanan atas.
+              {tr("Ketuk", "Tap")} <strong>{tr("Tambah", "Add")}</strong>{" "}
+              {tr("di pojok kanan atas.", "in the top-right corner.")}
             </li>
           </ol>
         ) : (
           <ol className="install-guide__steps">
             <li>
-              Buka menu browser (ikon <strong>⋮</strong> atau <strong>⋯</strong>).
+              {tr("Buka menu browser (ikon", "Open the browser menu (")} <strong>⋮</strong>{" "}
+              {tr("atau", "or")} <strong>⋯</strong>).
             </li>
             <li>
-              Pilih <strong>Tambahkan ke Layar Utama</strong> atau <strong>Instal Aplikasi</strong>.
+              {tr("Pilih", "Select")} <strong>{tr("Tambahkan ke Layar Utama", "Add to Home Screen")}</strong>{" "}
+              {tr("atau", "or")} <strong>{tr("Instal Aplikasi", "Install App")}</strong>.
             </li>
           </ol>
         )}
@@ -454,12 +470,19 @@ function InstallGuide({
         <div className="install-guide__app-box">
           <div className="install-guide__app-head">
             <strong className="install-guide__app-title">
-              Atau unduh versi aplikasi{release?.tag ? ` (${release.tag})` : ""}
+              {tr("Atau unduh versi aplikasi", "Or download the native app")}
+              {release?.tag ? ` (${release.tag})` : ""}
             </strong>
             <p className="install-guide__sub">
               {release
-                ? "Langsung unduh file installer tanpa perlu mencari di GitHub."
-                : "Tersedia untuk Android & Desktop. Di halaman rilis, gulir ke bagian Assets lalu pilih file perangkatmu."}
+                ? tr(
+                    "Langsung unduh file installer tanpa perlu mencari di GitHub.",
+                    "Download the installer directly without browsing GitHub.",
+                  )
+                : tr(
+                    "Tersedia untuk Android & Desktop. Di halaman rilis, gulir ke bagian Assets lalu pilih file perangkatmu.",
+                    "Available for Android & Desktop. On the releases page, scroll to Assets and pick your installer.",
+                  )}
             </p>
           </div>
           {release ? (
@@ -472,7 +495,7 @@ function InstallGuide({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <span>{asset.label}</span>
+                  <span>{assetLabel(asset)}</span>
                   <span aria-hidden="true">↓</span>
                 </a>
               ))}
@@ -482,7 +505,7 @@ function InstallGuide({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Lihat semua rilis di GitHub ↗
+                {tr("Lihat semua rilis di GitHub ↗", "View all releases on GitHub ↗")}
               </a>
             </div>
           ) : (
@@ -492,14 +515,14 @@ function InstallGuide({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <span>Buka Halaman Unduhan (GitHub)</span>
+              <span>{tr("Buka Halaman Unduhan (GitHub)", "Open Downloads Page (GitHub)")}</span>
               <span aria-hidden="true">↗</span>
             </a>
           )}
         </div>
 
         <button type="button" className="install-guide__close" onClick={onClose}>
-          Mengerti
+          {tr("Mengerti", "Got it")}
         </button>
       </div>
     </>
@@ -792,25 +815,43 @@ function AppMenu({
         {!onOpenSettings && (
           <>
             <div className="app-menu__field app-menu__field--row">
-              <span className="app-menu__label">Huruf Madinah</span>
+              <span className="app-menu__label">{tr("Huruf Madinah", "Madinah Script")}</span>
               <div className="app-menu__seg-compact">
-                <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
+                <Segmented label={tr("Gaya huruf", "Script style")} value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
               </div>
             </div>
 
             {readingMode === "mushaf" && (
               <>
                 <div className="app-menu__field app-menu__field--row">
-                  <span className="app-menu__label">Pindah</span>
+                  <span className="app-menu__label">{tr("Pindah", "Turn")}</span>
                   <div className="app-menu__seg-compact">
-                    <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
+                    <Segmented
+                      label={tr("Pindah halaman", "Page turn")}
+                      value={pageNav}
+                      options={[
+                        { value: "swipe", label: tr("Geser", "Swipe") },
+                        { value: "scroll", label: tr("Gulir", "Scroll") },
+                        { value: "scroll-page", label: tr("Per hal.", "By page") },
+                      ]}
+                      onChange={onChangePageNav}
+                    />
                   </div>
                 </div>
 
                 <div className="app-menu__field app-menu__field--row app-menu__group--spread">
-                  <span className="app-menu__label">Halaman</span>
+                  <span className="app-menu__label">{tr("Halaman", "Layout")}</span>
                   <div className="app-menu__seg-compact">
-                    <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
+                    <Segmented
+                      label={tr("Mode halaman", "Spread mode")}
+                      value={spreadMode}
+                      options={[
+                        { value: "auto", label: tr("Otomatis", "Auto") },
+                        { value: "single", label: tr("1 Halaman", "1 Page") },
+                        { value: "double", label: tr("2 Halaman", "2 Pages") },
+                      ]}
+                      onChange={onChangeSpreadMode}
+                    />
                   </div>
                 </div>
               </>
@@ -828,13 +869,19 @@ function AppMenu({
                   : option.value === "dark"
                     ? tr("Gelap", "Dark")
                     : "Sepia";
+              const ariaLabel =
+                option.value === "light"
+                  ? tr("Tema Kertas Terang", "Light Paper Theme")
+                  : option.value === "dark"
+                    ? tr("Tema Malam Gelap", "Dark Night Theme")
+                    : tr("Tema Sepia Hangat", "Warm Sepia Theme");
               return (
                 <button
                   key={option.value}
                   type="button"
                   className={`app-menu__swatch ${theme === option.value ? "app-menu__swatch--active" : ""}`}
                   aria-pressed={theme === option.value}
-                  aria-label={option.label}
+                  aria-label={ariaLabel}
                   title={shortName}
                   onClick={() => onChangeTheme(option.value)}
                 >

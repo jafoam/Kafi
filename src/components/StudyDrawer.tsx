@@ -37,11 +37,11 @@ export interface StudyDrawerProps {
   onOpenReader?: (ayah: AyahKey) => void;
 }
 
-const HIGHLIGHT_OPTIONS: Array<{ color: HighlightColor; label: string }> = [
-  { color: "amber", label: "Kuning" },
-  { color: "emerald", label: "Hijau" },
-  { color: "sky", label: "Biru" },
-  { color: "rose", label: "Merah muda" },
+const HIGHLIGHT_OPTIONS: Array<{ color: HighlightColor; id: string; en: string }> = [
+  { color: "amber", id: "Kuning", en: "Yellow" },
+  { color: "emerald", id: "Hijau", en: "Green" },
+  { color: "sky", id: "Biru", en: "Blue" },
+  { color: "rose", id: "Merah muda", en: "Rose" },
 ];
 
 interface FetchState {
@@ -132,12 +132,12 @@ export function StudyDrawer({
           status: "error",
           html: "",
           fromCache: false,
-          error: err instanceof Error ? err.message : "Gagal memuat terjemahan",
+          error: err instanceof Error ? err.message : tr("Gagal memuat terjemahan", "Failed to load translation"),
         });
       });
 
     return () => controller.abort();
-  }, [open, ayah, tab, translationId, quranApi, retryTick]);
+  }, [open, ayah, tab, translationId, quranApi, retryTick, tr]);
 
   // Fetch tafsir with AbortController race protection
   useEffect(() => {
@@ -164,12 +164,12 @@ export function StudyDrawer({
           status: "error",
           html: "",
           fromCache: false,
-          error: err instanceof Error ? err.message : "Gagal memuat tafsir",
+          error: err instanceof Error ? err.message : tr("Gagal memuat tafsir", "Failed to load tafsir"),
         });
       });
 
     return () => controller.abort();
-  }, [open, ayah, tab, tafsirId, quranApi, retryTick]);
+  }, [open, ayah, tab, tafsirId, quranApi, retryTick, tr]);
 
   useEffect(() => {
     if (!open) return;
@@ -246,12 +246,12 @@ export function StudyDrawer({
         ref={drawerRef}
         className="study-drawer"
         role="complementary"
-        aria-label="Panel Terjemahan, Tafsir, dan Catatan"
+        aria-label={tr("Panel Terjemahan, Tafsir, dan Catatan", "Translation, Tafsir, and Notes Panel")}
       >
       <div className="study-drawer__header">
         <div className="study-drawer__heading">
           <span className="study-drawer__title">
-            {surahName} · Ayat {ayahNum}
+            {surahName} · {tr("Ayat", "Ayah")} {ayahNum}
           </span>
           {surahArabicName && (
             <span className="study-drawer__arabic" lang="ar" dir="rtl">
@@ -268,8 +268,8 @@ export function StudyDrawer({
                 flushNoteNow();
                 onOpenReader(ayah);
               }}
-              aria-label="Baca layar penuh, geser per ayat"
-              title="Baca layar penuh"
+              aria-label={tr("Baca layar penuh, geser per ayat", "Read fullscreen, swipe by ayah")}
+              title={tr("Baca layar penuh", "Read fullscreen")}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
@@ -280,8 +280,8 @@ export function StudyDrawer({
             type="button"
             className="study-drawer__icon-btn"
             onClick={() => onPlayAyah(ayah)}
-            aria-label="Putar ayat ini"
-            title="Putar ayat ini"
+            aria-label={tr("Putar ayat ini", "Play this ayah")}
+            title={tr("Putar ayat ini", "Play this ayah")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M7 5.2v13.6a1 1 0 0 0 1.5.86l11.2-6.8a1 1 0 0 0 0-1.72L8.5 4.34A1 1 0 0 0 7 5.2z" />
@@ -294,8 +294,8 @@ export function StudyDrawer({
               flushNoteNow();
               onClose();
             }}
-            aria-label="Tutup panel"
-            title="Tutup"
+            aria-label={tr("Tutup panel", "Close panel")}
+            title={tr("Tutup", "Close")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" />
@@ -334,7 +334,7 @@ export function StudyDrawer({
             <div className="study-drawer__toolbar">
               <GlassSelect
                 className="study-drawer__select"
-                ariaLabel="Pilih Terjemahan"
+                ariaLabel={tr("Pilih Terjemahan", "Select Translation")}
                 value={String(translationId)}
                 options={translations.map((t) => ({ value: String(t.id), label: t.name }))}
                 onChange={(val) => onChangeTranslation(Number(val))}
@@ -344,7 +344,7 @@ export function StudyDrawer({
                   <span
                     className={`study-drawer__badge ${translationState.fromCache ? "study-drawer__badge--offline" : ""}`}
                   >
-                    {translationState.fromCache ? "Tersimpan offline" : "Online"}
+                    {translationState.fromCache ? tr("Tersimpan offline", "Saved offline") : "Online"}
                   </span>
                 ) : (
                   <span />
@@ -354,13 +354,13 @@ export function StudyDrawer({
                     type="button"
                     className="study-drawer__dl-btn"
                     onClick={() => onOpenDownloads("translation")}
-                    title="Kelola unduhan terjemahan offline"
+                    title={tr("Kelola unduhan terjemahan offline", "Manage offline translation downloads")}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M12 3v12m0 0-4-4m4 4 4-4" />
                       <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
                     </svg>
-                    <span>Unduh offline</span>
+                    <span>{tr("Unduh offline", "Download offline")}</span>
                   </button>
                 )}
               </div>
@@ -375,13 +375,18 @@ export function StudyDrawer({
 
             {translationState.status === "error" && (
               <div className="study-drawer__error">
-                <p>Tidak dapat memuat terjemahan. Periksa koneksi internet Anda.</p>
+                <p>
+                  {tr(
+                    "Tidak dapat memuat terjemahan. Periksa koneksi internet Anda.",
+                    "Could not load translation. Check your internet connection.",
+                  )}
+                </p>
                 <button
                   type="button"
                   className="study-drawer__retry-btn"
                   onClick={() => setRetryTick((n) => n + 1)}
                 >
-                  Coba lagi
+                  {tr("Coba lagi", "Retry")}
                 </button>
               </div>
             )}
@@ -392,7 +397,7 @@ export function StudyDrawer({
                 dangerouslySetInnerHTML={{
                   __html:
                     translationState.html ||
-                    "<p>Terjemahan tidak tersedia untuk ayat ini.</p>",
+                    `<p>${tr("Terjemahan tidak tersedia untuk ayat ini.", "Translation is not available for this ayah.")}</p>`,
                 }}
               />
             )}
@@ -404,7 +409,7 @@ export function StudyDrawer({
             <div className="study-drawer__toolbar">
               <GlassSelect
                 className="study-drawer__select"
-                ariaLabel="Pilih Tafsir"
+                ariaLabel={tr("Pilih Tafsir", "Select Tafsir")}
                 value={tafsirId}
                 options={tafsirs.map((t) => ({ value: t.id, label: t.name }))}
                 onChange={onChangeTafsir}
@@ -414,7 +419,7 @@ export function StudyDrawer({
                   <span
                     className={`study-drawer__badge ${tafsirState.fromCache ? "study-drawer__badge--offline" : ""}`}
                   >
-                    {tafsirState.fromCache ? "Tersimpan offline" : "Online"}
+                    {tafsirState.fromCache ? tr("Tersimpan offline", "Saved offline") : "Online"}
                   </span>
                 ) : (
                   <span />
@@ -424,13 +429,13 @@ export function StudyDrawer({
                     type="button"
                     className="study-drawer__dl-btn"
                     onClick={() => onOpenDownloads("tafsir")}
-                    title="Kelola unduhan tafsir offline"
+                    title={tr("Kelola unduhan tafsir offline", "Manage offline tafsir downloads")}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M12 3v12m0 0-4-4m4 4 4-4" />
                       <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
                     </svg>
-                    <span>Unduh offline</span>
+                    <span>{tr("Unduh offline", "Download offline")}</span>
                   </button>
                 )}
               </div>
@@ -446,13 +451,18 @@ export function StudyDrawer({
 
             {tafsirState.status === "error" && (
               <div className="study-drawer__error">
-                <p>Tidak dapat memuat tafsir. Periksa koneksi internet Anda.</p>
+                <p>
+                  {tr(
+                    "Tidak dapat memuat tafsir. Periksa koneksi internet Anda.",
+                    "Could not load tafsir. Check your internet connection.",
+                  )}
+                </p>
                 <button
                   type="button"
                   className="study-drawer__retry-btn"
                   onClick={() => setRetryTick((n) => n + 1)}
                 >
-                  Coba lagi
+                  {tr("Coba lagi", "Retry")}
                 </button>
               </div>
             )}
@@ -464,7 +474,8 @@ export function StudyDrawer({
                 lang={isArabicTafsir ? "ar" : undefined}
                 dangerouslySetInnerHTML={{
                   __html:
-                    tafsirState.html || "<p>Tafsir tidak tersedia untuk ayat ini.</p>",
+                    tafsirState.html ||
+                    `<p>${tr("Tafsir tidak tersedia untuk ayat ini.", "Tafsir is not available for this ayah.")}</p>`,
                 }}
               />
             )}
@@ -474,37 +485,40 @@ export function StudyDrawer({
         {tab === "catatan" && (
           <div className="study-drawer__pane study-drawer__notes">
             <div className="study-drawer__note-row">
-              <span className="study-drawer__label">Penanda</span>
+              <span className="study-drawer__label">{tr("Penanda", "Bookmark")}</span>
               <button
                 type="button"
                 className={`ayah-popover__bookmark-btn ${isBookmarked ? "ayah-popover__bookmark-btn--active" : ""}`}
                 onClick={() => onToggleBookmark(ayah)}
               >
-                {isBookmarked ? "★ Ditandai" : "☆ Tandai ayat"}
+                {isBookmarked ? tr("★ Ditandai", "★ Bookmarked") : tr("☆ Tandai ayat", "☆ Bookmark ayah")}
               </button>
             </div>
 
             <div className="study-drawer__note-row">
-              <span className="study-drawer__label">Sorotan</span>
+              <span className="study-drawer__label">{tr("Sorotan", "Highlight")}</span>
               <div className="hl-swatches">
-                {HIGHLIGHT_OPTIONS.map(({ color, label }) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-label={`Sorot ${label}`}
-                    title={label}
-                    className={`hl-swatch hl-swatch--${color} ${highlightColor === color ? "hl-swatch--active" : ""}`}
-                    onClick={() =>
-                      onSetHighlight(ayah, highlightColor === color ? null : color)
-                    }
-                  />
-                ))}
+                {HIGHLIGHT_OPTIONS.map(({ color, id, en }) => {
+                  const label = tr(id, en);
+                  return (
+                    <button
+                      key={color}
+                      type="button"
+                      aria-label={`${tr("Sorot", "Highlight")} ${label}`}
+                      title={label}
+                      className={`hl-swatch hl-swatch--${color} ${highlightColor === color ? "hl-swatch--active" : ""}`}
+                      onClick={() =>
+                        onSetHighlight(ayah, highlightColor === color ? null : color)
+                      }
+                    />
+                  );
+                })}
                 {highlightColor && (
                   <button
                     type="button"
                     className="hl-swatch hl-swatch--clear"
-                    aria-label="Hapus sorotan"
-                    title="Hapus sorotan"
+                    aria-label={tr("Hapus sorotan", "Remove highlight")}
+                    title={tr("Hapus sorotan", "Remove highlight")}
                     onClick={() => onSetHighlight(ayah, null)}
                   >
                     ×
@@ -515,13 +529,16 @@ export function StudyDrawer({
 
             <label className="study-drawer__note-field">
               <div className="study-drawer__note-row">
-                <span className="study-drawer__label">Catatan Pribadi</span>
-                {noteSaved && <span className="study-drawer__saved">Tersimpan</span>}
+                <span className="study-drawer__label">{tr("Catatan Pribadi", "Personal Notes")}</span>
+                {noteSaved && <span className="study-drawer__saved">{tr("Tersimpan", "Saved")}</span>}
               </div>
               <textarea
                 className="study-drawer__textarea"
                 rows={7}
-                placeholder="Tulis tadabbur, faedah, atau pengingat hafalan untuk ayat ini..."
+                placeholder={tr(
+                  "Tulis tadabbur, faedah, atau pengingat hafalan untuk ayat ini...",
+                  "Write reflections, insights, or memorization reminders for this ayah...",
+                )}
                 value={draftNote}
                 onChange={(e) => handleNoteChange(e.target.value)}
                 onBlur={flushNoteNow}

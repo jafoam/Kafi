@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SyncConfig, UserData } from "../data/types";
+import { useI18n } from "../i18n";
 import { parseBackup, type BackupSummary } from "../services/backup";
 import {
   DEFAULT_SYNC_WORKER_URL,
@@ -21,10 +22,10 @@ export interface SyncModalProps {
   onImportBackup: (data: UserData) => Promise<void>;
 }
 
-function formatSyncTime(iso?: string): string {
-  if (!iso) return "Belum pernah";
+function formatSyncTime(iso: string | undefined, lang: "id" | "en" = "id"): string {
+  if (!iso) return lang === "en" ? "Never" : "Belum pernah";
   try {
-    return new Intl.DateTimeFormat("id-ID", {
+    return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -47,6 +48,7 @@ export function SyncModal({
   onExportBackup,
   onImportBackup,
 }: SyncModalProps) {
+  const { lang, tr } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<{ data: UserData; summary: BackupSummary } | null>(
     null,
@@ -86,7 +88,7 @@ export function SyncModal({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      setLocalError("Gagal menyalin kode ke clipboard.");
+      setLocalError(tr("Gagal menyalin kode ke clipboard.", "Failed to copy code to clipboard."));
     }
   };
 
@@ -95,7 +97,7 @@ export function SyncModal({
     setLocalError(null);
     const trimmedUrl = workerUrl.trim();
     if (!trimmedUrl) {
-      setLocalError("Isi URL Cloudflare Worker terlebih dahulu.");
+      setLocalError(tr("Isi URL Cloudflare Worker terlebih dahulu.", "Enter the Cloudflare Worker URL first."));
       return;
     }
     const freshCode = generateSyncCode();
@@ -108,12 +110,17 @@ export function SyncModal({
     setLocalError(null);
     const normalized = normalizeSyncCode(codeInput);
     if (!normalized) {
-      setLocalError("Kode sync minimal 8 karakter (contoh: KAFI-7X4K-9M2P-Q3R8).");
+      setLocalError(
+        tr(
+          "Kode sync minimal 8 karakter (contoh: KAFI-7X4K-9M2P-Q3R8).",
+          "Sync code must be at least 8 characters (e.g. KAFI-7X4K-9M2P-Q3R8).",
+        ),
+      );
       return;
     }
     const trimmedUrl = workerUrl.trim();
     if (!trimmedUrl) {
-      setLocalError("Isi URL Cloudflare Worker terlebih dahulu.");
+      setLocalError(tr("Isi URL Cloudflare Worker terlebih dahulu.", "Enter the Cloudflare Worker URL first."));
       return;
     }
     await onConnect(normalized, trimmedUrl);
@@ -124,7 +131,7 @@ export function SyncModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Sinkronisasi Antar Perangkat"
+      aria-label={tr("Sinkronisasi Antar Perangkat", "Cross-Device Sync")}
       onClick={() => {
         if (!syncing) onClose();
       }}
@@ -132,15 +139,18 @@ export function SyncModal({
       <div className="tasmi-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Sync Antar Perangkat</h2>
+            <h2 className="tasmi-sheet__title">{tr("Sync Antar Perangkat", "Cross-Device Sync")}</h2>
             <p className="tasmi-sheet__subtitle">
-              Tanpa login · Terenkripsi end-to-end (AES-GCM) di perangkat
+              {tr(
+                "Tanpa login · Terenkripsi end-to-end (AES-GCM) di perangkat",
+                "No account needed · End-to-end encrypted (AES-GCM) on device",
+              )}
             </p>
           </div>
           <button
             type="button"
             className="ayah-popover__close"
-            aria-label="Tutup"
+            aria-label={tr("Tutup", "Close")}
             disabled={syncing}
             onClick={onClose}
           >
@@ -151,16 +161,17 @@ export function SyncModal({
         <div className="tasmi-sheet__body">
           <div className="tasmi-sheet__free-box">
             <p>
-              Bookmark, sorotan, catatan, riwayat Tasmi&apos;, dan jadwal Muraja&apos;ah dienkripsi
-              memakai kode sync sebelum dikirim. Masukkan kode yang sama di perangkat lain untuk
-              saling sinkron kapan saja.
+              {tr(
+                "Bookmark, sorotan, catatan, riwayat Tasmi', dan jadwal Muraja'ah dienkripsi memakai kode sync sebelum dikirim. Masukkan kode yang sama di perangkat lain untuk saling sinkron kapan saja.",
+                "Bookmarks, highlights, notes, Tasmi' history, and Muraja'ah schedules are encrypted with your sync code before uploading. Enter the same code on another device to keep them in sync.",
+              )}
             </p>
           </div>
 
           {config ? (
             <>
               <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Kode Sync Aktif</span>
+                <span className="tasmi-sheet__label">{tr("Kode Sync Aktif", "Active Sync Code")}</span>
                 <div className="sync-code-box">
                   <span>{config.code}</span>
                   <button
@@ -168,11 +179,11 @@ export function SyncModal({
                     className="tasmi-sheet__history-btn"
                     onClick={() => void handleCopy(config.code)}
                   >
-                    {copied ? "Tersalin" : "Salin"}
+                    {copied ? tr("Tersalin", "Copied") : tr("Salin", "Copy")}
                   </button>
                 </div>
                 <span className="tasmi-sheet__option-scope">
-                  Terakhir sinkron: {formatSyncTime(config.lastSyncedAt)}
+                  {tr("Terakhir sinkron:", "Last synced:")} {formatSyncTime(config.lastSyncedAt, lang)}
                 </span>
               </div>
 
@@ -183,7 +194,7 @@ export function SyncModal({
                   disabled={syncing}
                   onClick={() => void onSyncNow()}
                 >
-                  {syncing ? "Menyinkronkan…" : "Sinkronkan Sekarang"}
+                  {syncing ? tr("Menyinkronkan…", "Syncing…") : tr("Sinkronkan Sekarang", "Sync Now")}
                 </button>
                 <button
                   type="button"
@@ -191,7 +202,7 @@ export function SyncModal({
                   disabled={syncing}
                   onClick={onDisconnect}
                 >
-                  Putuskan Sync
+                  {tr("Putuskan Sync", "Disconnect")}
                 </button>
               </div>
             </>
@@ -199,12 +210,12 @@ export function SyncModal({
             <>
               {!DEFAULT_SYNC_WORKER_URL && (
                 <details className="sync-advanced" open={!workerUrl.trim()}>
-                  <summary>Server sync sendiri (lanjutan)</summary>
+                  <summary>{tr("Server sync sendiri (lanjutan)", "Custom sync server (advanced)")}</summary>
                   <label className="tasmi-sheet__field">
-                    <span>URL Cloudflare Worker Sync</span>
+                    <span>{tr("URL Cloudflare Worker Sync", "Cloudflare Worker Sync URL")}</span>
                     <input
                       type="url"
-                      placeholder="https://kafi-sync.akunmu.workers.dev"
+                      placeholder="https://kafi-sync.example.workers.dev"
                       value={workerUrl}
                       disabled={syncing}
                       onChange={(e) => setWorkerUrl(e.target.value)}
@@ -214,27 +225,29 @@ export function SyncModal({
               )}
 
               <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Baru pertama kali?</span>
+                <span className="tasmi-sheet__label">{tr("Baru pertama kali?", "First time?")}</span>
                 <button
                   type="button"
                   className="tasmi-sheet__start-btn"
                   disabled={syncing}
                   onClick={() => void handleCreateNew()}
                 >
-                  {syncing && pending === "create" ? "Membuat kode…" : "Buat Kode Baru"}
+                  {syncing && pending === "create"
+                    ? tr("Membuat kode…", "Creating code…")
+                    : tr("Buat Kode Baru", "Create New Code")}
                 </button>
                 <span className="tasmi-sheet__option-scope">
-                  Lalu masukkan kode itu di perangkat lainmu.
+                  {tr("Lalu masukkan kode itu di perangkat lainmu.", "Then enter that code on your other device.")}
                 </span>
               </div>
 
               <div className="sync-divider" role="separator">
-                <span>atau</span>
+                <span>{tr("atau", "or")}</span>
               </div>
 
               <div className="tasmi-sheet__section">
                 <label className="tasmi-sheet__field">
-                  <span>Punya kode dari perangkat lain?</span>
+                  <span>{tr("Punya kode dari perangkat lain?", "Have a code from another device?")}</span>
                   <input
                     type="text"
                     placeholder="KAFI-XXXX-XXXX-XXXX"
@@ -249,22 +262,25 @@ export function SyncModal({
                   disabled={syncing || codeInput.trim().length < 8}
                   onClick={() => void handleJoin()}
                 >
-                  {syncing && pending === "join" ? "Menghubungkan…" : "Sambungkan Kode"}
+                  {syncing && pending === "join"
+                    ? tr("Menghubungkan…", "Connecting…")
+                    : tr("Sambungkan Kode", "Connect Code")}
                 </button>
               </div>
             </>
           )}
 
           <div className="sync-divider" role="separator">
-            <span>Cadangan manual</span>
+            <span>{tr("Cadangan manual", "Manual backup")}</span>
           </div>
 
           {pendingImport ? (
             <div className="sync-import-confirm" role="alert">
               <p>
-                File berisi {pendingImport.summary.bookmarks} bookmark, {pendingImport.summary.highlights}{" "}
-                sorotan, {pendingImport.summary.notes} catatan, dan {pendingImport.summary.tasmi} riwayat
-                Tasmi&apos;. Isinya digabung dengan data di perangkat ini; tidak ada yang dihapus.
+                {tr(
+                  `File berisi ${pendingImport.summary.bookmarks} bookmark, ${pendingImport.summary.highlights} sorotan, ${pendingImport.summary.notes} catatan, dan ${pendingImport.summary.tasmi} riwayat Tasmi'. Isinya digabung dengan data di perangkat ini; tidak ada yang dihapus.`,
+                  `File contains ${pendingImport.summary.bookmarks} bookmarks, ${pendingImport.summary.highlights} highlights, ${pendingImport.summary.notes} notes, and ${pendingImport.summary.tasmi} Tasmi' records. It will be merged with this device's data without deleting anything.`,
+                )}
               </p>
               <div className="sync-actions-row">
                 <button
@@ -277,13 +293,13 @@ export function SyncModal({
                       await onImportBackup(pendingImport.data);
                       setPendingImport(null);
                     } catch {
-                      setLocalError("Gagal menggabungkan cadangan.");
+                      setLocalError(tr("Gagal menggabungkan cadangan.", "Failed to merge backup."));
                     } finally {
                       setBackupBusy(false);
                     }
                   }}
                 >
-                  Gabungkan
+                  {tr("Gabungkan", "Merge")}
                 </button>
                 <button
                   type="button"
@@ -291,7 +307,7 @@ export function SyncModal({
                   disabled={backupBusy}
                   onClick={() => setPendingImport(null)}
                 >
-                  Batal
+                  {tr("Batal", "Cancel")}
                 </button>
               </div>
             </div>
@@ -307,13 +323,13 @@ export function SyncModal({
                   try {
                     await onExportBackup();
                   } catch {
-                    setLocalError("Gagal membuat file cadangan.");
+                    setLocalError(tr("Gagal membuat file cadangan.", "Failed to create backup file."));
                   } finally {
                     setBackupBusy(false);
                   }
                 }}
               >
-                Ekspor JSON
+                {tr("Ekspor JSON", "Export JSON")}
               </button>
               <button
                 type="button"
@@ -321,7 +337,7 @@ export function SyncModal({
                 disabled={backupBusy}
                 onClick={() => fileRef.current?.click()}
               >
-                Impor JSON
+                {tr("Impor JSON", "Import JSON")}
               </button>
               <input
                 ref={fileRef}
@@ -336,14 +352,21 @@ export function SyncModal({
                   try {
                     setPendingImport(parseBackup(await file.text()));
                   } catch (err) {
-                    setLocalError(err instanceof Error ? err.message : "File cadangan tidak bisa dibaca.");
+                    setLocalError(
+                      err instanceof Error
+                        ? err.message
+                        : tr("File cadangan tidak bisa dibaca.", "Backup file could not be read."),
+                    );
                   }
                 }}
               />
             </div>
           )}
           <span className="tasmi-sheet__option-scope">
-            File cadangan tidak dienkripsi dan tidak memuat kode sync. Simpan di tempat yang aman.
+            {tr(
+              "File cadangan tidak dienkripsi dan tidak memuat kode sync. Simpan di tempat yang aman.",
+              "Backup files are unencrypted and do not contain your sync code. Store them safely.",
+            )}
           </span>
 
           {displayError && (

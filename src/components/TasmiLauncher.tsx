@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useI18n } from "../i18n";
 
 export interface TasmiLauncherProps {
   /** False while something else owns the screen (focus mode, an open Tasmi' session, a drawer). */
@@ -16,6 +17,7 @@ export function TasmiLauncher({
   onDismissHint,
   onOpenGuide,
 }: TasmiLauncherProps) {
+  const { tr } = useI18n();
   const hintRef = useRef<HTMLDivElement>(null);
   const open = visible && showHint;
 
@@ -40,10 +42,20 @@ export function TasmiLauncher({
   return (
     <>
       {open && (
-        <div ref={hintRef} className="tasmi-hint" role="dialog" aria-label="Kenalan dengan Tasmi'">
-          <strong className="tasmi-hint__title">Tasmi&apos;: setor hafalan</strong>
+        <div
+          ref={hintRef}
+          className="tasmi-hint"
+          role="dialog"
+          aria-label={tr("Kenalan dengan Tasmi'", "Meet Tasmi'")}
+        >
+          <strong className="tasmi-hint__title">
+            {tr("Tasmi': setor hafalan", "Tasmi': memorization check")}
+          </strong>
           <p className="tasmi-hint__text">
-            Bacakan ayat dengan suaramu. Aplikasi menyimak bacaanmu, lalu menandai ayat yang salah atau terlewat.
+            {tr(
+              "Bacakan ayat dengan suaramu. Aplikasi menyimak bacaanmu, lalu menandai ayat yang salah atau terlewat.",
+              "Recite ayahs aloud. The app listens on-device and flags any missed or incorrect words.",
+            )}
           </p>
           <div className="tasmi-hint__actions">
             <button
@@ -54,10 +66,10 @@ export function TasmiLauncher({
                 onOpenGuide();
               }}
             >
-              Lihat panduan
+              {tr("Lihat panduan", "View guide")}
             </button>
             <button type="button" className="tasmi-hint__later" onClick={onDismissHint}>
-              Nanti
+              {tr("Nanti", "Later")}
             </button>
           </div>
         </div>

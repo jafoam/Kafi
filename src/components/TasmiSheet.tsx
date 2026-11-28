@@ -50,10 +50,16 @@ export interface TasmiSheetProps {
   streakSummary?: { currentStreak: number; todaySessions: number; todayMinutes: number };
 }
 
-const STAGE_LABELS: Record<string, string> = {
+const STAGE_LABELS_ID: Record<string, string> = {
   model: "Mengunduh model suara offline",
   reference: "Menyiapkan teks rujukan Al-Qur'an",
   warmup: "Menyiapkan mesin Tasmi'",
+};
+
+const STAGE_LABELS_EN: Record<string, string> = {
+  model: "Downloading offline speech model",
+  reference: "Preparing Quran reference text",
+  warmup: "Warming up Tasmi' engine",
 };
 
 function formatMb(bytes: number): string {
@@ -84,10 +90,11 @@ export function TasmiSheet({
   onOpenQuiz,
   streakSummary,
 }: TasmiSheetProps) {
-  const { tr } = useI18n();
+  const { lang, isEn, tr } = useI18n();
+  const stageLabels = isEn ? STAGE_LABELS_EN : STAGE_LABELS_ID;
   const candidates = useMemo(
-    () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs),
-    [visiblePages, surahs, glyphAyahs],
+    () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs, lang),
+    [visiblePages, surahs, glyphAyahs, lang],
   );
 
   const surahByNum = useMemo(() => {
@@ -199,7 +206,7 @@ export function TasmiSheet({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Mulai Tasmi'"
+      aria-label={tr("Mulai Tasmi'", "Start Tasmi'")}
       onClick={() => {
         if (!isBusy) onClose();
       }}
@@ -295,9 +302,17 @@ export function TasmiSheet({
         <div className="tasmi-sheet__body">
           {streakSummary && (streakSummary.currentStreak > 0 || streakSummary.todaySessions > 0) && (
             <div className="tasmi-sheet__streak-pill">
-              <span>Streak {streakSummary.currentStreak} hari</span>
               <span>
-                Hari ini: {streakSummary.todaySessions} sesi ({streakSummary.todayMinutes} mnt)
+                {tr(
+                  `Streak ${streakSummary.currentStreak} hari`,
+                  `${streakSummary.currentStreak}-day streak`,
+                )}
+              </span>
+              <span>
+                {tr(
+                  `Hari ini: ${streakSummary.todaySessions} sesi (${streakSummary.todayMinutes} mnt)`,
+                  `Today: ${streakSummary.todaySessions} sessions (${streakSummary.todayMinutes} min)`,
+                )}
               </span>
             </div>
           )}
@@ -322,27 +337,31 @@ export function TasmiSheet({
                 >
                   <span>
                     <span className="tasmi-sheet__murajaah-title">
-                      Muraja&apos;ah Hari Ini
+                      {tr("Muraja'ah Hari Ini", "Today's Muraja'ah")}
                       {dueMurajaah.length > 0 ? ` (${dueMurajaah.length})` : ""}
                     </span>
                     <span className="tasmi-sheet__murajaah-sub">
                       {surahByNum.get(nextMurajaah.surah)?.name ?? `Surah ${nextMurajaah.surah}`}{" "}
                       {nextMurajaah.fromAyah}–{nextMurajaah.toAyah} ·{" "}
                       {nextMurajaah.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} ·{" "}
-                      {formatDueLabel(nextMurajaah.dueAt)}
+                      {formatDueLabel(nextMurajaah.dueAt, undefined, lang)}
                     </span>
                   </span>
-                  <span className="tasmi-sheet__murajaah-pill">Mulai</span>
+                  <span className="tasmi-sheet__murajaah-pill">{tr("Mulai", "Start")}</span>
                 </button>
               )}
 
               <div className="tasmi-sheet__inline">
-                <span className="tasmi-sheet__label">Jenis setoran</span>
-                <div className="app-menu__segmented" role="radiogroup" aria-label="Jenis setoran">
+                <span className="tasmi-sheet__label">{tr("Jenis setoran", "Session type")}</span>
+                <div
+                  className="app-menu__segmented"
+                  role="radiogroup"
+                  aria-label={tr("Jenis setoran", "Session type")}
+                >
                   {(
                     [
                       ["murajaah", "Muraja'ah"],
-                      ["ziyadah", "Ziyadah (baru)"],
+                      ["ziyadah", tr("Ziyadah (baru)", "Ziyadah (new)")],
                     ] as const
                   ).map(([value, label]) => (
                     <button
@@ -361,7 +380,7 @@ export function TasmiSheet({
               </div>
 
               <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Cakupan</span>
+                <span className="tasmi-sheet__label">{tr("Cakupan", "Passage")}</span>
                 <div className="tasmi-sheet__options tasmi-sheet__options--compact">
                   {candidates.map((opt) => (
                     <button
@@ -398,9 +417,9 @@ export function TasmiSheet({
                         setToAyah(activeSurahInfo.ayahs);
                       }}
                     >
-                      <span className="tasmi-sheet__option-name">Surah penuh</span>
+                      <span className="tasmi-sheet__option-name">{tr("Surah penuh", "Full surah")}</span>
                       <span className="tasmi-sheet__option-scope">
-                        Ayat 1–{activeSurahInfo.ayahs}
+                        {tr("Ayat", "Ayah")} 1–{activeSurahInfo.ayahs}
                       </span>
                     </button>
                   )}
@@ -409,7 +428,7 @@ export function TasmiSheet({
                   <div className="tasmi-sheet__field">
                     <span>Surah</span>
                     <GlassSelect
-                      ariaLabel="Pilih Surah"
+                      ariaLabel={tr("Pilih Surah", "Select Surah")}
                       value={String(selectedSurah)}
                       disabled={isBusy}
                       options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
@@ -425,7 +444,7 @@ export function TasmiSheet({
                   </div>
 
                   <label className="tasmi-sheet__field tasmi-sheet__field--num">
-                    <span>Dari ayat</span>
+                    <span>{tr("Dari ayat", "From ayah")}</span>
                     <input
                       type="number"
                       min={1}
@@ -440,7 +459,7 @@ export function TasmiSheet({
                   </label>
 
                   <label className="tasmi-sheet__field tasmi-sheet__field--num">
-                    <span>Sampai</span>
+                    <span>{tr("Sampai", "To")}</span>
                     <input
                       type="number"
                       min={1}
@@ -457,13 +476,17 @@ export function TasmiSheet({
               </div>
 
               <div className="tasmi-sheet__inline">
-                <span className="tasmi-sheet__label">Sembunyikan ayat</span>
-                <div className="app-menu__segmented" role="radiogroup" aria-label="Sembunyikan ayat">
+                <span className="tasmi-sheet__label">{tr("Sembunyikan ayat", "Hide ayahs")}</span>
+                <div
+                  className="app-menu__segmented"
+                  role="radiogroup"
+                  aria-label={tr("Sembunyikan ayat", "Hide ayahs")}
+                >
                   {(
                     [
-                      ["off", "Tidak"],
-                      ["full", "Penuh"],
-                      ["first-word", "Kata awal"],
+                      ["off", tr("Tidak", "Off")],
+                      ["full", tr("Penuh", "Full")],
+                      ["first-word", tr("Kata awal", "First word")],
                     ] as const
                   ).map(([value, label]) => {
                     const active = value === "off" ? !enableBlur : enableBlur && hifzBlurLevel === value;
@@ -495,14 +518,20 @@ export function TasmiSheet({
             <>
               <div className="tasmi-sheet__free-box">
                 <p>
-                  Aplikasi memilih 1 ayat acak lalu membacakannya. Ayat setelahnya disamarkan —
-                  lanjutkan bacaannya untuk dicek oleh Tasmi&apos;.
+                  {tr(
+                    "Aplikasi memilih 1 ayat acak lalu membacakannya. Ayat setelahnya disamarkan; lanjutkan bacaannya untuk dicek oleh Tasmi'.",
+                    "The app picks and plays one random ayah. The following ayahs are hidden; continue reciting so Tasmi' can check you.",
+                  )}
                 </p>
               </div>
 
               <div className="tasmi-sheet__section">
-                <span className="tasmi-sheet__label">Rentang uji acak</span>
-                <div className="tasmi-sheet__blur-level" role="group" aria-label="Jenis rentang uji acak">
+                <span className="tasmi-sheet__label">{tr("Rentang uji acak", "Random test range")}</span>
+                <div
+                  className="tasmi-sheet__blur-level"
+                  role="group"
+                  aria-label={tr("Jenis rentang uji acak", "Random test range type")}
+                >
                   <button
                     type="button"
                     disabled={isBusy}
@@ -510,7 +539,7 @@ export function TasmiSheet({
                     aria-pressed={randomScopeKind === "juz"}
                     onClick={() => setRandomScopeKind("juz")}
                   >
-                    Per Juz
+                    {tr("Per Juz", "By Juz")}
                   </button>
                   <button
                     type="button"
@@ -519,16 +548,16 @@ export function TasmiSheet({
                     aria-pressed={randomScopeKind === "surah"}
                     onClick={() => setRandomScopeKind("surah")}
                   >
-                    Per Surah
+                    {tr("Per Surah", "By Surah")}
                   </button>
                 </div>
 
                 {randomScopeKind === "juz" ? (
                   <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                     <div className="tasmi-sheet__field">
-                      <span>Dari Juz</span>
+                      <span>{tr("Dari Juz", "From Juz")}</span>
                       <GlassSelect
-                        ariaLabel="Dari Juz"
+                        ariaLabel={tr("Dari Juz", "From Juz")}
                         value={String(randomFromJuz)}
                         disabled={isBusy}
                         options={Array.from({ length: 30 }, (_, i) => ({
@@ -543,9 +572,9 @@ export function TasmiSheet({
                       />
                     </div>
                     <div className="tasmi-sheet__field">
-                      <span>Sampai Juz</span>
+                      <span>{tr("Sampai Juz", "To Juz")}</span>
                       <GlassSelect
-                        ariaLabel="Sampai Juz"
+                        ariaLabel={tr("Sampai Juz", "To Juz")}
                         value={String(randomToJuz)}
                         disabled={isBusy}
                         options={Array.from({ length: 30 }, (_, i) => ({
@@ -564,9 +593,9 @@ export function TasmiSheet({
                   <>
                     <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                       <div className="tasmi-sheet__field">
-                        <span>Dari Surah</span>
+                        <span>{tr("Dari Surah", "From Surah")}</span>
                         <GlassSelect
-                          ariaLabel="Dari Surah"
+                          ariaLabel={tr("Dari Surah", "From Surah")}
                           value={String(randomFromSurah)}
                           disabled={isBusy}
                           options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
@@ -581,9 +610,9 @@ export function TasmiSheet({
                         />
                       </div>
                       <div className="tasmi-sheet__field">
-                        <span>Sampai Surah</span>
+                        <span>{tr("Sampai Surah", "To Surah")}</span>
                         <GlassSelect
-                          ariaLabel="Sampai Surah"
+                          ariaLabel={tr("Sampai Surah", "To Surah")}
                           value={String(randomToSurah)}
                           disabled={isBusy}
                           options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
@@ -602,7 +631,7 @@ export function TasmiSheet({
                     {randomFromSurah === randomToSurah && (
                       <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
                         <label className="tasmi-sheet__field tasmi-sheet__field--num">
-                          <span>Dari ayat</span>
+                          <span>{tr("Dari ayat", "From ayah")}</span>
                           <input
                             type="number"
                             min={1}
@@ -613,7 +642,7 @@ export function TasmiSheet({
                           />
                         </label>
                         <label className="tasmi-sheet__field tasmi-sheet__field--num">
-                          <span>Sampai</span>
+                          <span>{tr("Sampai", "To")}</span>
                           <input
                             type="number"
                             min={1}
@@ -638,21 +667,30 @@ export function TasmiSheet({
                 onClick={() => setEnableBlur(!enableBlur)}
               >
                 <span className="tasmi-sheet__toggle-text">
-                  <strong>Sembunyikan ayat lanjutan (Hifz Blur)</strong>
-                  <small>Ayat setelah pemicu disamarkan dan terbuka saat dibaca.</small>
+                  <strong>{tr("Sembunyikan ayat lanjutan (Hifz Blur)", "Hide following ayahs (Hifz Blur)")}</strong>
+                  <small>
+                    {tr(
+                      "Ayat setelah pemicu disamarkan dan terbuka saat dibaca.",
+                      "Ayahs after the prompt stay hidden and reveal as you recite.",
+                    )}
+                  </small>
                 </span>
                 <span className={`app-menu__switch ${enableBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
               </button>
 
               {enableBlur && onChangeHifzBlurLevel && (
-                <div className="tasmi-sheet__blur-level" role="group" aria-label="Tingkat sembunyi">
+                <div
+                  className="tasmi-sheet__blur-level"
+                  role="group"
+                  aria-label={tr("Tingkat sembunyi", "Hide level")}
+                >
                   <button
                     type="button"
                     className={`app-menu__choice ${hifzBlurLevel === "full" ? "app-menu__choice--active" : ""}`}
                     aria-pressed={hifzBlurLevel === "full"}
                     onClick={() => onChangeHifzBlurLevel("full")}
                   >
-                    Sembunyi Penuh
+                    {tr("Sembunyi Penuh", "Hide Fully")}
                   </button>
                   <button
                     type="button"
@@ -660,7 +698,7 @@ export function TasmiSheet({
                     aria-pressed={hifzBlurLevel === "first-word"}
                     onClick={() => onChangeHifzBlurLevel("first-word")}
                   >
-                    Tampilkan Kata Pertama
+                    {tr("Tampilkan Kata Pertama", "Show First Word")}
                   </button>
                 </div>
               )}
@@ -668,8 +706,10 @@ export function TasmiSheet({
           ) : (
             <div className="tasmi-sheet__free-box">
               <p>
-                Mulai membaca dari ayat mana saja. Mushaf akan melacak posisi bacaan dan membalik
-                halaman secara otomatis.
+                {tr(
+                  "Mulai membaca dari ayat mana saja. Mushaf akan melacak posisi bacaan dan membalik halaman secara otomatis.",
+                  "Start reciting from any ayah. The mushaf tracks your recitation and turns pages automatically.",
+                )}
               </p>
             </div>
           )}
@@ -678,8 +718,8 @@ export function TasmiSheet({
             <div className="tasmi-sheet__progress" role="status" aria-live="polite">
               <div className="tasmi-sheet__progress-head">
                 <span>
-                  {STAGE_LABELS[loadingProgress.stage] ?? "Memuat model..."}
-                  {loadingProgress.fromCache ? " (dari cache)" : ""}
+                  {stageLabels[loadingProgress.stage] ?? tr("Memuat model...", "Loading model...")}
+                  {loadingProgress.fromCache ? tr(" (dari cache)", " (cached)") : ""}
                 </span>
                 <span>
                   {loadingProgress.total > 0
@@ -698,7 +738,7 @@ export function TasmiSheet({
                 className="tasmi-sheet__cancel-btn"
                 onClick={onCancelLoad}
               >
-                Batalkan
+                {tr("Batalkan", "Cancel")}
               </button>
             </div>
           )}
@@ -710,7 +750,10 @@ export function TasmiSheet({
           )}
 
           <p className="tasmi-sheet__disclaimer">
-            Mengecek ketepatan hafalan/kata; belum menilai tajwid atau makhraj.
+            {tr(
+              "Mengecek ketepatan hafalan/kata; belum menilai tajwid atau makhraj.",
+              "Checks memorization and word accuracy; does not evaluate tajweed or makhraj yet.",
+            )}
           </p>
         </div>
 
@@ -746,12 +789,12 @@ export function TasmiSheet({
             }}
           >
             {isBusy
-              ? "Menyiapkan..."
+              ? tr("Menyiapkan...", "Preparing...")
               : mode === "free"
-                ? "Mulai Baca Bebas"
+                ? tr("Mulai Baca Bebas", "Start Free Recite")
                 : mode === "random"
-                  ? "Mulai Uji Acak"
-                  : "Mulai Tasmi'"}
+                  ? tr("Mulai Uji Acak", "Start Random Test")
+                  : tr("Mulai Tasmi'", "Start Tasmi'")}
           </button>
         </div>
       </div>

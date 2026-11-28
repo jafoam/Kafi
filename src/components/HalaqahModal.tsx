@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { HalaqahMembership, SurahInfo } from "../data/types";
+import { useI18n } from "../i18n";
 import {
   buildHalaqahInviteUrl,
   createHalaqah,
@@ -22,9 +23,9 @@ export interface HalaqahModalProps {
   onNotify: (message: string) => void;
 }
 
-function formatShortTime(iso: string): string {
+function formatShortTime(iso: string, lang: "id" | "en" = "id"): string {
   try {
-    return new Intl.DateTimeFormat("id-ID", {
+    return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "id-ID", {
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -45,6 +46,7 @@ export function HalaqahModal({
   onRemoveMembership,
   onNotify,
 }: HalaqahModalProps) {
+  const { lang, tr } = useI18n();
   const [view, setView] = useState<"groups" | "join" | "create">("groups");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<HalaqahSnapshot | null>(null);
@@ -68,19 +70,26 @@ export function HalaqahModal({
   const activeMembership =
     halaqahs.find((h) => h.code === selectedCode) ?? halaqahs[0] ?? null;
 
-  const loadSnapshot = useCallback(async (m: HalaqahMembership) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const snap = await fetchHalaqahSnapshot(m);
-      setSnapshot(snap);
-      setEditTarget(snap.meta.target ?? "");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat data halaqah.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadSnapshot = useCallback(
+    async (m: HalaqahMembership) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const snap = await fetchHalaqahSnapshot(m);
+        setSnapshot(snap);
+        setEditTarget(snap.meta.target ?? "");
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : tr("Gagal memuat data halaqah.", "Failed to load halaqah data."),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tr],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -133,9 +142,13 @@ export function HalaqahModal({
       setGroupName("");
       setTargetInput("");
       setView("groups");
-      onNotify("Halaqah berhasil dibuat");
+      onNotify(tr("Halaqah berhasil dibuat", "Halaqah created"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal membuat halaqah.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : tr("Gagal membuat halaqah.", "Failed to create halaqah."),
+      );
     } finally {
       setLoading(false);
     }
@@ -156,9 +169,13 @@ export function HalaqahModal({
       setEditTarget(res.snapshot.meta.target ?? "");
       setJoinCode("");
       setView("groups");
-      onNotify(`Bergabung ke ${res.membership.name}`);
+      onNotify(tr(`Bergabung ke ${res.membership.name}`, `Joined ${res.membership.name}`));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal bergabung ke halaqah.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : tr("Gagal bergabung ke halaqah.", "Failed to join halaqah."),
+      );
     } finally {
       setLoading(false);
     }
@@ -171,7 +188,7 @@ export function HalaqahModal({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      setError("Gagal menyalin undangan ke clipboard.");
+      setError(tr("Gagal menyalin undangan ke clipboard.", "Failed to copy invite to clipboard."));
     }
   };
 
@@ -187,9 +204,19 @@ export function HalaqahModal({
       };
       await updateHalaqahMeta({ membership: activeMembership, meta: nextMeta });
       setSnapshot({ ...snapshot, meta: nextMeta });
-      onNotify(locked !== undefined ? (locked ? "Grup dikunci" : "Grup dibuka kembali") : "Target halaqah diperbarui");
+      onNotify(
+        locked !== undefined
+          ? locked
+            ? tr("Grup dikunci", "Group locked")
+            : tr("Grup dibuka kembali", "Group unlocked")
+          : tr("Target halaqah diperbarui", "Halaqah target updated"),
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memperbarui halaqah.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : tr("Gagal memperbarui halaqah.", "Failed to update halaqah."),
+      );
     } finally {
       setSavingMeta(false);
     }
@@ -204,7 +231,7 @@ export function HalaqahModal({
       onRemoveMembership(activeMembership.code);
       setSnapshot(null);
       setSelectedCode(null);
-      onNotify("Keluar dari halaqah");
+      onNotify(tr("Keluar dari halaqah", "Left halaqah"));
       if (halaqahs.length <= 1) setView("join");
     } finally {
       setLoading(false);
@@ -216,7 +243,7 @@ export function HalaqahModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Halaqah Tanpa Login"
+      aria-label={tr("Halaqah Tanpa Login", "Accountless Halaqah")}
       onClick={() => {
         if (!loading) onClose();
       }}
@@ -226,13 +253,16 @@ export function HalaqahModal({
           <div>
             <h2 className="tasmi-sheet__title">Halaqah</h2>
             <p className="tasmi-sheet__subtitle">
-              Tanpa login · Terenkripsi end-to-end dengan kode grup
+              {tr(
+                "Tanpa login · Terenkripsi end-to-end dengan kode grup",
+                "No account needed · End-to-end encrypted with group code",
+              )}
             </p>
           </div>
           <button
             type="button"
             className="ayah-popover__close"
-            aria-label="Tutup"
+            aria-label={tr("Tutup", "Close")}
             disabled={loading}
             onClick={onClose}
           >
@@ -252,7 +282,7 @@ export function HalaqahModal({
                 if (activeMembership) void loadSnapshot(activeMembership);
               }}
             >
-              Grupku ({halaqahs.length})
+              {tr("Grupku", "My Groups")} ({halaqahs.length})
             </button>
           )}
           <button
@@ -262,7 +292,7 @@ export function HalaqahModal({
             className={`tasmi-sheet__mode-btn ${view === "join" ? "tasmi-sheet__mode-btn--active" : ""}`}
             onClick={() => setView("join")}
           >
-            Gabung Kode
+            {tr("Gabung Kode", "Join Code")}
           </button>
           <button
             type="button"
@@ -271,7 +301,7 @@ export function HalaqahModal({
             className={`tasmi-sheet__mode-btn ${view === "create" ? "tasmi-sheet__mode-btn--active" : ""}`}
             onClick={() => setView("create")}
           >
-            Buat Baru
+            {tr("Buat Baru", "Create New")}
           </button>
         </div>
 
@@ -301,7 +331,9 @@ export function HalaqahModal({
               <div className="sync-code-box">
                 <div>
                   <div className="halaqah__group-name">{snapshot?.meta.name ?? activeMembership.name}</div>
-                  <div className="tasmi-sheet__option-scope">Kode: {activeMembership.code}</div>
+                  <div className="tasmi-sheet__option-scope">
+                    {tr("Kode:", "Code:")} {activeMembership.code}
+                  </div>
                 </div>
                 <div className="halaqah__head-actions">
                   <button
@@ -309,7 +341,7 @@ export function HalaqahModal({
                     className="tasmi-sheet__history-btn"
                     onClick={() => void handleCopyInvite(activeMembership.code)}
                   >
-                    {copied ? "Tersalin" : "Salin Link"}
+                    {copied ? tr("Tersalin", "Copied") : tr("Salin Link", "Copy Link")}
                   </button>
                   <button
                     type="button"
@@ -317,28 +349,28 @@ export function HalaqahModal({
                     disabled={loading}
                     onClick={() => void loadSnapshot(activeMembership)}
                   >
-                    {loading ? "…" : "Muat Ulang"}
+                    {loading ? "…" : tr("Muat Ulang", "Refresh")}
                   </button>
                 </div>
               </div>
 
               {snapshot?.meta.target && !activeMembership.adminSecret && (
                 <div className="tasmi-summary__schedule-note">
-                  Target pekan ini: <strong>{snapshot.meta.target}</strong>
+                  {tr("Target pekan ini:", "This week's target:")} <strong>{snapshot.meta.target}</strong>
                 </div>
               )}
 
               {activeMembership.adminSecret && snapshot && (
                 <div className="halaqah__admin-box">
                   <label className="tasmi-sheet__label" htmlFor="halaqah-target-edit">
-                    Target Halaqah (Pembina)
+                    {tr("Target Halaqah (Pembina)", "Halaqah Target (Leader)")}
                   </label>
                   <div className="halaqah__target-row">
                     <input
                       id="halaqah-target-edit"
                       type="text"
                       className="palette__input"
-                      placeholder="Mis. Al-Mulk ayat 1–15"
+                      placeholder={tr("Mis. Al-Mulk ayat 1–15", "e.g. Al-Mulk ayah 1–15")}
                       value={editTarget}
                       onChange={(e) => setEditTarget(e.target.value)}
                     />
@@ -348,7 +380,7 @@ export function HalaqahModal({
                       disabled={savingMeta}
                       onClick={() => void handleSaveMeta()}
                     >
-                      Simpan
+                      {tr("Simpan", "Save")}
                     </button>
                   </div>
                   <button
@@ -357,20 +389,29 @@ export function HalaqahModal({
                     disabled={savingMeta}
                     onClick={() => void handleSaveMeta(!snapshot.meta.locked)}
                   >
-                    {snapshot.meta.locked ? "🔓 Buka Pendaftaran Anggota" : "🔒 Kunci Grup (Tolak Anggota Baru)"}
+                    {snapshot.meta.locked
+                      ? tr("🔓 Buka Pendaftaran Anggota", "🔓 Reopen Member Registration")
+                      : tr("🔒 Kunci Grup (Tolak Anggota Baru)", "🔒 Lock Group (Block New Members)")}
                   </button>
                 </div>
               )}
 
               <div className="halaqah__section-head">
-                <span>Anggota &amp; Setoran ({snapshot?.members.length ?? 0})</span>
+                <span>
+                  {tr("Anggota & Setoran", "Members & Reports")} ({snapshot?.members.length ?? 0})
+                </span>
                 <span className="tasmi-sheet__option-scope">
-                  Kirim setoran dari Ringkasan setelah selesai Tasmi&apos;
+                  {tr(
+                    "Kirim setoran dari Ringkasan setelah selesai Tasmi'",
+                    "Send reports from Summary after finishing Tasmi'",
+                  )}
                 </span>
               </div>
 
               {loading && !snapshot ? (
-                <div className="tasmi-summary__empty">Memuat anggota halaqah…</div>
+                <div className="tasmi-summary__empty">
+                  {tr("Memuat anggota halaqah…", "Loading halaqah members…")}
+                </div>
               ) : (
                 <div className="tasmi-summary__history-list">
                   {(snapshot?.members ?? []).map((member) => {
@@ -381,17 +422,17 @@ export function HalaqahModal({
                         <div className="halaqah__member-head">
                           <strong>
                             {member.data.displayName}
-                            {isMe ? " (Saya)" : ""}
+                            {isMe ? tr(" (Saya)", " (You)") : ""}
                           </strong>
                           <span className="tasmi-sheet__option-scope">
-                            {member.data.reports.length} setoran
+                            {member.data.reports.length} {tr("setoran", "reports")}
                           </span>
                         </div>
                         {latest ? (
                           <div className="halaqah__member-report">
                             <span>
                               {surahName(latest.surah)} : {latest.fromAyah}–{latest.toAyah} ·{" "}
-                              {formatShortTime(latest.reportedAt)}
+                              {formatShortTime(latest.reportedAt, lang)}
                             </span>
                             <span
                               className={`tasmi-summary__score ${
@@ -400,11 +441,15 @@ export function HalaqahModal({
                                   : "tasmi-summary__score--warn"
                               }`}
                             >
-                              {latest.mistakes === 0 ? "Lancar" : `${latest.mistakes} catatan`}
+                              {latest.mistakes === 0
+                                ? tr("Lancar", "Smooth")
+                                : `${latest.mistakes} ${tr("catatan", "notes")}`}
                             </span>
                           </div>
                         ) : (
-                          <div className="tasmi-sheet__option-scope">Belum ada setoran Tasmi&apos;.</div>
+                          <div className="tasmi-sheet__option-scope">
+                            {tr("Belum ada setoran Tasmi'.", "No Tasmi' reports yet.")}
+                          </div>
                         )}
                       </div>
                     );
@@ -419,7 +464,7 @@ export function HalaqahModal({
                   disabled={loading}
                   onClick={() => void handleLeave()}
                 >
-                  Keluar dari Halaqah
+                  {tr("Keluar dari Halaqah", "Leave Halaqah")}
                 </button>
               </div>
             </div>
@@ -429,12 +474,14 @@ export function HalaqahModal({
             <div className="tasmi-sheet__section">
               <div className="tasmi-sheet__free-box">
                 <p>
-                  Tempel kode grup (mis. <strong>HLQ-7X4K-9M2P</strong>) atau tautan undangan dari
-                  pembina. Tidak perlu akun atau email.
+                  {tr(
+                    "Tempel kode grup (mis. HLQ-7X4K-9M2P) atau tautan undangan dari pembina. Tidak perlu akun atau email.",
+                    "Paste a group code (e.g. HLQ-7X4K-9M2P) or invite link from your leader. No account or email required.",
+                  )}
                 </p>
               </div>
               <label className="tasmi-sheet__label" htmlFor="halaqah-join-code">
-                Kode atau Link Undangan
+                {tr("Kode atau Link Undangan", "Invite Code or Link")}
               </label>
               <input
                 id="halaqah-join-code"
@@ -445,13 +492,13 @@ export function HalaqahModal({
                 onChange={(e) => setJoinCode(e.target.value)}
               />
               <label className="tasmi-sheet__label" htmlFor="halaqah-join-name">
-                Nama Tampilanmu
+                {tr("Nama Tampilanmu", "Your Display Name")}
               </label>
               <input
                 id="halaqah-join-name"
                 type="text"
                 className="palette__input"
-                placeholder="Mis. Ahmad"
+                placeholder={tr("Mis. Ahmad", "e.g. Ahmad")}
                 value={joinDisplayName}
                 onChange={(e) => setJoinDisplayName(e.target.value)}
               />
@@ -461,7 +508,7 @@ export function HalaqahModal({
                 disabled={loading}
                 onClick={() => void handleJoin()}
               >
-                {loading ? "Bergabung…" : "Gabung Halaqah"}
+                {loading ? tr("Bergabung…", "Joining…") : tr("Gabung Halaqah", "Join Halaqah")}
               </button>
             </div>
           )}
@@ -470,40 +517,42 @@ export function HalaqahModal({
             <div className="tasmi-sheet__section">
               <div className="tasmi-sheet__free-box">
                 <p>
-                  Buat ruang halaqah baru (maks. 60 anggota). Setelah dibuat, bagikan kode atau
-                  tautan undangannya ke anggota.
+                  {tr(
+                    "Buat ruang halaqah baru (maks. 60 anggota). Setelah dibuat, bagikan kode atau tautan undangannya ke anggota.",
+                    "Create a new halaqah room (up to 60 members). Once created, share the code or invite link with members.",
+                  )}
                 </p>
               </div>
               <label className="tasmi-sheet__label" htmlFor="halaqah-create-group">
-                Nama Halaqah
+                {tr("Nama Halaqah", "Halaqah Name")}
               </label>
               <input
                 id="halaqah-create-group"
                 type="text"
                 className="palette__input"
-                placeholder="Mis. Halaqah Subuh Juz 30"
+                placeholder={tr("Mis. Halaqah Subuh Juz 30", "e.g. Fajr Juz 30 Halaqah")}
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
               />
               <label className="tasmi-sheet__label" htmlFor="halaqah-create-name">
-                Nama Pembina / Tampilanmu
+                {tr("Nama Pembina / Tampilanmu", "Leader / Your Display Name")}
               </label>
               <input
                 id="halaqah-create-name"
                 type="text"
                 className="palette__input"
-                placeholder="Mis. Ust. Hasan"
+                placeholder={tr("Mis. Ust. Hasan", "e.g. Ust. Hasan")}
                 value={createDisplayName}
                 onChange={(e) => setCreateDisplayName(e.target.value)}
               />
               <label className="tasmi-sheet__label" htmlFor="halaqah-create-target">
-                Target Awal (Opsional)
+                {tr("Target Awal (Opsional)", "Initial Target (Optional)")}
               </label>
               <input
                 id="halaqah-create-target"
                 type="text"
                 className="palette__input"
-                placeholder="Mis. An-Naba 1–20 pekan ini"
+                placeholder={tr("Mis. An-Naba 1–20 pekan ini", "e.g. An-Naba 1–20 this week")}
                 value={targetInput}
                 onChange={(e) => setTargetInput(e.target.value)}
               />
@@ -513,7 +562,7 @@ export function HalaqahModal({
                 disabled={loading}
                 onClick={() => void handleCreate()}
               >
-                {loading ? "Membuat…" : "Buat Halaqah"}
+                {loading ? tr("Membuat…", "Creating…") : tr("Buat Halaqah", "Create Halaqah")}
               </button>
             </div>
           )}

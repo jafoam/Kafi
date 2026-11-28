@@ -783,9 +783,9 @@ export function FlowReader({
               ref={fontBtnRef}
               type="button"
               className={`flow-font-btn ${fontMenuOpen ? "flow-font-btn--active" : ""}`}
-              aria-label="Atur ukuran huruf"
+              aria-label={tr("Atur ukuran huruf", "Adjust font size")}
               aria-expanded={fontMenuOpen}
-              title="Atur ukuran huruf"
+              title={tr("Atur ukuran huruf", "Adjust font size")}
               onClick={() => setFontMenuOpen((v) => !v)}
             >
               Aa
@@ -793,11 +793,11 @@ export function FlowReader({
           )}
         </div>
         {fontMenuOpen && onChangeFontScale && !focusMode && (
-          <div ref={fontPopoverRef} className="flow-font-popover" role="group" aria-label="Ukuran huruf">
+          <div ref={fontPopoverRef} className="flow-font-popover" role="group" aria-label={tr("Ukuran huruf", "Font size")}>
             <button
               type="button"
               className="flow-font-stepper__btn"
-              aria-label="Perkecil huruf"
+              aria-label={tr("Perkecil huruf", "Decrease font size")}
               disabled={fontScale <= 0.85}
               onClick={() => onChangeFontScale(Math.max(0.85, Math.round((fontScale - 0.15) * 100) / 100))}
             >
@@ -807,7 +807,7 @@ export function FlowReader({
             <button
               type="button"
               className="flow-font-stepper__btn"
-              aria-label="Perbesar huruf"
+              aria-label={tr("Perbesar huruf", "Increase font size")}
               disabled={fontScale >= 1.6}
               onClick={() => onChangeFontScale(Math.min(1.6, Math.round((fontScale + 0.15) * 100) / 100))}
             >
@@ -895,7 +895,7 @@ export function FlowReader({
                 key={pageNum}
                 className={`flow-page ${pageNum <= 2 ? "flow-page--opening" : ""} ${data?.variant === "tajweed" ? "glyph-page--tajweed" : ""}`}
                 data-flow-page={pageNum}
-                aria-label={`Halaman ${pageNum}`}
+                aria-label={`${tr("Halaman", "Page")} ${pageNum}`}
               >
                 {!data ? (
                   <div className="flow-page__skeleton" aria-busy="true">
@@ -1031,10 +1031,10 @@ export function FlowReader({
                   </div>
                 )}
 
-                <footer className="flow-page-divider" aria-label={`Juz ${juz}, Halaman ${pageNum}`}>
+                <footer className="flow-page-divider" aria-label={`Juz ${juz}, ${tr("Halaman", "Page")} ${pageNum}`}>
                   <div className="flow-page-divider__meta">
                     <span>
-                      Juz {juz} · Hal. {pageNum}
+                      Juz {juz} · {tr("Hal.", "p.")} {pageNum}
                     </span>
                     <span className="flow-page-divider__num">{String(pageNum).padStart(2, "0")}</span>
                   </div>

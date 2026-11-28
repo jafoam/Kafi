@@ -384,8 +384,8 @@ export function GlyphPageBody({
                   aria-label={
                     isFirst
                       ? blurred
-                        ? `Intip Surah ${surah} Ayat ${ayahNo}`
-                        : `Surah ${surah} Ayat ${ayahNo}`
+                        ? tr(`Intip Surah ${surah} Ayat ${ayahNo}`, `Peek Surah ${surah} Ayah ${ayahNo}`)
+                        : tr(`Surah ${surah} Ayat ${ayahNo}`, `Surah ${surah} Ayah ${ayahNo}`)
                       : undefined
                   }
                   aria-hidden={isFirst ? undefined : true}

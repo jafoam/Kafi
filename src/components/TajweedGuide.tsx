@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { TAJWEED_RULES } from "../data/tajweed-rules";
+import { TAJWEED_RULES, TAJWEED_RULES_EN } from "../data/tajweed-rules";
+import { useI18n } from "../i18n";
 
 export interface TajweedGuideProps {
   onClose: () => void;
@@ -18,6 +19,8 @@ function Examples({ items }: { items?: string[] }) {
 
 /** What each color of the colored tajweed mushaf means; each rule opens to explain itself. */
 export function TajweedGuide({ onClose }: TajweedGuideProps) {
+  const { isEn, tr } = useI18n();
+  const rules = isEn ? TAJWEED_RULES_EN : TAJWEED_RULES;
   const [open, setOpen] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
@@ -36,23 +39,31 @@ export function TajweedGuide({ onClose }: TajweedGuideProps) {
     });
 
   return (
-    <div className="palette-backdrop" role="dialog" aria-modal="true" aria-label="Hukum Tajwid" onClick={onClose}>
+    <div
+      className="palette-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={tr("Hukum Tajwid", "Tajweed Rules")}
+      onClick={onClose}
+    >
       <div className="tajweed-guide" onClick={(e) => e.stopPropagation()}>
         <div className="tajweed-guide__header">
           <div>
-            <h2 className="tajweed-guide__title">Hukum Tajwid</h2>
+            <h2 className="tajweed-guide__title">{tr("Hukum Tajwid", "Tajweed Rules")}</h2>
             <p className="tajweed-guide__intro">
-              Tajwid adalah aturan melafalkan huruf Al-Qur&apos;an dengan benar. Di mushaf berwarna, warna huruf
-              menunjukkan cara membacanya.
+              {tr(
+                "Tajwid adalah aturan melafalkan huruf Al-Qur'an dengan benar. Di mushaf berwarna, warna huruf menunjukkan cara membacanya.",
+                "Tajweed is the set of rules for pronouncing Quranic letters accurately. In the color mushaf, each color marks how a letter is recited.",
+              )}
             </p>
           </div>
-          <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+          <button type="button" className="ayah-popover__close" aria-label={tr("Tutup", "Close")} onClick={onClose}>
             ×
           </button>
         </div>
 
         <ul className="tajweed-guide__list">
-          {TAJWEED_RULES.map((rule) => {
+          {rules.map((rule) => {
             const expanded = open.has(rule.id);
             const style = {
               "--tj-light": rule.colors.light,

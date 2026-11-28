@@ -132,10 +132,21 @@ export function getNextMurajaahTarget(
   return [...cards].sort((a, b) => (Date.parse(a.dueAt) || 0) - (Date.parse(b.dueAt) || 0))[0];
 }
 
-export function formatDueLabel(dueAt: string, nowMs: number = Date.now()): string {
+export function formatDueLabel(
+  dueAt: string,
+  nowMs: number = Date.now(),
+  lang: "id" | "en" = "id",
+): string {
   const dueMs = Date.parse(dueAt);
-  if (!Number.isFinite(dueMs)) return "Hari ini";
+  if (!Number.isFinite(dueMs)) return lang === "en" ? "Today" : "Hari ini";
   const diffDays = Math.round((dueMs - nowMs) / DAY_MS);
+  if (lang === "en") {
+    if (diffDays <= -2) return `${Math.abs(diffDays)} days overdue`;
+    if (diffDays === -1) return "1 day overdue";
+    if (diffDays <= 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    return `In ${diffDays} days`;
+  }
   if (diffDays <= -2) return `Terlambat ${Math.abs(diffDays)} hari`;
   if (diffDays === -1) return "Terlambat 1 hari";
   if (diffDays <= 0) return "Hari ini";

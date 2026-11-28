@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AyahKey, Catalog } from "../data/types";
+import { useI18n } from "../i18n";
 import type { RandomPool } from "../services/tasmi-logic";
 import {
   buildContinueQuestion,
@@ -26,6 +27,7 @@ export function TextQuizModal({
   onClose,
   onJumpToAyah,
 }: TextQuizModalProps) {
+  const { tr } = useI18n();
   const [mode, setMode] = useState<TextQuizMode>("continue");
   const [scopeKind, setScopeKind] = useState<"juz" | "surah">("juz");
   const [juzNum, setJuzNum] = useState<number>(Math.max(1, Math.min(30, currentJuz)));
@@ -60,18 +62,23 @@ export function TextQuizModal({
             ? buildContinueQuestion(pool, catalog, lookup, { excludePrompt: excludeKey })
             : buildOrderQuestion(pool, catalog, lookup, { excludeAyah: excludeKey });
         if (!next) {
-          setError("Rentang ini belum cukup untuk membuat soal. Coba pilih surah atau juz lain.");
+          setError(
+            tr(
+              "Rentang ini belum cukup untuk membuat soal. Coba pilih surah atau juz lain.",
+              "This range is too small to build a question. Try another surah or juz.",
+            ),
+          );
           setQuestion(null);
         } else {
           setQuestion(next);
         }
       } catch {
-        setError("Gagal memuat teks ayat untuk kuis.");
+        setError(tr("Gagal memuat teks ayat untuk kuis.", "Failed to load ayah text for the quiz."));
       } finally {
         setLoading(false);
       }
     },
-    [ensureWordLookup, buildPool, mode, catalog],
+    [ensureWordLookup, buildPool, mode, catalog, tr],
   );
 
   useEffect(() => {
@@ -143,23 +150,28 @@ export function TextQuizModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Kuis Teks Hafalan Offline"
+      aria-label={tr("Kuis Teks Hafalan Offline", "Offline Memorization Text Quiz")}
       onClick={onClose}
     >
       <div className="tasmi-summary" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Kuis Teks Hafalan</h2>
+            <h2 className="tasmi-sheet__title">{tr("Kuis Teks Hafalan", "Memorization Text Quiz")}</h2>
             <p className="tasmi-sheet__subtitle">
-              Mode senyap 100% offline · Skor {score.correct}/{score.total}
+              {tr("Mode senyap 100% offline · Skor", "100% offline silent mode · Score")} {score.correct}/{score.total}
             </p>
           </div>
-          <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+          <button
+            type="button"
+            className="ayah-popover__close"
+            aria-label={tr("Tutup", "Close")}
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
 
-        <div className="tasmi-sheet__modes" role="tablist" aria-label="Jenis kuis">
+        <div className="tasmi-sheet__modes" role="tablist" aria-label={tr("Jenis kuis", "Quiz type")}>
           <button
             type="button"
             role="tab"
@@ -167,7 +179,7 @@ export function TextQuizModal({
             className={`tasmi-sheet__mode-btn ${mode === "continue" ? "tasmi-sheet__mode-btn--active" : ""}`}
             onClick={() => setMode("continue")}
           >
-            Sambung Ayat
+            {tr("Sambung Ayat", "Continue Ayah")}
           </button>
           <button
             type="button"
@@ -176,31 +188,31 @@ export function TextQuizModal({
             className={`tasmi-sheet__mode-btn ${mode === "order" ? "tasmi-sheet__mode-btn--active" : ""}`}
             onClick={() => setMode("order")}
           >
-            Urutkan Ayat
+            {tr("Urutkan Ayat", "Order Ayah")}
           </button>
         </div>
 
         <div className="tasmi-summary__body">
           <div className="quiz__scope-row">
             <GlassSelect
-              ariaLabel="Cakupan kuis"
+              ariaLabel={tr("Cakupan kuis", "Quiz scope")}
               value={scopeKind}
               options={[
-                { value: "juz", label: "Per Juz" },
-                { value: "surah", label: "Per Surah" },
+                { value: "juz", label: tr("Per Juz", "By Juz") },
+                { value: "surah", label: tr("Per Surah", "By Surah") },
               ]}
               onChange={(val) => setScopeKind(val as "juz" | "surah")}
             />
             {scopeKind === "juz" ? (
               <GlassSelect
-                ariaLabel="Pilih Juz"
+                ariaLabel={tr("Pilih Juz", "Select Juz")}
                 value={String(juzNum)}
                 options={juzOptions}
                 onChange={(val) => setJuzNum(Number(val))}
               />
             ) : (
               <GlassSelect
-                ariaLabel="Pilih Surah"
+                ariaLabel={tr("Pilih Surah", "Select Surah")}
                 value={String(surahNum)}
                 options={surahOptions}
                 onChange={(val) => setSurahNum(Number(val))}
@@ -208,13 +220,13 @@ export function TextQuizModal({
             )}
           </div>
 
-          {loading && <div className="tasmi-summary__empty">Menyiapkan soal…</div>}
+          {loading && <div className="tasmi-summary__empty">{tr("Menyiapkan soal…", "Preparing question…")}</div>}
           {error && <div className="tasmi-sheet__error">{error}</div>}
 
           {!loading && question?.kind === "continue" && (
             <div className="quiz__card">
               <div className="quiz__prompt-label">
-                Lanjutan dari {question.promptSurahName} : {question.promptAyahNum}
+                {tr("Lanjutan dari", "Continuation of")} {question.promptSurahName} : {question.promptAyahNum}
               </div>
               <div className="quiz__prompt-arabic" dir="rtl" lang="ar">
                 {question.promptText}
@@ -246,7 +258,10 @@ export function TextQuizModal({
           {!loading && question?.kind === "order" && (
             <div className="quiz__card">
               <div className="quiz__prompt-label">
-                Susun potongan {question.surahName} : {question.ayahNum} sesuai urutan
+                {tr(
+                  `Susun potongan ${question.surahName} : ${question.ayahNum} sesuai urutan`,
+                  `Arrange parts of ${question.surahName} : ${question.ayahNum} in order`,
+                )}
               </div>
 
               <div
@@ -262,7 +277,10 @@ export function TextQuizModal({
               >
                 {pickedOrder.length === 0 ? (
                   <span className="quiz__placeholder" dir="ltr">
-                    Ketuk potongan di bawah dari awal sampai akhir ayat…
+                    {tr(
+                      "Ketuk potongan di bawah dari awal sampai akhir ayat…",
+                      "Tap the fragments below from start to end of the ayah…",
+                    )}
                   </span>
                 ) : (
                   pickedOrder.map((id) => {
@@ -316,14 +334,14 @@ export function TextQuizModal({
                   onClose();
                 }}
               >
-                Buka di Mushaf
+                {tr("Buka di Mushaf", "Open in Mushaf")}
               </button>
               <button
                 type="button"
                 className="tasmi-sheet__start-btn"
                 onClick={() => void loadNextQuestion(currentAyahKey)}
               >
-                Soal Berikutnya →
+                {tr("Soal Berikutnya →", "Next Question →")}
               </button>
             </div>
           )}

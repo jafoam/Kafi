@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AyahKey, ReciterInfo } from "../data/types";
+import { useI18n } from "../i18n";
 import type { QuranApi } from "../services/quran-api";
 
 export interface CompareAudioModalProps {
@@ -23,6 +24,7 @@ export function CompareAudioModal({
   getArabicText,
   onClose,
 }: CompareAudioModalProps) {
+  const { tr } = useI18n();
   const [arabicText, setArabicText] = useState("");
   const [recording, setRecording] = useState(false);
   const [recSec, setRecSec] = useState(0);
@@ -134,7 +136,7 @@ export function CompareAudioModal({
       };
       audio.onerror = () => {
         cleanup();
-        reject(new Error("Gagal memutar audio."));
+        reject(new Error(tr("Gagal memutar audio.", "Failed to play audio.")));
       };
       void audio.play().catch((err) => {
         cleanup();
@@ -150,7 +152,12 @@ export function CompareAudioModal({
     }
     stopPlayback();
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setError("Browser ini belum mendukung perekaman mikrofon (MediaRecorder).");
+      setError(
+        tr(
+          "Browser ini belum mendukung perekaman mikrofon (MediaRecorder).",
+          "This browser does not support microphone recording (MediaRecorder).",
+        ),
+      );
       return;
     }
     try {
@@ -176,7 +183,12 @@ export function CompareAudioModal({
       setRecSec(0);
       timerRef.current = window.setInterval(() => setRecSec((s) => s + 1), 1000);
     } catch {
-      setError("Izin mikrofon ditolak atau mikrofon tidak tersedia.");
+      setError(
+        tr(
+          "Izin mikrofon ditolak atau mikrofon tidak tersedia.",
+          "Microphone permission denied or microphone unavailable.",
+        ),
+      );
       stopRecording();
     }
   };
@@ -197,7 +209,7 @@ export function CompareAudioModal({
       if (!abort.signal.aborted) await playUrl(url, abort.signal);
     } catch (err) {
       if (!abort.signal.aborted) {
-        setError(err instanceof Error ? err.message : "Gagal memuat audio qari.");
+        setError(err instanceof Error ? err.message : tr("Gagal memuat audio qari.", "Failed to load reciter audio."));
       }
     } finally {
       if (playAbortRef.current === abort) setPlayMode("idle");
@@ -220,7 +232,7 @@ export function CompareAudioModal({
       await playUrl(userAudioUrl, abort.signal);
     } catch (err) {
       if (!abort.signal.aborted) {
-        setError(err instanceof Error ? err.message : "Gagal memutar rekaman.");
+        setError(err instanceof Error ? err.message : tr("Gagal memutar rekaman.", "Failed to play recording."));
       }
     } finally {
       if (playAbortRef.current === abort) setPlayMode("idle");
@@ -248,7 +260,11 @@ export function CompareAudioModal({
       await playUrl(userAudioUrl, abort.signal);
     } catch (err) {
       if (!abort.signal.aborted) {
-        setError(err instanceof Error ? err.message : "Gagal memutar perbandingan A/B.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : tr("Gagal memutar perbandingan A/B.", "Failed to play A/B comparison."),
+        );
       }
     } finally {
       if (playAbortRef.current === abort) setPlayMode("idle");
@@ -260,18 +276,18 @@ export function CompareAudioModal({
       className="palette-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Rekam & Bandingkan Suara dengan Qari"
+      aria-label={tr("Rekam & Bandingkan Suara dengan Qari", "Record & Compare Voice with Reciter")}
       onClick={onClose}
     >
       <div className="tasmi-sheet" onClick={(e) => e.stopPropagation()}>
         <div className="tasmi-sheet__header">
           <div>
-            <h2 className="tasmi-sheet__title">Rekam &amp; Bandingkan</h2>
+            <h2 className="tasmi-sheet__title">{tr("Rekam & Bandingkan", "Record & Compare")}</h2>
             <p className="tasmi-sheet__subtitle">
-              {surahName} : {ayahNum} · Qari: {reciter.name} (lokal di perangkat)
+              {surahName} : {ayahNum} · {tr("Qari:", "Reciter:")} {reciter.name} ({tr("lokal di perangkat", "on-device only")})
             </p>
           </div>
-          <button type="button" className="ayah-popover__close" aria-label="Tutup" onClick={onClose}>
+          <button type="button" className="ayah-popover__close" aria-label={tr("Tutup", "Close")} onClick={onClose}>
             ×
           </button>
         </div>
@@ -289,7 +305,9 @@ export function CompareAudioModal({
               className={`tasmi-sheet__start-btn ${recording ? "compare-audio__rec--active" : ""}`}
               onClick={() => void handleToggleRecord()}
             >
-              {recording ? `■ Stop Rekam (${recSec} dtk)` : "● Rekam Suaraku"}
+              {recording
+                ? tr(`■ Stop Rekam (${recSec} dtk)`, `■ Stop Recording (${recSec}s)`)
+                : tr("● Rekam Suaraku", "● Record My Voice")}
             </button>
 
             <div className="compare-audio__row">
@@ -300,7 +318,7 @@ export function CompareAudioModal({
                 }`}
                 onClick={() => void handlePlayQari()}
               >
-                {playMode === "qari" ? "■ Stop Qari" : "▶ Suara Qari"}
+                {playMode === "qari" ? tr("■ Stop Qari", "■ Stop Reciter") : tr("▶ Suara Qari", "▶ Reciter")}
               </button>
               <button
                 type="button"
@@ -310,7 +328,7 @@ export function CompareAudioModal({
                 disabled={!userAudioUrl}
                 onClick={() => void handlePlayUser()}
               >
-                {playMode === "user" ? "■ Stop Rekamanku" : "▶ Rekamanku"}
+                {playMode === "user" ? tr("■ Stop Rekamanku", "■ Stop Recording") : tr("▶ Rekamanku", "▶ My Recording")}
               </button>
             </div>
 
@@ -321,16 +339,19 @@ export function CompareAudioModal({
               onClick={() => void handlePlayCompareAB()}
             >
               {playMode === "ab-qari"
-                ? "Memutar Qari… (1/2)"
+                ? tr("Memutar Qari… (1/2)", "Playing Reciter… (1/2)")
                 : playMode === "ab-user"
-                  ? "Memutar Rekamanku… (2/2)"
-                  : "⇄ Putar Bergantian (Qari → Saya)"}
+                  ? tr("Memutar Rekamanku… (2/2)", "Playing My Recording… (2/2)")
+                  : tr("⇄ Putar Bergantian (Qari → Saya)", "⇄ Play Back-to-Back (Reciter → Me)")}
             </button>
           </div>
 
           {error && <div className="tasmi-sheet__error">{error}</div>}
           <p className="tasmi-sheet__option-scope">
-            Rekaman hanya disimpan sementara di memori perangkat dan dihapus otomatis saat jendela ditutup.
+            {tr(
+              "Rekaman hanya disimpan sementara di memori perangkat dan dihapus otomatis saat jendela ditutup.",
+              "Recordings are kept temporarily in device memory and cleared automatically when you close this window.",
+            )}
           </p>
         </div>
       </div>
