@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { GlassSelect } from "./GlassSelect";
 import type { LoadProgress } from "@tilawa/core";
 import type {
   AyahKey,
@@ -378,27 +379,23 @@ export function TasmiSheet({
                   )}
                 </div>
                 <div className="tasmi-sheet__range-row">
-                  <label className="tasmi-sheet__field">
+                  <div className="tasmi-sheet__field">
                     <span>Surah</span>
-                    <select
-                      value={selectedSurah}
+                    <GlassSelect
+                      ariaLabel="Pilih Surah"
+                      value={String(selectedSurah)}
                       disabled={isBusy}
-                      onChange={(e) => {
-                        const s = Number(e.target.value);
+                      options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
+                      onChange={(val) => {
+                        const s = Number(val);
                         const info = surahByNum.get(s);
                         setSelectedOptionId("custom");
                         setSelectedSurah(s);
                         setFromAyah(1);
                         setToAyah(info?.ayahs ?? 1);
                       }}
-                    >
-                      {surahs.map((s) => (
-                        <option key={s.number} value={s.number}>
-                          {s.number}. {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
 
                   <label className="tasmi-sheet__field tasmi-sheet__field--num">
                     <span>Dari ayat</span>
@@ -501,88 +498,78 @@ export function TasmiSheet({
 
                 {randomScopeKind === "juz" ? (
                   <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
-                    <label className="tasmi-sheet__field">
+                    <div className="tasmi-sheet__field">
                       <span>Dari Juz</span>
-                      <select
-                        value={randomFromJuz}
+                      <GlassSelect
+                        ariaLabel="Dari Juz"
+                        value={String(randomFromJuz)}
                         disabled={isBusy}
-                        onChange={(e) => {
-                          const j = Number(e.target.value);
+                        options={Array.from({ length: 30 }, (_, i) => ({
+                          value: String(i + 1),
+                          label: `Juz ${i + 1}`,
+                        }))}
+                        onChange={(val) => {
+                          const j = Number(val);
                           setRandomFromJuz(j);
                           if (j > randomToJuz) setRandomToJuz(j);
                         }}
-                      >
-                        {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                          <option key={j} value={j}>
-                            Juz {j}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="tasmi-sheet__field">
+                      />
+                    </div>
+                    <div className="tasmi-sheet__field">
                       <span>Sampai Juz</span>
-                      <select
-                        value={randomToJuz}
+                      <GlassSelect
+                        ariaLabel="Sampai Juz"
+                        value={String(randomToJuz)}
                         disabled={isBusy}
-                        onChange={(e) => {
-                          const j = Number(e.target.value);
+                        options={Array.from({ length: 30 }, (_, i) => ({
+                          value: String(i + 1),
+                          label: `Juz ${i + 1}`,
+                        }))}
+                        onChange={(val) => {
+                          const j = Number(val);
                           setRandomToJuz(j);
                           if (j < randomFromJuz) setRandomFromJuz(j);
                         }}
-                      >
-                        {Array.from({ length: 30 }, (_, i) => i + 1).map((j) => (
-                          <option key={j} value={j}>
-                            Juz {j}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      />
+                    </div>
                   </div>
                 ) : (
                   <>
                     <div className="tasmi-sheet__range-row tasmi-sheet__range-row--equal">
-                      <label className="tasmi-sheet__field">
+                      <div className="tasmi-sheet__field">
                         <span>Dari Surah</span>
-                        <select
-                          value={randomFromSurah}
+                        <GlassSelect
+                          ariaLabel="Dari Surah"
+                          value={String(randomFromSurah)}
                           disabled={isBusy}
-                          onChange={(e) => {
-                            const s = Number(e.target.value);
+                          options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
+                          onChange={(val) => {
+                            const s = Number(val);
                             setRandomFromSurah(s);
                             if (s > randomToSurah) setRandomToSurah(s);
                             const info = surahByNum.get(s);
                             setRandomFromAyah(1);
                             setRandomToAyah(info?.ayahs ?? 1);
                           }}
-                        >
-                          {surahs.map((s) => (
-                            <option key={s.number} value={s.number}>
-                              {s.number}. {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="tasmi-sheet__field">
+                        />
+                      </div>
+                      <div className="tasmi-sheet__field">
                         <span>Sampai Surah</span>
-                        <select
-                          value={randomToSurah}
+                        <GlassSelect
+                          ariaLabel="Sampai Surah"
+                          value={String(randomToSurah)}
                           disabled={isBusy}
-                          onChange={(e) => {
-                            const s = Number(e.target.value);
+                          options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
+                          onChange={(val) => {
+                            const s = Number(val);
                             setRandomToSurah(s);
                             if (s < randomFromSurah) setRandomFromSurah(s);
                             const info = surahByNum.get(s);
                             setRandomFromAyah(1);
                             setRandomToAyah(info?.ayahs ?? 1);
                           }}
-                        >
-                          {surahs.map((s) => (
-                            <option key={s.number} value={s.number}>
-                              {s.number}. {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        />
+                      </div>
                     </div>
 
                     {randomFromSurah === randomToSurah && (
@@ -615,18 +602,20 @@ export function TasmiSheet({
                 )}
               </div>
 
-              <label className="tasmi-sheet__toggle">
-                <input
-                  type="checkbox"
-                  checked={enableBlur}
-                  disabled={isBusy}
-                  onChange={(e) => setEnableBlur(e.target.checked)}
-                />
-                <span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enableBlur}
+                disabled={isBusy}
+                className="tasmi-sheet__toggle"
+                onClick={() => setEnableBlur(!enableBlur)}
+              >
+                <span className="tasmi-sheet__toggle-text">
                   <strong>Sembunyikan ayat lanjutan (Hifz Blur)</strong>
                   <small>Ayat setelah pemicu disamarkan dan terbuka saat dibaca.</small>
                 </span>
-              </label>
+                <span className={`app-menu__switch ${enableBlur ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+              </button>
 
               {enableBlur && onChangeHifzBlurLevel && (
                 <div className="tasmi-sheet__blur-level" role="group" aria-label="Tingkat sembunyi">

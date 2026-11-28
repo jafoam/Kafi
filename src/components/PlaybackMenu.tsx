@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GlassSelect } from "./GlassSelect";
 import type { AyahKey, SurahInfo } from "../data/types";
 import type { PlaybackScope, PlaybackScopeKind, RepeatCount } from "../services/audio-controller";
 import { customRange } from "../services/playback-ranges";
@@ -119,7 +120,10 @@ export function PlaybackMenu({
     <>
       <button type="button" className="playback-menu__backdrop" aria-label="Tutup mode putar" onClick={onClose} />
       <div className="playback-menu" role="dialog" aria-label="Mode putar">
-        <div className="playback-menu__title">Mode putar</div>
+        <div className="playback-menu__header">
+          <div className="playback-menu__title">Mode putar</div>
+          <p className="playback-menu__hint">{describe(scope, surahName)}</p>
+        </div>
 
         <div className="playback-menu__options" role="radiogroup" aria-label="Cakupan putar">
           {SCOPE_OPTIONS.map((option) => (
@@ -139,23 +143,19 @@ export function PlaybackMenu({
         {scope.kind === "custom" && (
           <div className="playback-menu__range">
             {surahs && surahs.length > 0 && (
-              <label className="playback-menu__surah-field">
+              <div className="playback-menu__surah-field">
                 <span>Surah</span>
-                <select
-                  value={rangeSurah}
-                  onChange={(e) => {
-                    const nextS = Number(e.target.value);
+                <GlassSelect
+                  ariaLabel="Pilih Surah"
+                  value={String(rangeSurah)}
+                  options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
+                  onChange={(val) => {
+                    const nextS = Number(val);
                     const max = surahs.find((s) => s.number === nextS)?.ayahs ?? 1;
                     updateRange(nextS, "1", String(max));
                   }}
-                >
-                  {surahs.map((s) => (
-                    <option key={s.number} value={s.number}>
-                      {s.number}. {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                />
+              </div>
             )}
             <label>
               <span>Dari ayat</span>
@@ -185,54 +185,79 @@ export function PlaybackMenu({
           </div>
         )}
 
-        <label className={`playback-menu__loop ${scope.kind === "continue" ? "playback-menu__loop--disabled" : ""}`}>
-          <input
-            type="checkbox"
-            checked={scope.loop}
-            disabled={scope.kind === "continue"}
-            onChange={(e) => onChange({ ...scope, loop: e.target.checked })}
-          />
-          <span>Ulang terus-menerus</span>
-        </label>
+        <div className="playback-menu__divider" role="separator" />
 
         <div className="playback-menu__toggles">
           <button
             type="button"
-            className={`playback-menu__option ${repeatCount !== 1 ? "playback-menu__option--active" : ""}`}
+            className={`playback-menu__stat-btn ${repeatCount !== 1 ? "playback-menu__option--active" : ""}`}
             onClick={onCycleRepeat}
           >
-            Ulang ayat: {repeatCount === Infinity ? "∞" : `${repeatCount}×`}
+            <span className="playback-menu__stat-label">Ulang ayat</span>
+            <span className="playback-menu__stat-val">{repeatCount === Infinity ? "∞" : `${repeatCount}×`}</span>
           </button>
           <button
             type="button"
-            className={`playback-menu__option ${speed !== 1 ? "playback-menu__option--active" : ""}`}
+            className={`playback-menu__stat-btn ${speed !== 1 ? "playback-menu__option--active" : ""}`}
             onClick={onCycleSpeed}
           >
-            Kecepatan: {speed}×
+            <span className="playback-menu__stat-label">Kecepatan</span>
+            <span className="playback-menu__stat-val">{speed}×</span>
           </button>
         </div>
 
-        <label className="playback-menu__loop">
-          <input
-            type="checkbox"
-            checked={talaqqi}
-            onChange={(e) => onToggleTalaqqi(e.target.checked)}
-          />
-          <span>Mode Talaqqi (jeda setelah ayat untuk menirukan)</span>
-        </label>
+        <div className="playback-menu__divider" role="separator" />
 
-        {onToggleWordAudioHighlight && (
-          <label className="playback-menu__loop">
-            <input
-              type="checkbox"
-              checked={wordAudioHighlight}
-              onChange={(e) => onToggleWordAudioHighlight(e.target.checked)}
-            />
-            <span>Sorot per kata saat murottal diputar</span>
-          </label>
-        )}
+        <div className="playback-menu__switches">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={scope.loop}
+            disabled={scope.kind === "continue"}
+            className={`playback-menu__switch-row ${scope.kind === "continue" ? "playback-menu__switch-row--disabled" : ""}`}
+            onClick={() => onChange({ ...scope, loop: !scope.loop })}
+          >
+            <span className="playback-menu__switch-text">
+              <span className="playback-menu__switch-title">Ulang terus-menerus</span>
+              <span className="playback-menu__switch-sub">
+                {scope.kind === "continue"
+                  ? "Pilih Surah, Halaman, Juz, atau Rentang dulu"
+                  : "Putar ulang cakupan tanpa henti"}
+              </span>
+            </span>
+            <span className={`app-menu__switch ${scope.loop ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+          </button>
 
-        <p className="playback-menu__hint">{describe(scope, surahName)}</p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={talaqqi}
+            className="playback-menu__switch-row"
+            onClick={() => onToggleTalaqqi(!talaqqi)}
+          >
+            <span className="playback-menu__switch-text">
+              <span className="playback-menu__switch-title">Mode Talaqqi</span>
+              <span className="playback-menu__switch-sub">Jeda setelah tiap ayat untuk menirukan</span>
+            </span>
+            <span className={`app-menu__switch ${talaqqi ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+          </button>
+
+          {onToggleWordAudioHighlight && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={wordAudioHighlight}
+              className="playback-menu__switch-row"
+              onClick={() => onToggleWordAudioHighlight(!wordAudioHighlight)}
+            >
+              <span className="playback-menu__switch-text">
+                <span className="playback-menu__switch-title">Sorot per kata</span>
+                <span className="playback-menu__switch-sub">Tandai kata saat murottal diputar</span>
+              </span>
+              <span className={`app-menu__switch ${wordAudioHighlight ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

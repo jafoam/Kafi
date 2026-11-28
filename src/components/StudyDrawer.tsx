@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { GlassSelect } from "./GlassSelect";
 import type {
   AyahKey,
   HighlightColor,
@@ -286,18 +287,13 @@ export function StudyDrawer({
         {tab === "terjemahan" && (
           <div className="study-drawer__pane">
             <div className="study-drawer__toolbar">
-              <select
+              <GlassSelect
                 className="study-drawer__select"
-                aria-label="Pilih Terjemahan"
-                value={translationId}
-                onChange={(e) => onChangeTranslation(Number(e.target.value))}
-              >
-                {translations.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                ariaLabel="Pilih Terjemahan"
+                value={String(translationId)}
+                options={translations.map((t) => ({ value: String(t.id), label: t.name }))}
+                onChange={(val) => onChangeTranslation(Number(val))}
+              />
               <div className="study-drawer__toolbar-meta">
                 {translationState.status === "ready" ? (
                   <span
@@ -361,18 +357,13 @@ export function StudyDrawer({
         {tab === "tafsir" && (
           <div className="study-drawer__pane">
             <div className="study-drawer__toolbar">
-              <select
+              <GlassSelect
                 className="study-drawer__select"
-                aria-label="Pilih Tafsir"
+                ariaLabel="Pilih Tafsir"
                 value={tafsirId}
-                onChange={(e) => onChangeTafsir(e.target.value)}
-              >
-                {tafsirs.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                options={tafsirs.map((t) => ({ value: t.id, label: t.name }))}
+                onChange={onChangeTafsir}
+              />
               <div className="study-drawer__toolbar-meta">
                 {tafsirState.status === "ready" ? (
                   <span

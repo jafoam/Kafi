@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GlassSelect } from "./GlassSelect";
 import type { LoadProgress } from "@tilawa/core";
 import type { ReciterInfo, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
 import type { TilawaModelStorage } from "../platform/types";
@@ -508,16 +509,16 @@ export function AudioDownloadsPanel({
           {tab === "audio" && (
             <>
           <section className="dl-panel__section">
-            <label className="dl-panel__field">
+            <div className="dl-panel__field">
               <span>Qari</span>
-              <select value={reciterId} onChange={(e) => onChangeReciter(e.target.value)} disabled={busy}>
-                {reciters.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <GlassSelect
+                ariaLabel="Pilih Qari"
+                value={reciterId}
+                disabled={busy}
+                options={reciters.map((r) => ({ value: r.id, label: r.name }))}
+                onChange={onChangeReciter}
+              />
+            </div>
 
             <p className="dl-panel__summary">
               {status ? (
@@ -536,10 +537,16 @@ export function AudioDownloadsPanel({
               )}
             </p>
 
-            <label className="dl-panel__check">
-              <input type="checkbox" checked={wifiOnly} onChange={(e) => downloads.setWifiOnly(e.target.checked)} />
+            <button
+              type="button"
+              role="switch"
+              aria-checked={wifiOnly}
+              className="dl-panel__check"
+              onClick={() => downloads.setWifiOnly(!wifiOnly)}
+            >
               <span>Hanya unduh lewat Wi-Fi</span>
-            </label>
+              <span className={`app-menu__switch ${wifiOnly ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+            </button>
           </section>
 
           {segmentDownloads && (

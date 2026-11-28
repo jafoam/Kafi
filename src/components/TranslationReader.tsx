@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { GlassSelect } from "./GlassSelect";
 import type { AyahKey, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
 import type { QuranApi } from "../services/quran-api";
@@ -356,30 +357,34 @@ function ReaderBody({
 
       {settingsOpen && (
         <div className="reader__settings">
-          <label className="reader__setting">
+          <div className="reader__setting">
             <span>Terjemahan</span>
-            <select value={translationId} onChange={(e) => onChangeTranslation(Number(e.target.value))}>
-              {translations.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="reader__setting">
+            <GlassSelect
+              ariaLabel="Pilih Terjemahan"
+              value={String(translationId)}
+              options={translations.map((t) => ({ value: String(t.id), label: t.name }))}
+              onChange={(val) => onChangeTranslation(Number(val))}
+            />
+          </div>
+          <div className="reader__setting">
             <span>Tafsir</span>
-            <select value={tafsirId} onChange={(e) => onChangeTafsir(e.target.value)}>
-              {tafsirs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="reader__setting reader__setting--check">
-            <input type="checkbox" checked={prefs.arabic} onChange={(e) => updatePrefs({ arabic: e.target.checked })} />
+            <GlassSelect
+              ariaLabel="Pilih Tafsir"
+              value={tafsirId}
+              options={tafsirs.map((t) => ({ value: t.id, label: t.name }))}
+              onChange={onChangeTafsir}
+            />
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={prefs.arabic}
+            className="reader__setting reader__setting--check"
+            onClick={() => updatePrefs({ arabic: !prefs.arabic })}
+          >
             <span>Tampilkan teks Arab</span>
-          </label>
+            <span className={`app-menu__switch ${prefs.arabic ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+          </button>
         </div>
       )}
 
