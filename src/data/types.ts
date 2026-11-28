@@ -87,6 +87,12 @@ export type ThemeMode = "light" | "sepia" | "dark";
  */
 export type PageNavMode = "swipe" | "scroll" | "scroll-page";
 
+/**
+ * How the Quran is presented on screen: the classic 15-line Madinah mushaf page, verse-by-verse
+ * with translation, or continuous flowing Arabic reading text with page dividers.
+ */
+export type ReadingMode = "mushaf" | "translation" | "reading";
+
 export type HifzBlurLevel = "full" | "first-word";
 
 /**
@@ -112,6 +118,9 @@ export interface AppSettings {
   letterStyle: LetterStyle;
   mistakeSound: boolean;
   pageNav: PageNavMode;
+  readingMode: ReadingMode;
+  /** Font scale multiplier (0.85..1.6) used only in Translation and Reading modes. */
+  flowFontScale: number;
 }
 
 export interface MistakeBadge {

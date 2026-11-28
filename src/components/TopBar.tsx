@@ -1,7 +1,46 @@
 import { useEffect, useState } from "react";
 import { useBackClose } from "../state/useBackClose";
-import type { HifzBlurLevel, LetterStyle, PageNavMode, SpreadMode, ThemeMode } from "../data/types";
+import { SOURCE_CODE_URL } from "../data/acknowledgements";
+import type { HifzBlurLevel, LetterStyle, PageNavMode, ReadingMode, SpreadMode, ThemeMode } from "../data/types";
 import type { PwaInstall } from "../state/usePwaInstall";
+
+const RELEASES_URL = `${SOURCE_CODE_URL}/releases/latest`;
+const RELEASES_API_URL = "https://api.github.com/repos/jafoam/Kafi/releases/latest";
+
+interface DirectAsset {
+  label: string;
+  url: string;
+  kind: "android" | "mac" | "windows" | "linux";
+}
+
+interface LatestReleaseInfo {
+  tag: string;
+  assets: DirectAsset[];
+}
+
+let cachedReleasePromise: Promise<LatestReleaseInfo | null> | null = null;
+
+function fetchLatestRelease(): Promise<LatestReleaseInfo | null> {
+  if (!cachedReleasePromise) {
+    cachedReleasePromise = fetch(RELEASES_API_URL, { headers: { Accept: "application/vnd.github+json" } })
+      .then((res) => (res.ok ? (res.json() as Promise<{ tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string }> }>) : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.assets)) return null;
+        const assets: DirectAsset[] = [];
+        const pick = (kind: DirectAsset["kind"], label: string, re: RegExp) => {
+          const found = data.assets!.find((a) => typeof a.name === "string" && re.test(a.name) && typeof a.browser_download_url === "string");
+          if (found?.browser_download_url) assets.push({ kind, label, url: found.browser_download_url });
+        };
+        pick("android", "Unduh Android (.apk)", /\.apk$/i);
+        pick("mac", "Unduh macOS (.dmg)", /\.dmg$/i);
+        pick("windows", "Unduh Windows (.exe)", /\.(exe|msi)$/i);
+        pick("linux", "Unduh Linux", /\.(AppImage|deb)$/i);
+        return assets.length > 0 ? { tag: data.tag_name ?? "", assets } : null;
+      })
+      .catch(() => null);
+  }
+  return cachedReleasePromise;
+}
 
 export interface TopBarProps {
   surahLabel: string;
@@ -9,6 +48,8 @@ export interface TopBarProps {
   pageLabel: string;
   spreadMode: SpreadMode;
   pageNav: PageNavMode;
+  readingMode?: ReadingMode;
+  flowFontScale?: number;
   hifzBlur: boolean;
   hifzBlurLevel?: HifzBlurLevel;
   focusMode: boolean;
@@ -22,6 +63,8 @@ export interface TopBarProps {
   onOpenPalette: (tab?: "surah" | "search") => void;
   onChangeSpreadMode: (mode: SpreadMode) => void;
   onChangePageNav: (mode: PageNavMode) => void;
+  onChangeReadingMode?: (mode: ReadingMode) => void;
+  onChangeFlowFontScale?: (scale: number) => void;
   onToggleHifzBlur: () => void;
   onChangeHifzBlurLevel?: (level: HifzBlurLevel) => void;
   onToggleFocusMode: () => void;
@@ -48,13 +91,19 @@ const SPREAD_OPTIONS: { value: SpreadMode; label: string }[] = [
 const PAGE_NAV_OPTIONS: { value: PageNavMode; label: string }[] = [
   { value: "swipe", label: "Geser" },
   { value: "scroll", label: "Gulir" },
-  { value: "scroll-page", label: "Per halaman" },
+  { value: "scroll-page", label: "Per hal." },
+];
+
+const READING_MODE_OPTIONS: { value: ReadingMode; label: string }[] = [
+  { value: "mushaf", label: "Mushaf" },
+  { value: "translation", label: "Terjemahan" },
+  { value: "reading", label: "Bacaan" },
 ];
 
 /** Both keep the same pages and lines; only the calligraphy changes. */
 const LETTER_STYLE_OPTIONS: { value: LetterStyle; label: string }[] = [
-  { value: "1405", label: "Madinah 1405" },
-  { value: "1441", label: "Madinah 1441" },
+  { value: "1405", label: "1405" },
+  { value: "1441", label: "1441" },
 ];
 
 const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
@@ -69,6 +118,8 @@ export function TopBar({
   pageLabel,
   spreadMode,
   pageNav,
+  readingMode = "mushaf",
+  flowFontScale = 1,
   hifzBlur,
   hifzBlurLevel = "full",
   focusMode,
@@ -81,6 +132,8 @@ export function TopBar({
   onOpenPalette,
   onChangeSpreadMode,
   onChangePageNav,
+  onChangeReadingMode,
+  onChangeFlowFontScale,
   onToggleHifzBlur,
   onChangeHifzBlurLevel,
   onToggleFocusMode,
@@ -248,6 +301,8 @@ export function TopBar({
         <AppMenu
           spreadMode={spreadMode}
           pageNav={pageNav}
+          readingMode={readingMode}
+          flowFontScale={flowFontScale}
           hifzBlur={hifzBlur}
           hifzBlurLevel={hifzBlurLevel}
           focusMode={focusMode}
@@ -258,6 +313,8 @@ export function TopBar({
           theme={theme}
           onChangeSpreadMode={onChangeSpreadMode}
           onChangePageNav={onChangePageNav}
+          onChangeReadingMode={onChangeReadingMode}
+          onChangeFlowFontScale={onChangeFlowFontScale}
           onOpenTajweedGuide={onOpenTajweedGuide}
           onOpenAbout={onOpenAbout}
           onToggleHifzBlur={onToggleHifzBlur}
@@ -290,6 +347,18 @@ function InstallGuide({
   platform: PwaInstall["platform"];
   onClose: () => void;
 }) {
+  const [release, setRelease] = useState<LatestReleaseInfo | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void fetchLatestRelease().then((info) => {
+      if (live && info) setRelease(info);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -301,7 +370,7 @@ function InstallGuide({
   return (
     <>
       <button type="button" className="app-menu__backdrop" aria-label="Tutup panduan instal" onClick={onClose} />
-      <div className="app-menu install-guide" role="dialog" aria-label="Instal Kafi ke Layar Utama">
+      <div className="app-menu install-guide" role="dialog" aria-label="Instal Kafi">
         <div className="install-guide__head">
           <strong className="install-guide__title">Instal Kafi ke Layar Utama</strong>
           <p className="install-guide__sub">
@@ -337,6 +406,53 @@ function InstallGuide({
           </ol>
         )}
 
+        <div className="install-guide__app-box">
+          <div className="install-guide__app-head">
+            <strong className="install-guide__app-title">
+              Atau unduh versi aplikasi{release?.tag ? ` (${release.tag})` : ""}
+            </strong>
+            <p className="install-guide__sub">
+              {release
+                ? "Langsung unduh file installer tanpa perlu mencari di GitHub."
+                : "Tersedia untuk Android & Desktop. Di halaman rilis, gulir ke bagian Assets lalu pilih file perangkatmu."}
+            </p>
+          </div>
+          {release ? (
+            <div className="install-guide__assets">
+              {release.assets.map((asset) => (
+                <a
+                  key={asset.kind}
+                  className="install-guide__asset-btn"
+                  href={asset.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>{asset.label}</span>
+                  <span aria-hidden="true">↓</span>
+                </a>
+              ))}
+              <a
+                className="install-guide__releases-link"
+                href={RELEASES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Lihat semua rilis di GitHub ↗
+              </a>
+            </div>
+          ) : (
+            <a
+              className="install-guide__asset-btn"
+              href={RELEASES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>Buka Halaman Unduhan (GitHub)</span>
+              <span aria-hidden="true">↗</span>
+            </a>
+          )}
+        </div>
+
         <button type="button" className="install-guide__close" onClick={onClose}>
           Mengerti
         </button>
@@ -349,7 +465,11 @@ function InstallGuide({
 interface AppMenuProps {
   spreadMode: SpreadMode;
   pageNav: PageNavMode;
+  readingMode: ReadingMode;
+  flowFontScale: number;
   onChangePageNav: (mode: PageNavMode) => void;
+  onChangeReadingMode?: (mode: ReadingMode) => void;
+  onChangeFlowFontScale?: (scale: number) => void;
   onOpenTajweedGuide: () => void;
   onOpenAbout: () => void;
   hifzBlur: boolean;
@@ -378,7 +498,11 @@ interface AppMenuProps {
 function AppMenu({
   spreadMode,
   pageNav,
+  readingMode,
+  flowFontScale,
   onChangePageNav,
+  onChangeReadingMode,
+  onChangeFlowFontScale,
   onOpenTajweedGuide,
   onOpenAbout,
   hifzBlur,
@@ -410,33 +534,32 @@ function AppMenu({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const toggleRow = (
-    title: string,
-    sub: string,
-    on: boolean,
-    onClick: () => void,
-  ) => (
-    <button type="button" role="switch" aria-checked={on} className="app-menu__row" onClick={onClick}>
-      <span className="app-menu__text">
-        <span className="app-menu__title">{title}</span>
-        <span className="app-menu__sub">{sub}</span>
-      </span>
-      <span className={`app-menu__switch ${on ? "app-menu__switch--on" : ""}`} aria-hidden="true" />
+  const toggleChip = (title: string, hint: string, on: boolean, onClick: () => void) => (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      title={hint}
+      className={`app-menu__chip ${on ? "app-menu__chip--on" : ""}`}
+      onClick={onClick}
+    >
+      <span className="app-menu__chip-label">{title}</span>
+      <span className="app-menu__chip-dot" aria-hidden="true" />
     </button>
   );
 
-  const linkRow = (title: string, sub: string, onClick: () => void) => (
+  const linkChip = (title: string, onClick: () => void, badge?: boolean) => (
     <button
       type="button"
-      className="app-menu__row app-menu__row--link"
+      className="app-menu__link-chip"
       onClick={() => {
         onClick();
         onClose();
       }}
     >
-      <span className="app-menu__text">
-        <span className="app-menu__title">{title}</span>
-        <span className="app-menu__sub">{sub}</span>
+      <span className="app-menu__link-chip-label">
+        {title}
+        {badge && <span className="app-menu__status-dot" aria-hidden="true" />}
       </span>
       <span className="app-menu__chevron" aria-hidden="true">
         ›
@@ -448,45 +571,96 @@ function AppMenu({
     <>
       <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
       <div className="app-menu" role="dialog" aria-label="Menu">
-        <span className="app-menu__section">Membaca</span>
+        {onChangeReadingMode && (
+          <div className="app-menu__field">
+            <span className="app-menu__label">Mode baca</span>
+            <Segmented
+              label="Mode baca"
+              value={readingMode}
+              options={READING_MODE_OPTIONS}
+              onChange={(next) => {
+                onChangeReadingMode(next);
+                onClose();
+              }}
+            />
+          </div>
+        )}
 
-        {onOpenReader && linkRow("Baca Terjemahan & Tafsir", "Geser per ayat, fokus ke maknanya", onOpenReader)}
+        {readingMode !== "mushaf" && onChangeFlowFontScale && (
+          <div className="app-menu__field app-menu__field--row">
+            <span className="app-menu__label">Ukuran huruf</span>
+            <div className="flow-font-stepper" role="group" aria-label="Ukuran huruf">
+              <button
+                type="button"
+                className="flow-font-stepper__btn"
+                aria-label="Perkecil huruf"
+                disabled={flowFontScale <= 0.85}
+                onClick={() => onChangeFlowFontScale(Math.max(0.85, Math.round((flowFontScale - 0.15) * 100) / 100))}
+              >
+                A−
+              </button>
+              <span className="flow-font-stepper__val">{Math.round(flowFontScale * 100)}%</span>
+              <button
+                type="button"
+                className="flow-font-stepper__btn"
+                aria-label="Perbesar huruf"
+                disabled={flowFontScale >= 1.6}
+                onClick={() => onChangeFlowFontScale(Math.min(1.6, Math.round((flowFontScale + 0.15) * 100) / 100))}
+              >
+                A+
+              </button>
+            </div>
+          </div>
+        )}
 
-        {toggleRow("Mode Fokus", "Sembunyikan bilah atas & bawah", focusMode, () => {
-          onToggleFocusMode();
-          onClose();
-        })}
-        {toggleRow("Sembunyikan Ayat", "Mode hafalan, ketuk untuk mengintip", hifzBlur, onToggleHifzBlur)}
+        <div className="app-menu__grid" role="group" aria-label="Opsi cepat">
+          {toggleChip("Mode Fokus", "Sembunyikan bilah atas & bawah", focusMode, () => {
+            onToggleFocusMode();
+            onClose();
+          })}
+          {toggleChip("Sembunyikan Ayat", "Mode hafalan, ketuk untuk mengintip", hifzBlur, onToggleHifzBlur)}
+          {toggleChip("Terjemah Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
+          {toggleChip("Tajwid Warna", "Warna hukum tajwid (Madinah 1441)", tajweed, onToggleTajweed)}
+        </div>
+
         {hifzBlur && onChangeHifzBlurLevel && (
           <div className="app-menu__inline">
             <Segmented
               label="Tingkat sembunyi"
               value={hifzBlurLevel}
               options={[
-                { value: "full", label: "Penuh" },
-                { value: "first-word", label: "Kata pertama" },
+                { value: "full", label: "Sembunyi penuh" },
+                { value: "first-word", label: "Tampil kata pertama" },
               ]}
               onChange={onChangeHifzBlurLevel}
             />
           </div>
         )}
-        {toggleRow("Terjemah Per Kata", "Arti kata saat diketuk", wordTranslation, onToggleWordTranslation)}
-        <div className="app-menu__field">
-          <span className="app-menu__label">Gaya huruf</span>
-          <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
-        </div>
-        {toggleRow("Tajwid berwarna", "Warna hukum tajwid, memakai huruf Madinah 1441", tajweed, onToggleTajweed)}
-        {linkRow("Hukum Tajwid", "Arti tiap warna dan contohnya", onOpenTajweedGuide)}
 
-        <div className="app-menu__field">
-          <span className="app-menu__label">Pindah halaman</span>
-          <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
+        <div className="app-menu__field app-menu__field--row">
+          <span className="app-menu__label">Huruf Madinah</span>
+          <div className="app-menu__seg-compact">
+            <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
+          </div>
         </div>
 
-        <div className="app-menu__field app-menu__group--spread">
-          <span className="app-menu__label">Tampilan halaman</span>
-          <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
-        </div>
+        {readingMode === "mushaf" && (
+          <>
+            <div className="app-menu__field app-menu__field--row">
+              <span className="app-menu__label">Pindah</span>
+              <div className="app-menu__seg-compact">
+                <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
+              </div>
+            </div>
+
+            <div className="app-menu__field app-menu__field--row app-menu__group--spread">
+              <span className="app-menu__label">Halaman</span>
+              <div className="app-menu__seg-compact">
+                <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="app-menu__field app-menu__field--row">
           <span className="app-menu__label">Tema</span>
@@ -509,16 +683,27 @@ function AppMenu({
         </div>
 
         <span className="app-menu__divider" aria-hidden="true" />
-        <span className="app-menu__section">Lainnya</span>
 
-        {linkRow("Unduh Offline", "Murottal, terjemahan, tafsir, mushaf", onOpenDownloads)}
-        {onOpenSync &&
-          linkRow(
-            `Sync Antar Perangkat${syncConnected ? " · Aktif" : ""}`,
-            "Tanpa login, kode terenkripsi",
-            onOpenSync,
-          )}
-        {linkRow("Tentang & Sumber Data", "Asal teks, terjemahan, tafsir, dan audio", onOpenAbout)}
+        <div className="app-menu__links">
+          {onOpenReader && linkChip("Baca Tafsir", onOpenReader)}
+          {linkChip("Hukum Tajwid", onOpenTajweedGuide)}
+          {linkChip("Unduh Offline", onOpenDownloads)}
+          {onOpenSync && linkChip("Sync Perangkat", onOpenSync, syncConnected)}
+          {linkChip("Tentang & Sumber", onOpenAbout)}
+          <a
+            className="app-menu__link-chip app-menu__link-chip--ext"
+            href={RELEASES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onClose}
+            title="Unduh versi aplikasi Android/Desktop di GitHub"
+          >
+            <span className="app-menu__link-chip-label">Aplikasi (GitHub)</span>
+            <span className="app-menu__ext-icon" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+        </div>
       </div>
     </>
   );

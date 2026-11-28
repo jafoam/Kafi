@@ -76,6 +76,7 @@ import { TasmiLauncher } from "./components/TasmiLauncher";
 import { AyahPopover } from "./components/AyahPopover";
 import { MushafSpread } from "./components/MushafSpread";
 import { MushafScroll } from "./components/MushafScroll";
+import { FlowReader } from "./components/FlowReader";
 import { NavPalette, type PaletteTab } from "./components/NavPalette";
 import { createGlyphPageLoader } from "./services/glyph-pages";
 import {
@@ -462,10 +463,13 @@ export function App({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  const readingMode = userData.settings.readingMode;
+  const flowMode = readingMode !== "mushaf";
   const scrollMode = userData.settings.pageNav !== "swipe";
-  const effectiveSpread = scrollMode
-    ? "single"
-    : resolveEffectiveSpread(userData.settings.spreadMode, viewportWidth);
+  const effectiveSpread =
+    flowMode || scrollMode
+      ? "single"
+      : resolveEffectiveSpread(userData.settings.spreadMode, viewportWidth);
   const { rightPage, leftPage } = getVisiblePages(currentPage, effectiveSpread);
 
   const rightPageEntry = mushafMap.pages[rightPage - 1];
@@ -1898,7 +1902,7 @@ export function App({
 
   return (
     <div
-      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${scrollMode ? "" : "app-shell--swipe"} ${uses1441Letters && !userData.settings.tajweed ? "app-shell--plain-1441" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
+      className={`app-shell ${focusMode ? "app-shell--focus" : ""} ${studyOpen ? "app-shell--drawer-open" : ""} ${!flowMode && !scrollMode ? "app-shell--swipe" : ""} ${uses1441Letters && !userData.settings.tajweed ? "app-shell--plain-1441" : ""} ${tasmiActive || tasmiStarting ? "app-shell--tasmi" : ""}`}
     >
       <TopBar
         surahLabel={surahLabel}
@@ -1906,7 +1910,11 @@ export function App({
         pageLabel={pageLabel}
         spreadMode={userData.settings.spreadMode}
         pageNav={userData.settings.pageNav}
+        readingMode={readingMode}
+        flowFontScale={userData.settings.flowFontScale}
         onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
+        onChangeReadingMode={(nextMode) => persistUser(userStore.updateSettings({ readingMode: nextMode }))}
+        onChangeFlowFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
         onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         hifzBlur={
@@ -1995,14 +2003,51 @@ export function App({
         onOpenGuide={() => setTasmiGuideOpen(true)}
       />
 
-      {!scrollMode && (
+      {!flowMode && !scrollMode && (
         <div className="page-chrome" aria-hidden="true">
           <span>{surahLabel}</span>
           <span>Juz {juzNumber}</span>
         </div>
       )}
 
-      {scrollMode ? (
+      {flowMode ? (
+        <FlowReader
+          mode={readingMode}
+          onChangeMode={(nextMode) => persistUser(userStore.updateSettings({ readingMode: nextMode }))}
+          fontScale={userData.settings.flowFontScale}
+          onChangeFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
+          pages={mushafMap.pages}
+          surahs={catalog.surahs}
+          juzs={catalog.juzs}
+          currentPage={currentPage}
+          focusMode={focusMode}
+          selectedAyah={selected?.ayah ?? null}
+          playingAyah={effectivePlayingAyah}
+          playingWordRange={tasmiActive ? null : playingWordRange}
+          highlights={userData.highlights}
+          bookmarks={bookmarkSet}
+          blurSet={blurSet}
+          blurLevel={userData.settings.hifzBlurLevel}
+          revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
+          mistakeAyahs={effectiveMistakeAyahs}
+          wordTranslation={userData.settings.wordTranslation && !focusMode}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          glyphLoader={glyphLoader}
+          quranApi={quranApi}
+          translationId={userData.settings.translationId}
+          onPageChange={navigateToPage}
+          onSelectAyah={handleSelectAyah}
+          onPeekAyah={handlePeekAyah}
+          onClearSelection={() => setSelected(null)}
+          onTapPage={handleTapPage}
+          onToggleFocus={() => setFocusMode((prev) => !prev)}
+          onTogglePalette={() => {
+            if (tasmiSheetOpen || summaryModal.open) return;
+            setPaletteTab("search");
+            setPaletteOpen((prev) => !prev);
+          }}
+        />
+      ) : scrollMode ? (
         <MushafScroll
           snap={userData.settings.pageNav === "scroll-page"}
           pages={mushafMap.pages}

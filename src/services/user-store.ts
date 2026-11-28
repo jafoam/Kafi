@@ -5,6 +5,7 @@ import type {
   HifzBlurLevel,
   HighlightColor,
   MurajaahCard,
+  ReadingMode,
   SpreadMode,
   TasmiSessionRecord,
   ThemeMode,
@@ -35,6 +36,8 @@ export const DEFAULT_USER_DATA: UserData = {
     letterStyle: "1405",
     mistakeSound: false,
     pageNav: "swipe",
+    readingMode: "mushaf",
+    flowFontScale: 1,
   },
   tasmiHistory: [],
 };
@@ -43,6 +46,7 @@ const VALID_THEMES = new Set<ThemeMode>(["light", "sepia", "dark"]);
 const VALID_SPREADS = new Set<SpreadMode>(["auto", "single", "double"]);
 const VALID_HIGHLIGHTS = new Set<HighlightColor>(["amber", "emerald", "sky", "rose"]);
 const VALID_BLUR_LEVELS = new Set<HifzBlurLevel>(["full", "first-word"]);
+const VALID_READING_MODES = new Set<ReadingMode>(["mushaf", "translation", "reading"]);
 const MAX_RECENT_PAGES = 5;
 
 function clampPage(page: number): number {
@@ -117,6 +121,13 @@ export function normalizeUserData(raw: unknown): UserData {
       rawSettings.pageNav === "swipe"
         ? rawSettings.pageNav
         : defaults.pageNav,
+    readingMode: VALID_READING_MODES.has(rawSettings.readingMode as ReadingMode)
+      ? (rawSettings.readingMode as ReadingMode)
+      : defaults.readingMode,
+    flowFontScale:
+      typeof rawSettings.flowFontScale === "number" && Number.isFinite(rawSettings.flowFontScale)
+        ? Math.min(1.6, Math.max(0.85, Math.round(rawSettings.flowFontScale * 100) / 100))
+        : defaults.flowFontScale,
   };
 
   const bookmarks = Array.isArray(raw.bookmarks)
