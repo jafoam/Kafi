@@ -154,6 +154,9 @@ function copyOrtAssetsPlugin() {
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  define: {
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [react(), copyOrtAssetsPlugin(), localHalaqahDevPlugin()],
   resolve: {
     conditions: ["onnxruntime-web-use-extern-wasm", ...defaultClientConditions],

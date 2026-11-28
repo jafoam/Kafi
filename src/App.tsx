@@ -65,10 +65,12 @@ import {
   syncUserData,
 } from "./services/sync-service";
 import {
-  createUserStore,
-  DEFAULT_USER_DATA,
-  isHiddenAyahActive,
-} from "./services/user-store";
+  checkForAndroidUpdate,
+  isAndroidUpdaterAvailable,
+  startAndroidUpdate,
+  type AndroidUpdateInfo,
+} from "./services/android-updater";
+import { createUserStore, DEFAULT_USER_DATA, isHiddenAyahActive } from "./services/user-store";
 import { LanguageProvider } from "./i18n";
 import { getSurahDisplayName } from "./data/surah-names";
 import {
@@ -314,6 +316,10 @@ export function App({
   const [halaqahInviteCode, setHalaqahInviteCode] = useState<string | null>(null);
   const [manageDataOpen, setManageDataOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [androidUpdate, setAndroidUpdate] = useState<AndroidUpdateInfo | null>(null);
+  const [updateBannerDismissed, setUpdateBannerDismissed] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState<number | null>(null);
+  const [updateNeedsPerm, setUpdateNeedsPerm] = useState(false);
 
   const toastTimerRef = useRef<number | null>(null);
   const peekTimerRef = useRef<number | null>(null);
@@ -2213,6 +2219,73 @@ export function App({
     return isEn ? "Opening microphone…" : "Membuka mikrofon…";
   }, [tasmiStarting, modelLoading, userData.settings.language]);
 
+  const handleStartAndroidUpdate = useCallback(() => {
+    if (!androidUpdate) return;
+    const useCached = updateNeedsPerm;
+    if (!useCached) setUpdateProgress(0);
+    setUpdateNeedsPerm(false);
+    const ok = startAndroidUpdate(
+      androidUpdate.apkUrl,
+      {
+        onProgress: (pct) => {
+          if (mountedRef.current) setUpdateProgress(pct);
+        },
+        onStatus: (status) => {
+          if (!mountedRef.current) return;
+          if (status === "permission_required") {
+            setUpdateProgress(null);
+            setUpdateNeedsPerm(true);
+            showToast(
+              trApp(
+                "Izinkan pasang aplikasi, lalu ketuk Pasang lagi",
+                "Allow installing unknown apps, then tap Install again",
+              ),
+            );
+          } else if (status === "installing") {
+            setUpdateProgress(null);
+          } else {
+            setUpdateProgress(null);
+            showToast(trApp("Gagal mengunduh pembaruan APK", "Failed to download APK update"));
+          }
+        },
+      },
+      useCached,
+    );
+    if (!ok) {
+      setUpdateProgress(null);
+    }
+  }, [androidUpdate, updateNeedsPerm, showToast, trApp]);
+
+  const handleManualCheckUpdate = useCallback(async () => {
+    try {
+      const found = await checkForAndroidUpdate();
+      if (!mountedRef.current) return;
+      if (found) {
+        setAndroidUpdate(found);
+        setUpdateBannerDismissed(false);
+        showToast(trApp(`Pembaruan tersedia: ${found.tag || found.name}`, `Update available: ${found.tag || found.name}`));
+      } else {
+        showToast(trApp("Aplikasi sudah versi terbaru", "App is already up to date"));
+      }
+    } catch {
+      if (mountedRef.current) {
+        showToast(trApp("Gagal memeriksa pembaruan", "Failed to check for updates"));
+      }
+    }
+  }, [showToast, trApp]);
+
+  useEffect(() => {
+    if (!isAndroidUpdaterAvailable()) return;
+    const timer = window.setTimeout(() => {
+      void checkForAndroidUpdate()
+        .then((found) => {
+          if (mountedRef.current && found) setAndroidUpdate(found);
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <LanguageProvider language={userData.settings.language}>
     <div
@@ -3053,7 +3126,49 @@ export function App({
           })
         }
         onOpenAbout={() => openChildFrom("settings", () => setAboutOpen(true))}
+        onCheckUpdate={isAndroidUpdaterAvailable() ? () => void handleManualCheckUpdate() : undefined}
+        updateAvailableLabel={androidUpdate ? androidUpdate.tag || androidUpdate.name : undefined}
       />
+
+      {androidUpdate && !updateBannerDismissed && (
+        <div className="update-banner" role="region" aria-label={trApp("Pembaruan aplikasi", "App update")}>
+          <div className="update-banner__text">
+            <strong>
+              {trApp("Pembaruan tersedia", "Update available")}
+              {androidUpdate.tag ? ` · ${androidUpdate.tag}` : ""}
+            </strong>
+            <span>
+              {updateProgress !== null
+                ? trApp(`Mengunduh ${updateProgress}%…`, `Downloading ${updateProgress}%…`)
+                : updateNeedsPerm
+                  ? trApp("Izinkan sumber ini lalu ketuk Pasang", "Allow this source then tap Install")
+                  : trApp("Unduh & pasang langsung di aplikasi", "Download & install directly in-app")}
+            </span>
+          </div>
+          <div className="update-banner__actions">
+            <button
+              type="button"
+              className="update-banner__btn"
+              disabled={updateProgress !== null}
+              onClick={handleStartAndroidUpdate}
+            >
+              {updateProgress !== null
+                ? `${updateProgress}%`
+                : updateNeedsPerm
+                  ? trApp("Pasang", "Install")
+                  : trApp("Update", "Update")}
+            </button>
+            <button
+              type="button"
+              className="ayah-popover__close"
+              aria-label={trApp("Tutup", "Dismiss")}
+              onClick={() => setUpdateBannerDismissed(true)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="reader-toast" role="status" aria-live="polite">

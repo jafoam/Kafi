@@ -60,7 +60,8 @@ describe("computeHafalanProgress", () => {
     expect(map.surahs[0].coveredAyahs).toBe(7);
     expect(map.surahs[111].status).toBe("smooth");
     expect(map.surahs[113].status).toBe("needs_review");
-    expect(map.juzs[0].status).toBe("smooth");
+    // Al-Fatihah alone (7/148 ayahs) is partial progress for Juz 1, NOT full Juz 1 smooth.
+    expect(map.juzs[0].status).toBe("in_progress");
     expect(map.juzs[29].status).toBe("needs_review");
     expect(map.summary.memorizedAyahs).toBe(17);
     expect(map.summary.smoothAyahs).toBe(11);
@@ -98,7 +99,7 @@ describe("computeHafalanProgress", () => {
     expect(map.surahs[0].coveredAyahs).toBe(7);
     expect(map.surahs[0].needsReviewAyahs).toEqual([]);
     expect(map.pages[0].status).toBe("smooth");
-    expect(map.juzs[0].status).toBe("smooth");
+    expect(map.juzs[0].status).toBe("in_progress");
     expect(map.summary.smoothAyahs).toBe(7);
     expect(map.summary.needsReviewAyahs).toBe(0);
   });

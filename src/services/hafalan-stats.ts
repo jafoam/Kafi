@@ -6,7 +6,7 @@ import type {
   TasmiSessionRecord,
 } from "../data/types";
 
-export type HafalanStatus = "none" | "smooth" | "needs_review";
+export type HafalanStatus = "none" | "in_progress" | "smooth" | "needs_review";
 
 export interface PageProgress {
   page: number;
@@ -69,9 +69,14 @@ export interface HafalanStreak {
   weekDays: StreakDay[];
 }
 
-function summarizeGroupStatus(counts: Record<HafalanStatus, number>): HafalanStatus {
-  if (counts.needs_review > 0) return "needs_review";
-  if (counts.smooth > 0) return "smooth";
+function summarizeGroupStatus(
+  smoothCount: number,
+  needsReviewCount: number,
+  totalCount: number,
+): HafalanStatus {
+  if (needsReviewCount > 0) return "needs_review";
+  if (totalCount > 0 && smoothCount >= totalCount) return "smooth";
+  if (smoothCount > 0) return "in_progress";
   return "none";
 }
 
@@ -166,26 +171,26 @@ export function computeHafalanProgress(
 
   const surahs: SurahProgress[] = catalog.surahs.map((s) => {
     totalAyahs += s.ayahs;
-    const counts: Record<HafalanStatus, number> = {
-      none: 0,
-      smooth: 0,
-      needs_review: 0,
-    };
+    let surahSmooth = 0;
+    let surahReview = 0;
     const surahReviewAyahs: AyahKey[] = [];
     for (let a = 1; a <= s.ayahs; a += 1) {
       const key: AyahKey = `${s.number}:${a}`;
       const st = ayahState.get(key)?.status ?? "none";
-      counts[st] += 1;
-      if (st === "needs_review") surahReviewAyahs.push(key);
+      if (st === "smooth") surahSmooth += 1;
+      else if (st === "needs_review") {
+        surahReview += 1;
+        surahReviewAyahs.push(key);
+      }
     }
-    smoothAyahs += counts.smooth;
-    needsReviewAyahs += counts.needs_review;
-    const coveredAyahs = s.ayahs - counts.none;
+    smoothAyahs += surahSmooth;
+    needsReviewAyahs += surahReview;
+    const coveredAyahs = surahSmooth + surahReview;
     return {
       surah: s.number,
       name: s.name,
       page: s.page,
-      status: summarizeGroupStatus(counts),
+      status: summarizeGroupStatus(surahSmooth, surahReview, s.ayahs),
       coveredAyahs,
       totalAyahs: s.ayahs,
       needsReviewAyahs: surahReviewAyahs,
@@ -194,12 +199,10 @@ export function computeHafalanProgress(
 
   // Aggregate per-page (604 pages)
   let memorizedPages = 0;
+  const pageSmoothCounts: number[] = [];
   const pages: PageProgress[] = mushafMap.pages.map((entry) => {
-    const counts: Record<HafalanStatus, number> = {
-      none: 0,
-      smooth: 0,
-      needs_review: 0,
-    };
+    let pageSmooth = 0;
+    let pageReview = 0;
     const seen = new Set<AyahKey>();
     const pageReviewAyahs: AyahKey[] = [];
     for (const seg of entry.ayahs) {
@@ -207,15 +210,19 @@ export function computeHafalanProgress(
       if (entry.leadingSplitAyah === key || seen.has(key)) continue;
       seen.add(key);
       const st = ayahState.get(key)?.status ?? "none";
-      counts[st] += 1;
-      if (st === "needs_review") pageReviewAyahs.push(key);
+      if (st === "smooth") pageSmooth += 1;
+      else if (st === "needs_review") {
+        pageReview += 1;
+        pageReviewAyahs.push(key);
+      }
     }
     const pageTotal = seen.size;
-    const coveredAyahs = pageTotal - counts.none;
+    const coveredAyahs = pageSmooth + pageReview;
     if (coveredAyahs > 0) memorizedPages += 1;
+    pageSmoothCounts.push(pageSmooth);
     return {
       page: entry.page,
-      status: summarizeGroupStatus(counts),
+      status: summarizeGroupStatus(pageSmooth, pageReview, pageTotal),
       coveredAyahs,
       totalAyahs: pageTotal,
       needsReviewAyahs: pageReviewAyahs,
@@ -228,26 +235,22 @@ export function computeHafalanProgress(
     const nextJuz = sortedJuzs[idx + 1];
     const startPage = juz.page;
     const endPage = nextJuz ? Math.max(startPage, nextJuz.page - 1) : mushafMap.pages.length;
-    const counts: Record<HafalanStatus, number> = {
-      none: 0,
-      smooth: 0,
-      needs_review: 0,
-    };
     let coveredAyahs = 0;
     let juzTotalAyahs = 0;
+    let juzSmoothAyahs = 0;
     const juzReviewSet = new Set<AyahKey>();
     for (let p = startPage; p <= endPage; p += 1) {
       const pageProg = pages[p - 1];
       if (!pageProg) continue;
       juzTotalAyahs += pageProg.totalAyahs;
       coveredAyahs += pageProg.coveredAyahs;
-      counts[pageProg.status] += 1;
+      juzSmoothAyahs += pageSmoothCounts[p - 1] ?? 0;
       for (const key of pageProg.needsReviewAyahs) juzReviewSet.add(key);
     }
     return {
       juz: juz.number,
       page: juz.page,
-      status: summarizeGroupStatus(counts),
+      status: summarizeGroupStatus(juzSmoothAyahs, juzReviewSet.size, juzTotalAyahs),
       coveredAyahs,
       totalAyahs: juzTotalAyahs,
       needsReviewAyahs: Array.from(juzReviewSet),

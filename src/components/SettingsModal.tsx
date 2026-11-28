@@ -51,6 +51,8 @@ export interface SettingsModalProps {
   onOpenDownloads: () => void;
   onOpenSync: () => void;
   onOpenAbout: () => void;
+  onCheckUpdate?: () => void;
+  updateAvailableLabel?: string;
 }
 
 const LANGUAGE_OPTIONS: { value: AppLanguage; label: string }[] = [
@@ -130,6 +132,8 @@ export function SettingsModal({
   onOpenDownloads,
   onOpenSync,
   onOpenAbout,
+  onCheckUpdate,
+  updateAvailableLabel,
 }: SettingsModalProps) {
   const { tr } = useI18n();
 
@@ -548,6 +552,29 @@ export function SettingsModal({
               {tr("Aplikasi", "App")}
             </h3>
             <div className="settings-card">
+              {onCheckUpdate && (
+                <button type="button" className="settings-row" onClick={openAndClose(onCheckUpdate)}>
+                  <span className="settings-row__icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 3v12m0 0-4-4m4 4 4-4" />
+                      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                    </svg>
+                  </span>
+                  <span className="settings-row__text">
+                    <span className="settings-row__title">{tr("Cek Pembaruan", "Check for Updates")}</span>
+                    <span className="settings-row__sub">
+                      {updateAvailableLabel
+                        ? tr(`Tersedia versi baru (${updateAvailableLabel})`, `New version available (${updateAvailableLabel})`)
+                        : tr("Periksa & unduh pembaruan APK langsung di aplikasi", "Check & download APK updates directly in-app")}
+                    </span>
+                  </span>
+                  {updateAvailableLabel && (
+                    <span className="settings-row__status">{tr("Baru", "New")}</span>
+                  )}
+                  <span className="settings-row__trail" aria-hidden="true">›</span>
+                </button>
+              )}
+
               <button type="button" className="settings-row" onClick={openAndClose(onOpenAbout)}>
                 <span className="settings-row__icon" aria-hidden="true">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

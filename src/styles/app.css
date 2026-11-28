@@ -7109,25 +7109,21 @@ textarea:focus-visible {
 }
 
 .progress-map__filters {
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.progress-map__filters::-webkit-scrollbar {
-  display: none;
+  padding: 2px 0;
+  overflow: visible;
 }
 
 .pm-filter-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1 0 auto;
+  min-width: 0;
   gap: 4px;
   min-height: 30px;
-  padding: 4px 8px;
+  padding: 4px 7px;
   border: none;
   border-radius: var(--radius-pill);
   background: var(--glass-control-bg);
@@ -7140,8 +7136,77 @@ textarea:focus-visible {
   transition: background-color 140ms ease, color 140ms ease, transform 180ms var(--glass-spring);
 }
 
+.pm-filter-pill .pm-dot {
+  width: 7px;
+  height: 7px;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
 .tasmi-summary__popup-backdrop {
   z-index: 60;
+}
+
+.update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(74px + env(safe-area-inset-bottom, 0px));
+  z-index: 55;
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--glass-surface);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: var(--glass-sheet-shadow);
+  color: var(--text-primary);
+}
+
+.update-banner__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.update-banner__text strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.update-banner__text span {
+  color: var(--text-secondary);
+}
+
+.update-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.update-banner__btn {
+  min-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.update-banner__btn:disabled {
+  opacity: 0.75;
+  cursor: default;
 }
 
 .pm-filter-pill:hover {
@@ -7280,10 +7345,11 @@ textarea:focus-visible {
   color: var(--accent);
 }
 
-.pm-dot--ziyadah,
-.pm-cell--ziyadah {
-  background: rgba(245, 158, 11, 0.24);
-  color: #b45309;
+.pm-dot--in_progress,
+.pm-cell--in_progress {
+  background: rgba(19, 111, 90, 0.09);
+  color: var(--text-primary);
+  box-shadow: inset 0 0 0 1px rgba(19, 111, 90, 0.2), var(--glass-control-shadow);
 }
 
 .pm-dot--needs_review,

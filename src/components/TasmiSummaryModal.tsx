@@ -727,17 +727,23 @@ export function TasmiSummaryModal({
                       compactLabel: String(p.page),
                     }));
 
-            const statusCounts: Record<HafalanStatus, number> = {
+            const statusCounts = {
               smooth: 0,
               needs_review: 0,
               none: 0,
             };
-            for (const item of activeItems) statusCounts[item.status] += 1;
+            for (const item of activeItems) {
+              if (item.status === "smooth") statusCounts.smooth += 1;
+              else if (item.status === "needs_review") statusCounts.needs_review += 1;
+              else statusCounts.none += 1;
+            }
 
             const filteredItems =
               statusFilter === "all"
                 ? activeItems
-                : activeItems.filter((item) => item.status === statusFilter);
+                : statusFilter === "none"
+                  ? activeItems.filter((item) => item.status === "none" || item.status === "in_progress")
+                  : activeItems.filter((item) => item.status === statusFilter);
 
             const selectedItem =
               selectedProgressKey
@@ -770,9 +776,11 @@ export function TasmiSummaryModal({
             const statusLabel = (st: HafalanStatus) =>
               st === "smooth"
                 ? tr("Lancar", "Smooth")
-                : st === "needs_review"
-                  ? tr("Perlu ulang", "Needs review")
-                  : tr("Belum", "Not yet");
+                : st === "in_progress"
+                  ? tr("Sebagian", "In progress")
+                  : st === "needs_review"
+                    ? tr("Perlu ulang", "Needs review")
+                    : tr("Belum", "Not yet");
 
             const formatReason = (reason: string) =>
               reason === "murajaah_lapse"
@@ -860,9 +868,9 @@ export function TasmiSummaryModal({
                 {(
                   [
                     ["all", tr("Semua", "All"), activeItems.length, null],
-                    ["needs_review", tr("Perlu ulang", "Needs review"), statusCounts.needs_review, "needs_review"],
+                    ["needs_review", tr("Ulang", "Review"), statusCounts.needs_review, "needs_review"],
                     ["smooth", tr("Lancar", "Smooth"), statusCounts.smooth, "smooth"],
-                    ["none", tr("Belum", "Not yet"), statusCounts.none, "none"],
+                    ["none", tr("Belum", "Left"), statusCounts.none, "none"],
                   ] as const
                 ).map(([value, label, count, dot]) => (
                   <button
@@ -877,7 +885,7 @@ export function TasmiSummaryModal({
                   >
                     {dot && <i className={`pm-dot pm-dot--${dot}`} />}
                     <span>{label}</span>
-                    {value !== "all" && count > 0 && <span className="pm-filter-pill__count">({count})</span>}
+                    {value !== "all" && count > 0 && <span className="pm-filter-pill__count">{count}</span>}
                   </button>
                 ))}
               </div>

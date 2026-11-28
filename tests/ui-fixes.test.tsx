@@ -1180,11 +1180,11 @@ describe("Gradual blur and recent pages in search", () => {
       </LanguageProvider>,
     );
 
-    // Filter pill for Needs review should show count 1 (Juz 1)
+    // Filter pill for Review should show count 1 (Juz 1)
     const filterPills = Array.from(el.querySelectorAll(".pm-filter-pill")) as HTMLButtonElement[];
-    const needsReviewPill = filterPills.find((b) => b.textContent?.includes("Needs review"));
+    const needsReviewPill = filterPills.find((b) => b.textContent?.includes("Review"));
     expect(needsReviewPill).toBeDefined();
-    expect(needsReviewPill?.textContent).toContain("(1)");
+    expect(needsReviewPill?.textContent).toContain("1");
 
     // Clicking Needs review filters the Juz grid to only Juz 1
     act(() => {
