@@ -53,7 +53,7 @@ textarea:focus-visible {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 31;
   display: flex;
   justify-content: center;
   padding: 12px 16px 0;
@@ -117,9 +117,9 @@ textarea:focus-visible {
   background: var(--pill-bg);
   border: 1px solid var(--pill-border);
   box-shadow: var(--pill-shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  transition: opacity 220ms ease, transform 220ms ease;
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
+  transition: opacity 220ms var(--glass-spring), transform 260ms var(--glass-spring);
 }
 
 .topbar--hidden {
@@ -190,12 +190,16 @@ textarea:focus-visible {
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 180ms var(--glass-spring);
 }
 
 .topbar__btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.topbar__btn:active {
+  transform: scale(0.96);
 }
 
 .topbar__btn--active {
@@ -331,18 +335,25 @@ textarea:focus-visible {
   width: 38px;
   height: 64px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--glass-border);
   background: var(--bg-elevated);
+  box-shadow: var(--pill-shadow);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
   color: var(--text-secondary);
   cursor: pointer;
-  opacity: 0.72;
-  transition: opacity 160ms ease, background-color 160ms ease, color 160ms ease, transform 160ms ease;
+  opacity: 0.78;
+  transition: opacity 160ms ease, background-color 160ms ease, color 160ms ease, transform 200ms var(--glass-spring);
 }
 
 .turn-btn:hover:not(:disabled) {
   opacity: 1;
   color: var(--text-primary);
   border-color: var(--border-strong);
+}
+
+.turn-btn:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
 }
 
 .turn-btn:disabled {
@@ -815,10 +826,10 @@ textarea:focus-visible {
   padding: 10px 12px;
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1100,9 +1111,11 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -1142,8 +1155,9 @@ textarea:focus-visible {
 }
 
 .palette__tab--active {
-  background: var(--accent-soft);
+  background: var(--glass-thumb);
   color: var(--accent);
+  box-shadow: var(--glass-control-shadow);
 }
 
 .palette__search-bar {
@@ -1155,10 +1169,11 @@ textarea:focus-visible {
 .palette__input {
   width: 100%;
   height: 38px;
-  padding: 0 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--glass-well);
+  box-shadow: var(--glass-well-shadow);
   font-size: 14px;
   color: var(--text-primary);
 }
@@ -1356,9 +1371,9 @@ textarea:focus-visible {
   background: var(--pill-bg);
   border: 1px solid var(--pill-border);
   box-shadow: var(--pill-shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  transition: opacity 220ms ease, transform 220ms ease;
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
+  transition: opacity 220ms var(--glass-spring), transform 260ms var(--glass-spring);
 }
 
 .audio-dock--hidden {
@@ -1509,13 +1524,19 @@ textarea:focus-visible {
   background: var(--accent);
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(19, 111, 90, 0.28);
-  transition: background-color 140ms ease, transform 120ms ease;
+  box-shadow:
+    0 4px 14px rgba(19, 111, 90, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  transition: background-color 140ms ease, transform 180ms var(--glass-spring), box-shadow 180ms ease;
 }
 
 .audio-dock__play-btn:hover {
   background: var(--accent-hover);
   transform: scale(1.04);
+}
+
+.audio-dock__play-btn:active {
+  transform: scale(0.95);
 }
 
 .audio-dock__spinner {
@@ -1547,20 +1568,24 @@ textarea:focus-visible {
   height: 30px;
   padding: 0 10px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-control-bg);
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, transform 180ms var(--glass-spring);
 }
 
 .audio-dock__pill-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--border-strong);
+}
+
+.audio-dock__pill-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .audio-dock__pill-btn:disabled {
@@ -1579,8 +1604,8 @@ textarea:focus-visible {
   max-width: 160px;
   padding: 0 8px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-control-bg);
   font-size: 12px;
   color: var(--text-primary);
   cursor: pointer;
@@ -1600,13 +1625,19 @@ textarea:focus-visible {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 3px 12px rgba(19, 111, 90, 0.28);
-  transition: background-color 140ms ease, transform 120ms ease;
+  box-shadow:
+    0 4px 14px rgba(19, 111, 90, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: background-color 140ms ease, transform 180ms var(--glass-spring), box-shadow 180ms ease;
 }
 
 .audio-dock__tasmi-btn:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
+}
+
+.audio-dock__tasmi-btn:active {
+  transform: scale(0.96);
 }
 
 /* Study Drawer (Right Slide-over / Mobile Bottom Sheet) */
@@ -1621,10 +1652,10 @@ textarea:focus-visible {
   flex-direction: column;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -1892,9 +1923,11 @@ textarea:focus-visible {
   z-index: 45;
   padding: 8px 16px;
   border-radius: var(--radius-pill);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  box-shadow: var(--popover-shadow);
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+  box-shadow: var(--pill-shadow);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
   font-size: 12.5px;
   color: var(--text-primary);
 }
@@ -1908,9 +1941,11 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -2428,8 +2463,8 @@ textarea:focus-visible {
   background: var(--pill-bg);
   border: 1px solid var(--pill-border);
   box-shadow: var(--pill-shadow);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
 }
 
 .recitation-ribbon__bar {
@@ -2509,8 +2544,8 @@ textarea:focus-visible {
   white-space: nowrap;
   padding: 0 10px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-control-bg);
   font-size: 11.5px;
   color: var(--text-secondary);
   cursor: pointer;
@@ -2541,10 +2576,10 @@ textarea:focus-visible {
   padding: 8px 14px;
   border-radius: var(--radius-lg);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   font-family: var(--font-arabic);
   font-size: 20px;
   line-height: 1.65;
@@ -3100,9 +3135,11 @@ textarea:focus-visible {
   gap: 12px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   pointer-events: auto;
 }
 
@@ -3262,9 +3299,11 @@ textarea:focus-visible {
   gap: 10px;
   padding: 14px;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   pointer-events: auto;
 }
 
@@ -3389,6 +3428,8 @@ textarea:focus-visible {
   z-index: 44;
   border: none;
   background: var(--backdrop);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   cursor: default;
   /* The top bar's zone ignores the pointer so the page stays clickable; its popups must opt back in */
   pointer-events: auto;
@@ -3407,9 +3448,11 @@ textarea:focus-visible {
   gap: 2px;
   padding: 6px;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   pointer-events: auto;
 }
 
@@ -3504,9 +3547,10 @@ textarea:focus-visible {
   display: flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 10px;
-  background: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--glass-well);
+  border: none;
+  box-shadow: var(--glass-well-shadow);
 }
 
 .app-menu__seg {
@@ -3514,21 +3558,21 @@ textarea:focus-visible {
   height: 32px;
   padding: 0 6px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-pill);
   background: transparent;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
 .app-menu__seg--active {
-  background: var(--bg-surface);
+  background: var(--glass-thumb);
   color: var(--accent);
   font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--glass-control-shadow);
 }
 
 .app-menu__swatches {
@@ -3639,9 +3683,11 @@ textarea:focus-visible {
   margin-top: auto;
   margin-bottom: auto;
   border-radius: var(--radius-lg);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -3801,9 +3847,11 @@ textarea:focus-visible {
   margin-top: auto;
   margin-bottom: auto;
   border-radius: var(--radius-lg);
-  background: var(--bg-canvas);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -3922,9 +3970,11 @@ textarea:focus-visible {
   margin-bottom: auto;
   padding: 18px 20px 20px;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
 }
 
 .tasmi-guide__header {
@@ -4028,9 +4078,11 @@ textarea:focus-visible {
   width: min(300px, calc(100vw - 24px));
   padding: 16px;
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--accent);
+  background: var(--glass-surface);
+  border: 1px solid transparent;
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
 }
 
 @media (min-width: 901px) {
@@ -4342,8 +4394,10 @@ textarea:focus-visible {
   padding: 6px 10px;
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-pill);
+  -webkit-backdrop-filter: var(--glass-blur-pill);
   font-family: system-ui, sans-serif;
   text-align: center;
   pointer-events: none;
@@ -4375,9 +4429,11 @@ textarea:focus-visible {
   max-width: 600px;
   height: min(calc(100dvh - 72px), 720px);
   border-radius: var(--radius-lg);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background: var(--glass-surface);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--popover-shadow);
+  backdrop-filter: var(--glass-blur-panel);
+  -webkit-backdrop-filter: var(--glass-blur-panel);
   overflow: hidden;
 }
 
@@ -5306,5 +5362,139 @@ textarea:focus-visible {
 
   .app-menu__divider {
     margin: 4px 10px 0;
+  }
+}
+
+/* Liquid Glass directional specular ring (open-glass-ui mask-cut conic sweep).
+   Static containers get position: relative so the ring anchors to the surface. */
+:where(
+  .topbar,
+  .audio-dock,
+  .recitation-ribbon,
+  .recitation-ribbon__words,
+  .palette,
+  .tasmi-sheet,
+  .tasmi-summary,
+  .dl-panel,
+  .tajweed-guide,
+  .about,
+  .tasmi-guide
+) {
+  position: relative;
+}
+
+/* The mask-cut conic ring replaces the flat border so there is one crisp contour. */
+:where(
+  .topbar,
+  .audio-dock,
+  .recitation-ribbon,
+  .recitation-ribbon__words,
+  .turn-btn,
+  .ayah-popover,
+  .study-drawer,
+  .reader-toast,
+  .word-tip,
+  .palette,
+  .tasmi-sheet,
+  .tasmi-summary,
+  .playback-menu,
+  .reciter-menu,
+  .dl-panel,
+  .tajweed-guide,
+  .about,
+  .tasmi-guide
+) {
+  border-color: transparent;
+}
+
+:where(
+  .topbar,
+  .audio-dock,
+  .recitation-ribbon,
+  .recitation-ribbon__words,
+  .turn-btn,
+  .ayah-popover,
+  .study-drawer,
+  .reader-toast,
+  .word-tip,
+  .palette,
+  .tasmi-sheet,
+  .tasmi-summary,
+  .playback-menu,
+  .reciter-menu,
+  .dl-panel,
+  .tajweed-guide,
+  .about,
+  .tasmi-guide,
+  .tasmi-hint
+)::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background:
+    conic-gradient(
+      from 285deg,
+      transparent 0deg,
+      var(--glass-spec) 55deg,
+      transparent 110deg,
+      transparent 180deg,
+      var(--glass-spec-counter) 235deg,
+      transparent 290deg
+    ),
+    linear-gradient(var(--glass-edge), var(--glass-edge));
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.audio-dock__pill-btn,
+.audio-dock__select,
+.recitation-ribbon__toggle-btn {
+  box-shadow: var(--glass-control-shadow);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :where(
+    .topbar,
+    .audio-dock,
+    .recitation-ribbon,
+    .recitation-ribbon__words,
+    .turn-btn,
+    .ayah-popover,
+    .study-drawer,
+    .reader-toast,
+    .word-tip,
+    .palette,
+    .tasmi-sheet,
+    .tasmi-summary,
+    .playback-menu,
+    .reciter-menu,
+    .dl-panel,
+    .tajweed-guide,
+    .about,
+    .tasmi-guide,
+    .tasmi-hint
+  )::after {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar,
+  .audio-dock,
+  .turn-btn,
+  .topbar__btn,
+  .audio-dock__pill-btn,
+  .audio-dock__play-btn,
+  .audio-dock__tasmi-btn {
+    transition: none;
   }
 }

@@ -1,11 +1,34 @@
 :root,
 [data-theme="light"] {
+  color-scheme: light;
   --bg-canvas: #ffffff;
   --bg-surface: #ffffff;
-  --bg-elevated: rgba(255, 255, 255, 0.96);
-  --pill-bg: rgba(255, 255, 255, 0.96);
-  --pill-border: rgba(19, 111, 90, 0.22);
-  --pill-shadow: 0 8px 26px rgba(15, 58, 48, 0.13), 0 1px 4px rgba(15, 58, 48, 0.08);
+  --bg-elevated: rgba(255, 255, 255, 0.56);
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(15, 23, 20, 0.1);
+  --glass-edge: rgba(15, 23, 20, 0.11);
+  --glass-spec: rgba(255, 255, 255, 0.95);
+  --glass-spec-counter: rgba(255, 255, 255, 0.65);
+  --glass-control-bg: rgba(255, 255, 255, 0.52);
+  --glass-control-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(15, 23, 20, 0.08),
+    0 3px 8px -3px rgba(15, 23, 20, 0.12);
+  --glass-well: rgba(24, 32, 44, 0.055);
+  --glass-well-shadow:
+    inset 0 1px 2px rgba(24, 32, 44, 0.09),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+  --glass-thumb: rgba(255, 255, 255, 0.92);
+  --glass-blur-pill: blur(6px) saturate(165%);
+  --glass-blur-panel: blur(18px) saturate(165%);
+  --glass-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --pill-bg: rgba(255, 255, 255, 0.34);
+  --pill-border: rgba(15, 23, 20, 0.11);
+  --pill-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(15, 23, 20, 0.06),
+    0 2px 6px rgba(15, 23, 20, 0.08),
+    0 10px 26px -4px rgba(15, 23, 20, 0.16);
   --banner-bg: #125b4c;
   --banner-gold: #d4a64a;
   --banner-window: #fffdf8;
@@ -41,8 +64,12 @@
   --mushaf-shadow: 0 14px 40px rgba(24, 32, 28, 0.08), 0 2px 8px rgba(24, 32, 28, 0.04);
   --spine-shadow-left: inset -18px 0 20px -15px rgba(28, 24, 18, 0.16);
   --spine-shadow-right: inset 18px 0 20px -15px rgba(28, 24, 18, 0.16);
-  --popover-shadow: 0 14px 36px rgba(18, 26, 23, 0.14), 0 2px 8px rgba(18, 26, 23, 0.08);
-  --backdrop: rgba(17, 20, 23, 0.36);
+  --popover-shadow:
+    inset 0 0 14px rgba(255, 255, 255, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 2px 4px rgba(24, 32, 44, 0.06),
+    0 18px 46px -10px rgba(24, 32, 44, 0.2);
+  --backdrop: rgba(17, 20, 23, 0.22);
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
   --font-arabic: "Amiri", "Scheherazade New", "Geeza Pro", "Traditional Arabic", serif;
@@ -53,12 +80,34 @@
 }
 
 [data-theme="sepia"] {
+  color-scheme: light;
   --bg-canvas: #f7f0e2;
   --bg-surface: #f7f0e2;
-  --bg-elevated: rgba(250, 244, 232, 0.96);
-  --pill-bg: rgba(255, 250, 240, 0.96);
-  --pill-border: rgba(156, 112, 52, 0.28);
-  --pill-shadow: 0 8px 26px rgba(58, 40, 16, 0.14), 0 1px 4px rgba(58, 40, 16, 0.08);
+  --bg-elevated: rgba(252, 246, 234, 0.58);
+  --glass-surface: rgba(252, 246, 234, 0.74);
+  --glass-border: rgba(43, 35, 24, 0.13);
+  --glass-edge: rgba(43, 35, 24, 0.14);
+  --glass-spec: rgba(255, 253, 247, 0.92);
+  --glass-spec-counter: rgba(255, 250, 238, 0.6);
+  --glass-control-bg: rgba(255, 251, 242, 0.52);
+  --glass-control-shadow:
+    inset 0 1px 0 rgba(255, 253, 247, 0.85),
+    0 1px 2px rgba(43, 35, 24, 0.09),
+    0 3px 8px -3px rgba(43, 35, 24, 0.14);
+  --glass-well: rgba(43, 35, 24, 0.07);
+  --glass-well-shadow:
+    inset 0 1px 2px rgba(43, 35, 24, 0.1),
+    inset 0 -1px 0 rgba(255, 252, 245, 0.55);
+  --glass-thumb: rgba(255, 252, 245, 0.9);
+  --glass-blur-pill: blur(6px) saturate(165%);
+  --glass-blur-panel: blur(18px) saturate(165%);
+  --pill-bg: rgba(252, 246, 234, 0.36);
+  --pill-border: rgba(43, 35, 24, 0.14);
+  --pill-shadow:
+    inset 0 1px 0 rgba(255, 253, 247, 0.85),
+    inset 0 -1px 0 rgba(43, 35, 24, 0.07),
+    0 2px 6px rgba(43, 35, 24, 0.09),
+    0 10px 26px -4px rgba(43, 35, 24, 0.18);
   --banner-bg: #135748;
   --banner-gold: #c99a3e;
   --banner-window: #fbf5e8;
@@ -87,17 +136,42 @@
   --mushaf-shadow: 0 14px 40px rgba(58, 42, 20, 0.11), 0 2px 8px rgba(58, 42, 20, 0.05);
   --spine-shadow-left: inset -18px 0 22px -15px rgba(58, 42, 20, 0.2);
   --spine-shadow-right: inset 18px 0 22px -15px rgba(58, 42, 20, 0.2);
-  --popover-shadow: 0 14px 36px rgba(43, 35, 24, 0.16), 0 2px 8px rgba(43, 35, 24, 0.08);
-  --backdrop: rgba(34, 26, 16, 0.38);
+  --popover-shadow:
+    inset 0 0 14px rgba(255, 252, 244, 0.24),
+    inset 0 1px 0 rgba(255, 253, 248, 0.68),
+    0 2px 4px rgba(48, 34, 16, 0.08),
+    0 18px 46px -10px rgba(48, 34, 16, 0.22);
+  --backdrop: rgba(34, 26, 16, 0.24);
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg-canvas: #14181b;
   --bg-surface: #14181b;
-  --bg-elevated: rgba(25, 30, 35, 0.96);
-  --pill-bg: rgba(28, 36, 42, 0.96);
-  --pill-border: rgba(43, 168, 138, 0.26);
-  --pill-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 4px rgba(0, 0, 0, 0.3);
+  --bg-elevated: rgba(26, 32, 38, 0.58);
+  --glass-surface: rgba(24, 29, 34, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.11);
+  --glass-edge: rgba(255, 255, 255, 0.12);
+  --glass-spec: rgba(255, 255, 255, 0.36);
+  --glass-spec-counter: rgba(255, 255, 255, 0.14);
+  --glass-control-bg: rgba(255, 255, 255, 0.09);
+  --glass-control-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 2px rgba(0, 0, 0, 0.24);
+  --glass-well: rgba(0, 0, 0, 0.24);
+  --glass-well-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.32),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  --glass-thumb: rgba(255, 255, 255, 0.14);
+  --glass-blur-pill: blur(8px) saturate(170%);
+  --glass-blur-panel: blur(20px) saturate(170%);
+  --pill-bg: rgba(24, 30, 36, 0.42);
+  --pill-border: rgba(255, 255, 255, 0.12);
+  --pill-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.28),
+    0 10px 28px -4px rgba(0, 0, 0, 0.48);
   --banner-bg: #143f38;
   --banner-gold: #d4a64a;
   --banner-window: #182220;
@@ -133,6 +207,54 @@
   --mushaf-shadow: 0 18px 46px rgba(0, 0, 0, 0.48), 0 2px 10px rgba(0, 0, 0, 0.3);
   --spine-shadow-left: inset -20px 0 24px -14px rgba(0, 0, 0, 0.55);
   --spine-shadow-right: inset 20px 0 24px -14px rgba(0, 0, 0, 0.55);
-  --popover-shadow: 0 18px 42px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.32);
-  --backdrop: rgba(0, 0, 0, 0.6);
+  --popover-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.52),
+    0 3px 12px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(43, 168, 138, 0.08);
+  --backdrop: rgba(0, 0, 0, 0.56);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  [data-theme="light"] {
+    --bg-elevated: rgba(255, 255, 255, 0.97);
+    --glass-surface: #ffffff;
+    --pill-bg: rgba(255, 255, 255, 0.97);
+    --glass-blur-pill: none;
+    --glass-blur-panel: none;
+  }
+
+  [data-theme="sepia"] {
+    --bg-elevated: rgba(250, 244, 232, 0.97);
+    --glass-surface: #f7f0e2;
+    --pill-bg: rgba(255, 250, 240, 0.97);
+  }
+
+  [data-theme="dark"] {
+    --bg-elevated: rgba(25, 30, 35, 0.97);
+    --glass-surface: #14181b;
+    --pill-bg: rgba(28, 36, 42, 0.97);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root,
+  [data-theme="light"] {
+    --bg-elevated: rgba(255, 255, 255, 0.97);
+    --glass-surface: #ffffff;
+    --pill-bg: rgba(255, 255, 255, 0.97);
+  }
+
+  [data-theme="sepia"] {
+    --bg-elevated: rgba(250, 244, 232, 0.97);
+    --glass-surface: #f7f0e2;
+    --pill-bg: rgba(255, 250, 240, 0.97);
+  }
+
+  [data-theme="dark"] {
+    --bg-elevated: rgba(25, 30, 35, 0.97);
+    --glass-surface: #14181b;
+    --pill-bg: rgba(28, 36, 42, 0.97);
+  }
 }
