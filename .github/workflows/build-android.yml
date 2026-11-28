@@ -58,8 +58,6 @@ jobs:
           workspaces: src-tauri
 
       - run: npm ci
-      - name: Download mushaf page fonts
-        run: npm run fetch:fonts
       - run: npm run typecheck
       - run: npm test
 
