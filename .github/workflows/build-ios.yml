@@ -54,7 +54,10 @@ jobs:
             const fs = require("fs");
             const p = process.argv[1];
             let s = fs.readFileSync(p, "utf8");
-            s = s.replace(/CODE_SIGN_STYLE = Automatic;/g, "CODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = \"\";");
+            s = s.replace(
+              /(PRODUCT_BUNDLE_IDENTIFIER = [^;]+;)/g,
+              "$1\n\t\t\t\tCODE_SIGN_STYLE = Manual;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = \"\";"
+            );
             fs.writeFileSync(p, s);
           ' "$PBXPROJ"
 
