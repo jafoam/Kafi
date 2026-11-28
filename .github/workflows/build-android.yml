@@ -83,7 +83,7 @@ jobs:
           VITE_SYNC_URL: ${{ vars.VITE_SYNC_URL }}
         run: |
           ARGS="--apk"
-          if [ "${{ inputs.build_type || 'debug' }}" = "debug" ]; then
+          if [ "${{ inputs.build_type || 'release' }}" = "debug" ]; then
             ARGS="$ARGS --debug"
           fi
           if [ "${{ inputs.target || 'aarch64' }}" != "all" ]; then
@@ -91,10 +91,27 @@ jobs:
           fi
           npx tauri android build $ARGS
 
+      - name: Sign release APK with debug keystore so it installs directly
+        if: ${{ (inputs.build_type || 'release') == 'release' }}
+        run: |
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          KEYSTORE="$HOME/.android/kafi-debug.keystore"
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$KEYSTORE" ]; then
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Kafi Debug,O=Kafi,C=ID"
+          fi
+          for apk in $(find src-tauri/gen/android/app/build/outputs/apk -name "*unsigned.apk"); do
+            aligned="${apk%-unsigned.apk}-signed.apk"
+            "$BUILD_TOOLS/zipalign" -f -p 4 "$apk" "$aligned"
+            "$BUILD_TOOLS/apksigner" sign --ks "$KEYSTORE" --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android "$aligned"
+            rm -f "$apk" "${aligned}.idsig"
+            ls -lh "$aligned"
+          done
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: kafi-android-${{ inputs.build_type || 'debug' }}-apk
+          name: kafi-android-${{ inputs.build_type || 'release' }}-apk
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
