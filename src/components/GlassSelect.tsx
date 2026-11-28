@@ -60,7 +60,7 @@ export function GlassSelect({
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
+    const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpen(false);
@@ -72,10 +72,10 @@ export function GlassSelect({
         triggerRef.current?.focus();
       }
     };
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown, true);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open]);

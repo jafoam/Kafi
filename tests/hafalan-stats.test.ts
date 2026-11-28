@@ -67,6 +67,47 @@ describe("computeHafalanProgress", () => {
     expect(map.summary.ziyadahAyahs).toBe(4);
     expect(map.summary.needsReviewAyahs).toBe(6);
   });
+
+  it("ignores unreviewed manual schedule targets (0 reps, 0 lapses) so they are not marked smooth automatically", () => {
+    const manualTargets: MurajaahCard[] = [
+      {
+        id: "78:1-10",
+        surah: 78,
+        fromAyah: 1,
+        toAyah: 10,
+        kind: "murajaah",
+        stabilityDays: 3,
+        difficulty: 5,
+        reps: 0,
+        lapses: 0,
+        lastReviewedAt: "2026-11-28T08:00:00.000Z",
+        dueAt: "2026-11-28T08:00:00.000Z",
+      },
+      {
+        id: "79:1-5",
+        surah: 79,
+        fromAyah: 1,
+        toAyah: 5,
+        kind: "ziyadah",
+        stabilityDays: 1,
+        difficulty: 5,
+        reps: 0,
+        lapses: 0,
+        lastReviewedAt: "2026-11-28T08:00:00.000Z",
+        dueAt: "2026-11-28T08:00:00.000Z",
+      },
+    ];
+
+    const map = computeHafalanProgress(manualTargets, [], catalog, mushafMap);
+    expect(map.surahs[77].status).toBe("none");
+    expect(map.surahs[77].coveredAyahs).toBe(0);
+    expect(map.surahs[78].status).toBe("none");
+    expect(map.surahs[78].coveredAyahs).toBe(0);
+    expect(map.summary.memorizedAyahs).toBe(0);
+    expect(map.summary.smoothAyahs).toBe(0);
+    expect(map.summary.ziyadahAyahs).toBe(0);
+    expect(map.summary.memorizedPages).toBe(0);
+  });
 });
 
 describe("computeHafalanStreak", () => {
@@ -110,5 +151,28 @@ describe("computeHafalanStreak", () => {
     );
     expect(streak.currentStreak).toBe(1);
     expect(streak.todaySessions).toBe(0);
+  });
+
+  it("ignores empty sessions with 0 recited words and 0 recited ayahs", () => {
+    const now = new Date(2026, 10, 28, 15, 0, 0).getTime();
+    const streak = computeHafalanStreak(
+      [
+        {
+          id: "empty-1",
+          startedAt: new Date(now).toISOString(),
+          durationSec: 4,
+          surah: 78,
+          fromAyah: 1,
+          toAyah: 10,
+          recitedAyahs: 0,
+          recitedWords: 0,
+          mistakes: [],
+        },
+      ],
+      now,
+    );
+    expect(streak.currentStreak).toBe(0);
+    expect(streak.todaySessions).toBe(0);
+    expect(streak.totalSessions).toBe(0);
   });
 });

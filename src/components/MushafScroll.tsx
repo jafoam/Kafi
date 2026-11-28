@@ -10,6 +10,7 @@ export interface MushafScrollProps {
   pages: PageEntry[];
   currentPage: number;
   selectedAyah: AyahKey | null;
+  locatedAyah?: AyahKey | null;
   playingAyah: AyahKey | null;
   playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
@@ -46,6 +47,7 @@ export function MushafScroll({
   pages,
   currentPage,
   selectedAyah,
+  locatedAyah = null,
   playingAyah,
   playingWordRange,
   highlights,
@@ -226,6 +228,7 @@ export function MushafScroll({
                   glyphLoader={glyphLoader}
                   side="single"
                   selectedAyah={selectedAyah}
+                  locatedAyah={locatedAyah}
                   playingAyah={playingAyah}
             playingWordRange={playingWordRange}
                   highlights={highlights}

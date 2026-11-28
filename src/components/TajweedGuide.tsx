@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { TAJWEED_RULES } from "../data/tajweed-rules";
 
 export interface TajweedGuideProps {
@@ -19,6 +19,14 @@ function Examples({ items }: { items?: string[] }) {
 /** What each color of the colored tajweed mushaf means; each rule opens to explain itself. */
 export function TajweedGuide({ onClose }: TajweedGuideProps) {
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
   const toggle = (id: string) =>
     setOpen((prev) => {
       const next = new Set(prev);

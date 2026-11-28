@@ -184,6 +184,13 @@ export function TasmiSummaryModal({
     () => (archivedIds && archivedIds.size > 0 ? history.filter((item) => !archivedIds.has(item.id)) : history),
     [history, archivedIds],
   );
+  const activeMurajaahCount = useMemo(
+    () =>
+      archivedMurajaahIds && archivedMurajaahIds.size > 0
+        ? murajaahCards.filter((card) => !archivedMurajaahIds.has(card.id)).length
+        : murajaahCards.length,
+    [murajaahCards, archivedMurajaahIds],
+  );
   const archivedHistory = useMemo(
     () => (archivedIds && archivedIds.size > 0 ? history.filter((item) => archivedIds.has(item.id)) : []),
     [history, archivedIds],
@@ -347,7 +354,7 @@ export function TasmiSummaryModal({
             }`}
             onClick={() => setTab("schedule")}
           >
-            Jadwal ({murajaahCards.length})
+            Jadwal ({activeMurajaahCount})
           </button>
           {catalog && mushafMap && (
             <button
@@ -569,17 +576,14 @@ export function TasmiSummaryModal({
                   visibleHistory.map((item) => {
                     const sName = surahByNum.get(item.surah)?.name ?? `Surah ${item.surah}`;
                     const isArchived = Boolean(archivedIds?.has(item.id));
+                    const status = evaluateRecord(item);
                     return (
                       <SwipeableHistoryRow
                         key={item.id}
                         title={`${sName} · Ayat ${item.fromAyah}–${item.toAyah}`}
                         sub={`${formatDate(item.startedAt)} · ${formatDuration(item.durationSec)}`}
-                        scoreLabel={
-                          item.mistakes.length === 0
-                            ? "Lancar"
-                            : `${item.mistakes.length} catatan`
-                        }
-                        scoreTone={item.mistakes.length === 0 ? "clean" : "warn"}
+                        scoreLabel={status.label}
+                        scoreTone={status.tone}
                         archived={isArchived}
                         onSelect={() => {
                           setSelectedRecord(item);
@@ -874,8 +878,10 @@ export function TasmiSummaryModal({
                 ) : (
                   visibleSched.map((card) => {
                     const sName = surahByNum.get(card.surah)?.name ?? `Surah ${card.surah}`;
+                    const isUnreviewed = card.reps === 0 && card.lapses === 0;
                     const isDue = (Date.parse(card.dueAt) || 0) <= Date.now();
                     const isArchived = Boolean(archivedMurajaahIds?.has(card.id));
+                    const badgeTone = isDue ? "warn" : isUnreviewed ? "muted" : "clean";
                     return (
                       <div key={card.id} className="schedule-card">
                         <div className="schedule-card__top">
@@ -885,15 +891,11 @@ export function TasmiSummaryModal({
                             </div>
                             <div className="tasmi-summary__history-sub">
                               {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · Tiap {card.stabilityDays} hari
-                              {card.reps > 0 ? ` · ${card.reps}× selesai` : ""}
+                              {card.reps > 0 ? ` · ${card.reps}× selesai` : " · Belum disetor"}
                               {card.note ? ` · ${card.note}` : ""}
                             </div>
                           </div>
-                          <span
-                            className={`tasmi-summary__score ${
-                              isDue ? "tasmi-summary__score--warn" : "tasmi-summary__score--clean"
-                            }`}
-                          >
+                          <span className={`tasmi-summary__score tasmi-summary__score--${badgeTone}`}>
                             {formatDueLabel(card.dueAt)}
                           </span>
                         </div>
@@ -954,7 +956,7 @@ interface SwipeableHistoryRowProps {
   title: string;
   sub: string;
   scoreLabel: string;
-  scoreTone: "clean" | "warn";
+  scoreTone: "clean" | "warn" | "muted";
   archived?: boolean;
   onSelect: () => void;
   onToggleArchive?: () => void;

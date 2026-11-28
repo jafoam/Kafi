@@ -25,7 +25,7 @@ export interface NavPaletteProps {
   tilawaController?: TilawaController;
   onClose: () => void;
   onJumpToPage: (page: number) => void;
-  onJumpToAyah: (ayah: AyahKey) => void;
+  onJumpToAyah: (ayah: AyahKey, opts?: { fromVoice?: boolean }) => void;
   onToggleBookmark: (ayah: AyahKey) => void;
 }
 
@@ -144,7 +144,7 @@ export function NavPalette({
         if (event.type === "position" && event.state === "locked" && event.observed[0]) {
           const { surah, ayah } = event.observed[0].word;
           stopVoiceSearch();
-          onJumpToAyah(`${surah}:${ayah}`);
+          onJumpToAyah(`${surah}:${ayah}`, { fromVoice: true });
           onClose();
         }
       });

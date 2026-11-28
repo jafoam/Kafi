@@ -15,6 +15,7 @@ import { MushafSpread } from "../src/components/MushafSpread";
 import { TasmiSheet } from "../src/components/TasmiSheet";
 import { TasmiSummaryModal } from "../src/components/TasmiSummaryModal";
 import { TopBar } from "../src/components/TopBar";
+import { SettingsModal } from "../src/components/SettingsModal";
 import type { QuranApi } from "../src/services/quran-api";
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -684,5 +685,209 @@ describe("Gradual blur and recent pages in search", () => {
       menuBtn?.click();
     });
     expect(zone?.classList.contains("topbar-zone--menu-open")).toBe(true);
+  });
+
+  it("highlights all words of locatedAyah in GlyphPageBody even when wordTranslation is enabled", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const el = mount(
+      <GlyphPageBody
+        data={{
+          page: 1,
+          fontFamily: "QCFv1-p1",
+          lines: [],
+          rows: [
+            {
+              kind: "text",
+              line: 1,
+              words: [
+                { code: "\uFB51", ayah: "1:1" },
+                { code: "\uFB52", ayah: "1:1" },
+                { code: "\uFB53", ayah: "1:2" },
+              ],
+            },
+          ],
+        }}
+        pageEntry={mushafMap.pages[0]}
+        selectedAyah={null}
+        locatedAyah="1:1"
+        playingAyah={null}
+        highlights={{}}
+        bookmarks={new Set()}
+        wordTranslation={true}
+        onSelectAyah={() => {}}
+      />,
+    );
+
+    const words = el.querySelectorAll(".glyph-word");
+    expect(words[0].classList.contains("glyph-word--located")).toBe(true);
+    expect(words[1].classList.contains("glyph-word--located")).toBe(true);
+    expect(words[2].classList.contains("glyph-word--located")).toBe(false);
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("shows 'Belum ada bacaan' in Riwayat for silent sessions and 'Belum disetor' for new manual schedules", () => {
+    const silentRecord: TasmiSessionRecord = {
+      id: "silent-hist-1",
+      startedAt: "2026-11-28T09:00:00Z",
+      durationSec: 5,
+      surah: 78,
+      fromAyah: 1,
+      toAyah: 10,
+      mistakes: [],
+      recitedAyahs: 0,
+      recitedWords: 0,
+    };
+
+    const el = mount(
+      <TasmiSummaryModal
+        open={true}
+        initialTab="history"
+        record={silentRecord}
+        history={[silentRecord]}
+        murajaahCards={[
+          {
+            id: "78:1-10",
+            surah: 78,
+            fromAyah: 1,
+            toAyah: 10,
+            kind: "murajaah",
+            stabilityDays: 3,
+            difficulty: 5,
+            reps: 0,
+            lapses: 0,
+            lastReviewedAt: "2026-11-28T09:00:00Z",
+            dueAt: "2026-11-28T09:00:00Z",
+          },
+        ]}
+        surahs={catalog.surahs}
+        getAyahWords={() => []}
+        onClose={() => {}}
+        onPlayAyah={() => {}}
+        onJumpToAyah={() => {}}
+      />,
+    );
+
+    expect(el.textContent).toContain("Belum ada bacaan");
+    expect(el.textContent).not.toContain("Lancar");
+
+    // Switch to Jadwal tab
+    const tabs = el.querySelectorAll('[role="tab"]');
+    act(() => {
+      (tabs[2] as HTMLButtonElement).click();
+    });
+    expect(el.textContent).toContain("Belum disetor");
+    expect(el.textContent).not.toContain("× selesai");
+  });
+
+  it("renders dedicated Pengaturan button in TopBar and grouped cards in SettingsModal", () => {
+    const onOpenSettings = vi.fn();
+    const topEl = mount(
+      <TopBar
+        surahLabel="Al-Fatihah"
+        juzNumber={1}
+        pageLabel="1"
+        spreadMode="auto"
+        pageNav="swipe"
+        hifzBlur={false}
+        wordTranslation={true}
+        tajweed={false}
+        letterStyle="1405"
+        theme="light"
+        halaqahConnected={true}
+        onOpenPalette={() => {}}
+        onOpenTasmi={() => {}}
+        onOpenDownloads={() => {}}
+        onOpenTajweedGuide={() => {}}
+        onOpenAbout={() => {}}
+        onChangeSpreadMode={() => {}}
+        onChangePageNav={() => {}}
+        onToggleHifzBlur={() => {}}
+        onToggleFocusMode={() => {}}
+        onToggleWordTranslation={() => {}}
+        onToggleTajweed={() => {}}
+        onChangeTheme={() => {}}
+        onChangeLetterStyle={() => {}}
+        onOpenSettings={onOpenSettings}
+        focusMode={false}
+      />,
+    );
+
+    const gearBtn = topEl.querySelector<HTMLButtonElement>('button[aria-label="Pengaturan"]');
+    expect(gearBtn).not.toBeNull();
+    expect(topEl.querySelector(".topbar__status-dot")).not.toBeNull();
+    act(() => {
+      gearBtn?.click();
+    });
+    expect(onOpenSettings).toHaveBeenCalledTimes(1);
+
+    const onClose = vi.fn();
+    const onOpenSchedule = vi.fn();
+    const onToggleTajweed = vi.fn();
+    const modalEl = mount(
+      <SettingsModal
+        open={true}
+        onClose={onClose}
+        readingMode="mushaf"
+        flowFontScale={1}
+        spreadMode="auto"
+        pageNav="swipe"
+        letterStyle="1405"
+        theme="dark"
+        hifzBlur={false}
+        hifzBlurLevel="full"
+        wordTranslation={true}
+        tajweed={false}
+        syncConnected={true}
+        onChangeReadingMode={() => {}}
+        onChangeFlowFontScale={() => {}}
+        onChangeSpreadMode={() => {}}
+        onChangePageNav={() => {}}
+        onChangeLetterStyle={() => {}}
+        onChangeTheme={() => {}}
+        onToggleHifzBlur={() => {}}
+        onChangeHifzBlurLevel={() => {}}
+        onToggleWordTranslation={() => {}}
+        onToggleTajweed={onToggleTajweed}
+        onOpenProgress={() => {}}
+        onOpenSchedule={onOpenSchedule}
+        onOpenQuiz={() => {}}
+        onOpenHalaqah={() => {}}
+        onOpenReader={() => {}}
+        onOpenTajweedGuide={() => {}}
+        onOpenManageData={() => {}}
+        onOpenDownloads={() => {}}
+        onOpenSync={() => {}}
+        onOpenAbout={() => {}}
+      />,
+    );
+
+    expect(modalEl.textContent).toContain("Tampilan & Mushaf");
+    expect(modalEl.textContent).toContain("Hafalan & Belajar");
+    expect(modalEl.textContent).toContain("Data & Offline");
+    expect(modalEl.textContent).toContain("Aplikasi");
+    expect(modalEl.textContent).toContain("Aktif");
+
+    const tajweedSwitch = Array.from(modalEl.querySelectorAll<HTMLButtonElement>('[role="switch"]')).find((b) =>
+      b.textContent?.includes("Tajwid Warna"),
+    );
+    act(() => {
+      tajweedSwitch?.click();
+    });
+    expect(onToggleTajweed).toHaveBeenCalledTimes(1);
+
+    const scheduleBtn = Array.from(modalEl.querySelectorAll<HTMLButtonElement>(".settings-row")).find((b) =>
+      b.textContent?.includes("Jadwal Muraja'ah"),
+    );
+    act(() => {
+      scheduleBtn?.click();
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpenSchedule).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });

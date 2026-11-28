@@ -87,6 +87,8 @@ export function StudyDrawer({
   const [draftNote, setDraftNote] = useState(note);
   const [noteSaved, setNoteSaved] = useState(false);
   const saveTimerRef = useRef<number | null>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const flushNoteRef = useRef<() => void>(() => {});
 
   // Sync draft note when switching ayah or external note changes
   useEffect(() => {
@@ -167,6 +169,36 @@ export function StudyDrawer({
     return () => controller.abort();
   }, [open, ayah, tab, tafsirId, quranApi, retryTick]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        flushNoteRef.current();
+        onClose();
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (
+        drawerRef.current?.contains(target) ||
+        target.closest(".glass-select__menu") ||
+        target.closest(".audio-dock") ||
+        target.closest(".study-drawer__backdrop")
+      ) {
+        return;
+      }
+      flushNoteRef.current();
+      onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open, onClose]);
+
   if (!open || !ayah) return null;
 
   const { ayah: ayahNum } = parseAyahKey(ayah);
@@ -196,13 +228,24 @@ export function StudyDrawer({
       setNoteSaved(true);
     }
   };
+  flushNoteRef.current = flushNoteNow;
 
   return (
-    <aside
-      className="study-drawer"
-      role="complementary"
-      aria-label="Panel Terjemahan, Tafsir, dan Catatan"
-    >
+    <>
+      <div
+        className="study-drawer__backdrop"
+        aria-hidden="true"
+        onClick={() => {
+          flushNoteNow();
+          onClose();
+        }}
+      />
+      <aside
+        ref={drawerRef}
+        className="study-drawer"
+        role="complementary"
+        aria-label="Panel Terjemahan, Tafsir, dan Catatan"
+      >
       <div className="study-drawer__header">
         <div className="study-drawer__heading">
           <span className="study-drawer__title">
@@ -238,7 +281,7 @@ export function StudyDrawer({
             aria-label="Putar ayat ini"
             title="Putar ayat ini"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M7 5.2v13.6a1 1 0 0 0 1.5.86l11.2-6.8a1 1 0 0 0 0-1.72L8.5 4.34A1 1 0 0 0 7 5.2z" />
             </svg>
           </button>
@@ -486,5 +529,6 @@ export function StudyDrawer({
         )}
       </div>
     </aside>
+    </>
   );
 }

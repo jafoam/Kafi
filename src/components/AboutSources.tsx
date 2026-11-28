@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { REPORT_URL, SOURCE_CODE_URL, SOURCE_GROUPS } from "../data/acknowledgements";
 
 export interface AboutSourcesProps {
@@ -8,6 +9,14 @@ const host = (url: string) => url.replace(/^https?:\/\//, "").replace(/\/$/, "")
 
 /** About Kafi: where every part of the mushaf, translations, audio and Tasmi' comes from. */
 export function AboutSources({ onClose }: AboutSourcesProps) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   return (
     <div className="palette-backdrop" role="dialog" aria-modal="true" aria-label="Tentang & Sumber Data" onClick={onClose}>
       <div className="about" onClick={(e) => e.stopPropagation()}>

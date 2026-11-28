@@ -24,6 +24,7 @@ export interface MushafPageProps {
   glyphLoader?: GlyphPageLoader;
   side?: "left" | "right" | "single";
   selectedAyah: AyahKey | null;
+  locatedAyah?: AyahKey | null;
   playingAyah: AyahKey | null;
   playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
@@ -44,6 +45,7 @@ export function MushafPage({
   glyphLoader,
   side = "single",
   selectedAyah,
+  locatedAyah = null,
   playingAyah,
   playingWordRange,
   highlights,
@@ -118,6 +120,7 @@ export function MushafPage({
           data={glyphData}
           pageEntry={pageEntry}
           selectedAyah={selectedAyah}
+          locatedAyah={locatedAyah}
           playingAyah={playingAyah}
           playingWordRange={playingWordRange}
           highlights={highlights}
@@ -188,6 +191,7 @@ export function MushafPage({
           const ayahKey: AyahKey = `${segment.surah}:${segment.ayah}`;
           const isHovered = hoveredAyah === ayahKey;
           const isSelected = selectedAyah === ayahKey;
+          const isLocated = locatedAyah === ayahKey;
           const isPlaying = playingAyah === ayahKey;
           const highlightColor = highlights[ayahKey];
           const isBookmarked = bookmarks.has(ayahKey);
@@ -206,6 +210,7 @@ export function MushafPage({
               highlightColor ? `ayah-box--hl-${highlightColor}` : "",
               isHovered ? "ayah-box--hovered" : "",
               isSelected ? "ayah-box--selected" : "",
+              isLocated ? "ayah-box--located" : "",
               isPlaying ? "ayah-box--playing" : "",
               mistake ? "ayah-box--mistake" : "",
               isBlurred ? "ayah-box--blurred" : "",

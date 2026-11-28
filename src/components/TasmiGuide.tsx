@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface TasmiGuideProps {
   onClose: () => void;
@@ -44,6 +44,14 @@ export function TasmiGuide({ onClose, onStart }: TasmiGuideProps) {
   const [index, setIndex] = useState(0);
   const step = STEPS[index];
   const last = index === STEPS.length - 1;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
 
   return (
     <div className="palette-backdrop" role="dialog" aria-modal="true" aria-label="Panduan Tasmi'" onClick={onClose}>

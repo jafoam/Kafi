@@ -192,6 +192,7 @@ export interface FlowReaderProps {
   currentPage: number;
   focusMode: boolean;
   selectedAyah: AyahKey | null;
+  locatedAyah?: AyahKey | null;
   playingAyah: AyahKey | null;
   playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
@@ -273,6 +274,7 @@ export function FlowReader({
   currentPage,
   focusMode,
   selectedAyah,
+  locatedAyah = null,
   playingAyah,
   playingWordRange,
   highlights,
@@ -308,6 +310,17 @@ export function FlowReader({
 
   const [glyphMap, setGlyphMap] = useState<Record<number, GlyphPageData>>({});
   const [wordMap, setWordMap] = useState<Record<number, PageWords>>({});
+
+  // Scroll an ayah located by search or voice jump into the center of the flow column.
+  useEffect(() => {
+    if (!locatedAyah) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const target = container.querySelector<HTMLElement>(`[data-ayah="${locatedAyah}"]`);
+    if (target && typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [locatedAyah, glyphMap, mode]);
   const [translations, setTranslations] = useState<Record<string, TranslationState>>({});
   const requestedTranslationsRef = useRef(new Set<string>());
   const warmedSurahsRef = useRef(new Set<string>());
@@ -316,6 +329,26 @@ export function FlowReader({
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
   const [pickedWord, setPickedWord] = useState<string | null>(null);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const fontBtnRef = useRef<HTMLButtonElement>(null);
+  const fontPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!fontMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (fontBtnRef.current?.contains(target) || fontPopoverRef.current?.contains(target)) return;
+      setFontMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFontMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fontMenuOpen]);
   const [tip, setTip] = useState<{
     page: number;
     code: string;
@@ -691,6 +724,7 @@ export function FlowReader({
         (wordTranslation ? selectedAyah === ayah && pickedWord === wordKey : selectedAyah === ayah)
           ? "glyph-word--selected"
           : "",
+        locatedAyah === ayah ? "glyph-word--located" : "",
         playingAyah === ayah ? "glyph-word--playing" : "",
         isPlayingWord ? "glyph-word--playing-word" : "",
         mistake ? "glyph-word--mistake" : "",
@@ -744,6 +778,7 @@ export function FlowReader({
           </div>
           {onChangeFontScale && (
             <button
+              ref={fontBtnRef}
               type="button"
               className={`flow-font-btn ${fontMenuOpen ? "flow-font-btn--active" : ""}`}
               aria-label="Atur ukuran huruf"
@@ -756,7 +791,7 @@ export function FlowReader({
           )}
         </div>
         {fontMenuOpen && onChangeFontScale && !focusMode && (
-          <div className="flow-font-popover" role="group" aria-label="Ukuran huruf">
+          <div ref={fontPopoverRef} className="flow-font-popover" role="group" aria-label="Ukuran huruf">
             <button
               type="button"
               className="flow-font-stepper__btn"
@@ -882,11 +917,12 @@ export function FlowReader({
                       const tState = translations[cacheId];
                       const isPlaying = playingAyah === item.ayah;
                       const isSelected = selectedAyah === item.ayah;
+                      const isLocated = locatedAyah === item.ayah;
                       const isBlurred = Boolean(blurSet?.has(item.ayah) && !revealedSet?.has(item.ayah));
                       return (
                         <article
                           key={item.ayah}
-                          className={`flow-ayah-card ${isPlaying ? "flow-ayah-card--playing" : ""} ${isSelected ? "flow-ayah-card--selected" : ""}`}
+                          className={`flow-ayah-card ${isPlaying ? "flow-ayah-card--playing" : ""} ${isSelected ? "flow-ayah-card--selected" : ""} ${isLocated ? "flow-ayah-card--located" : ""}`}
                           data-ayah={item.ayah}
                         >
                           <div className="flow-ayah-card__top">
@@ -957,6 +993,7 @@ export function FlowReader({
                           "flow-bismillah--ayah",
                           hl ? `glyph-word--hl-${hl}` : "",
                           selectedAyah === block.ayah ? "glyph-word--selected" : "",
+                          locatedAyah === block.ayah ? "glyph-word--located" : "",
                           playingAyah === block.ayah ? "glyph-word--playing" : "",
                           mistake ? "glyph-word--mistake" : "",
                           blurred ? "glyph-word--blurred" : "",

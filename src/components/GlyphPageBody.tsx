@@ -25,6 +25,7 @@ export interface GlyphPageBodyProps {
   data: GlyphPageData;
   pageEntry: PageEntry;
   selectedAyah: AyahKey | null;
+  locatedAyah?: AyahKey | null;
   playingAyah: AyahKey | null;
   /** 0-based [start, end) word range currently spoken inside `playingAyah`. */
   playingWordRange?: [number, number] | null;
@@ -44,6 +45,7 @@ export function GlyphPageBody({
   data,
   pageEntry,
   selectedAyah,
+  locatedAyah = null,
   playingAyah,
   playingWordRange,
   highlights,
@@ -81,6 +83,17 @@ export function GlyphPageBody({
   useEffect(() => {
     if (!wordTranslation || selectedAyah) setTip(null);
   }, [wordTranslation, selectedAyah]);
+
+  // Bring an ayah located by search or voice jump into the center of the viewport.
+  useEffect(() => {
+    if (!locatedAyah) return;
+    const body = bodyRef.current;
+    if (!body) return;
+    const target = body.querySelector<HTMLElement>(`[data-ayah="${locatedAyah}"]`);
+    if (target && typeof target.scrollIntoView === "function") {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [locatedAyah, data.page]);
 
   // A tapped tooltip is placed from a fixed rect, so it goes away on scroll or a tap elsewhere.
   const touchTip = Boolean(tip?.touch);
@@ -346,6 +359,7 @@ export function GlyphPageBody({
                   : selectedAyah === ayah)
                   ? "glyph-word--selected"
                   : "",
+                locatedAyah === ayah ? "glyph-word--located" : "",
                 playingAyah === ayah ? "glyph-word--playing" : "",
                 isPlayingWord ? "glyph-word--playing-word" : "",
                 mistake ? "glyph-word--mistake" : "",

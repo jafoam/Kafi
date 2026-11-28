@@ -10,6 +10,7 @@ export interface MushafSpreadProps {
   leftPageEntry: PageEntry | null;
   pageUrls: Record<number, string>;
   selectedAyah: AyahKey | null;
+  locatedAyah?: AyahKey | null;
   playingAyah: AyahKey | null;
   playingWordRange?: [number, number] | null;
   highlights: Record<AyahKey, HighlightColor>;
@@ -46,6 +47,7 @@ export function MushafSpread({
   leftPageEntry,
   pageUrls,
   selectedAyah,
+  locatedAyah = null,
   playingAyah,
   playingWordRange,
   highlights,
@@ -321,6 +323,7 @@ export function MushafSpread({
             glyphLoader={glyphLoader}
             side="left"
             selectedAyah={selectedAyah}
+            locatedAyah={locatedAyah}
             playingAyah={playingAyah}
             playingWordRange={playingWordRange}
             highlights={highlights}
@@ -342,6 +345,7 @@ export function MushafSpread({
           glyphLoader={glyphLoader}
           side={isDouble ? "right" : "single"}
           selectedAyah={selectedAyah}
+          locatedAyah={locatedAyah}
           playingAyah={playingAyah}
           playingWordRange={playingWordRange}
           highlights={highlights}

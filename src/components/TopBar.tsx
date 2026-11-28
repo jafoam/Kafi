@@ -82,6 +82,7 @@ export interface TopBarProps {
   onOpenQuiz?: () => void;
   onOpenHalaqah?: () => void;
   onOpenManageData?: () => void;
+  onOpenSettings?: () => void;
   halaqahConnected?: boolean;
   syncConnected?: boolean;
   /** Told when the ☰ menu opens or closes, so other popups can step aside. */
@@ -157,6 +158,7 @@ export function TopBar({
   onOpenQuiz,
   onOpenHalaqah,
   onOpenManageData,
+  onOpenSettings,
   halaqahConnected = false,
   syncConnected = false,
   onMenuOpenChange,
@@ -285,15 +287,37 @@ export function TopBar({
               setInstallGuideOpen(false);
               setMenuOpen((open) => !open);
             }}
-            aria-label="Menu: mode halaman, tema, dan unduh offline"
+            aria-label="Opsi tampilan cepat: mode baca, tema, dan tajwid"
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
-            title="Menu: mode halaman, tema, dan unduh offline"
+            title="Opsi tampilan cepat"
           >
             <svg className="topbar__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
+
+          {onOpenSettings && (
+            <button
+              type="button"
+              className="topbar__btn topbar__btn--icon topbar__settings-btn"
+              onClick={() => {
+                setMenuOpen(false);
+                setInstallGuideOpen(false);
+                onOpenSettings();
+              }}
+              aria-label="Pengaturan"
+              title="Pengaturan: tampilan, hafalan, data & aplikasi"
+            >
+              <svg className="topbar__icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.95" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+              </svg>
+              {(halaqahConnected || syncConnected) && (
+                <span className="topbar__status-dot" aria-hidden="true" />
+              )}
+            </button>
+          )}
 
           <button
             type="button"
@@ -343,6 +367,7 @@ export function TopBar({
           onOpenQuiz={onOpenQuiz}
           onOpenHalaqah={onOpenHalaqah}
           onOpenManageData={onOpenManageData}
+          onOpenSettings={onOpenSettings}
           halaqahConnected={halaqahConnected}
           syncConnected={syncConnected}
           onClose={() => setMenuOpen(false)}
@@ -513,6 +538,7 @@ interface AppMenuProps {
   onOpenQuiz?: () => void;
   onOpenHalaqah?: () => void;
   onOpenManageData?: () => void;
+  onOpenSettings?: () => void;
   halaqahConnected?: boolean;
   syncConnected?: boolean;
   onClose: () => void;
@@ -552,6 +578,7 @@ function AppMenu({
   onOpenQuiz,
   onOpenHalaqah,
   onOpenManageData,
+  onOpenSettings,
   halaqahConnected = false,
   syncConnected = false,
   onClose,
@@ -615,13 +642,13 @@ function AppMenu({
       }}
     >
       <span className="app-menu__subrow-text">
-        <span className="app-menu__link-chip-label">
+        <span className="app-menu__subrow-title">
           {title}
           {badge && <span className="app-menu__status-dot" aria-hidden="true" />}
         </span>
         <span className="app-menu__subrow-sub">{subtitle}</span>
       </span>
-      <span className="app-menu__chevron" aria-hidden="true">
+      <span className="app-menu__subrow-trail" aria-hidden="true">
         ›
       </span>
     </button>
@@ -639,7 +666,8 @@ function AppMenu({
                 className="app-menu__back-btn"
                 onClick={() => setSubmenu("root")}
               >
-                ‹ Kembali
+                <span aria-hidden="true">‹</span>
+                <span>Kembali</span>
               </button>
               <span className="app-menu__subtitle">
                 {submenu === "hafalan" ? "Hafalan" : "Data & Aplikasi"}
@@ -666,7 +694,7 @@ function AppMenu({
                   submenuRow("Sync Perangkat", "Sinkronisasi terenkripsi tanpa login", onOpenSync, syncConnected)}
                 {submenuRow("Tentang & Sumber", "Lisensi & sumber data mushaf", onOpenAbout)}
                 <a
-                  className="app-menu__subrow app-menu__link-chip--ext"
+                  className="app-menu__subrow app-menu__subrow--ext"
                   href={RELEASES_URL}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -674,10 +702,10 @@ function AppMenu({
                   title="Unduh versi aplikasi Android/Desktop di GitHub"
                 >
                   <span className="app-menu__subrow-text">
-                    <span className="app-menu__link-chip-label">Aplikasi (GitHub)</span>
+                    <span className="app-menu__subrow-title">Aplikasi (GitHub)</span>
                     <span className="app-menu__subrow-sub">Unduh APK Android &amp; Desktop</span>
                   </span>
-                  <span className="app-menu__ext-icon" aria-hidden="true">
+                  <span className="app-menu__subrow-trail app-menu__subrow-trail--ext" aria-hidden="true">
                     ↗
                   </span>
                 </a>
@@ -752,28 +780,32 @@ function AppMenu({
           </div>
         )}
 
-        <div className="app-menu__field app-menu__field--row">
-          <span className="app-menu__label">Huruf Madinah</span>
-          <div className="app-menu__seg-compact">
-            <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
-          </div>
-        </div>
-
-        {readingMode === "mushaf" && (
+        {!onOpenSettings && (
           <>
             <div className="app-menu__field app-menu__field--row">
-              <span className="app-menu__label">Pindah</span>
+              <span className="app-menu__label">Huruf Madinah</span>
               <div className="app-menu__seg-compact">
-                <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
+                <Segmented label="Gaya huruf" value={letterStyle} options={LETTER_STYLE_OPTIONS} onChange={onChangeLetterStyle} />
               </div>
             </div>
 
-            <div className="app-menu__field app-menu__field--row app-menu__group--spread">
-              <span className="app-menu__label">Halaman</span>
-              <div className="app-menu__seg-compact">
-                <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
-              </div>
-            </div>
+            {readingMode === "mushaf" && (
+              <>
+                <div className="app-menu__field app-menu__field--row">
+                  <span className="app-menu__label">Pindah</span>
+                  <div className="app-menu__seg-compact">
+                    <Segmented label="Pindah halaman" value={pageNav} options={PAGE_NAV_OPTIONS} onChange={onChangePageNav} />
+                  </div>
+                </div>
+
+                <div className="app-menu__field app-menu__field--row app-menu__group--spread">
+                  <span className="app-menu__label">Halaman</span>
+                  <div className="app-menu__seg-compact">
+                    <Segmented label="Mode halaman" value={spreadMode} options={SPREAD_OPTIONS} onChange={onChangeSpreadMode} />
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
 
@@ -799,6 +831,28 @@ function AppMenu({
 
         <span className="app-menu__divider" aria-hidden="true" />
 
+        {onOpenSettings ? (
+          <div className="app-menu__settings-footer">
+            <button
+              type="button"
+              className="app-menu__link-chip app-menu__link-chip--full"
+              onClick={() => {
+                onClose();
+                onOpenSettings();
+              }}
+            >
+              <span className="app-menu__link-chip-label">
+                Semua Pengaturan
+                {(halaqahConnected || syncConnected) && (
+                  <span className="app-menu__status-dot" aria-hidden="true" />
+                )}
+              </span>
+              <span className="app-menu__chevron" aria-hidden="true">
+                ›
+              </span>
+            </button>
+          </div>
+        ) : (
         <div className="app-menu__links">
           {(onOpenProgress || onOpenSchedule || onOpenQuiz || onOpenHalaqah) && (
             <button
@@ -831,6 +885,7 @@ function AppMenu({
           {onOpenReader && linkChip("Baca Tafsir", onOpenReader)}
           {linkChip("Hukum Tajwid", onOpenTajweedGuide)}
         </div>
+        )}
           </>
         )}
       </div>

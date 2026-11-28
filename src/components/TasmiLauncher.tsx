@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 export interface TasmiLauncherProps {
   /** False while something else owns the screen (focus mode, an open Tasmi' session, a drawer). */
   visible: boolean;
@@ -14,10 +16,31 @@ export function TasmiLauncher({
   onDismissHint,
   onOpenGuide,
 }: TasmiLauncherProps) {
+  const hintRef = useRef<HTMLDivElement>(null);
+  const open = visible && showHint;
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (hintRef.current?.contains(target)) return;
+      onDismissHint();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDismissHint();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onDismissHint]);
+
   return (
     <>
-      {visible && showHint && (
-        <div className="tasmi-hint" role="dialog" aria-label="Kenalan dengan Tasmi'">
+      {open && (
+        <div ref={hintRef} className="tasmi-hint" role="dialog" aria-label="Kenalan dengan Tasmi'">
           <strong className="tasmi-hint__title">Tasmi&apos;: setor hafalan</strong>
           <p className="tasmi-hint__text">
             Bacakan ayat dengan suaramu. Aplikasi menyimak bacaanmu, lalu menandai ayat yang salah atau terlewat.

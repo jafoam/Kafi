@@ -106,6 +106,7 @@ import { CompareAudioModal } from "./components/CompareAudioModal";
 import { TextQuizModal } from "./components/TextQuizModal";
 import { HalaqahModal } from "./components/HalaqahModal";
 import { ManageDataModal } from "./components/ManageDataModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { computeHafalanStreak } from "./services/hafalan-stats";
 import {
   buildReportFromTasmi,
@@ -249,6 +250,9 @@ export function App({
     word?: SelectedWord;
   } | null>(null);
   const [lastSelectedAyah, setLastSelectedAyah] = useState<AyahKey | null>(null);
+  const [locatedAyah, setLocatedAyah] = useState<AyahKey | null>(null);
+  const pendingLocatedAyahRef = useRef<AyahKey | null>(null);
+  const locatedTimerRef = useRef<number | null>(null);
   const [glyphAyahs, setGlyphAyahs] = useState<Record<number, AyahKey[]>>({});
   // The 1441 letters come from the tajweed fonts; without tajweed they are drawn in plain ink.
   const uses1441Letters = userData.settings.tajweed || userData.settings.letterStyle === "1441";
@@ -299,6 +303,7 @@ export function App({
   const [halaqahOpen, setHalaqahOpen] = useState(false);
   const [halaqahInviteCode, setHalaqahInviteCode] = useState<string | null>(null);
   const [manageDataOpen, setManageDataOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const toastTimerRef = useRef<number | null>(null);
   const peekTimerRef = useRef<number | null>(null);
@@ -541,13 +546,28 @@ export function App({
     [platform],
   );
 
-  // Clear temporary Hifz peeks and selection when navigating pages
+  // Clear temporary Hifz peeks and selection when navigating pages, while preserving an explicit jump target
   useEffect(() => {
     setSelected(null);
-    setLastSelectedAyah(null);
     setRevealedSet(new Set());
     setPeekedAyah(null);
+    const pending = pendingLocatedAyahRef.current;
+    if (pending) {
+      pendingLocatedAyahRef.current = null;
+      setLastSelectedAyah(pending);
+      return;
+    }
+    setLastSelectedAyah(null);
+    setLocatedAyah(null);
   }, [rightPage, leftPage]);
+
+  useEffect(() => {
+    return () => {
+      if (locatedTimerRef.current !== null) {
+        window.clearTimeout(locatedTimerRef.current);
+      }
+    };
+  }, []);
 
   const navigateToPage = useCallback(
     (page: number) => {
@@ -791,13 +811,37 @@ export function App({
   );
 
   const handleJumpToAyah = useCallback(
-    (ayah: AyahKey) => {
+    (ayah: AyahKey, opts?: { fromVoice?: boolean }) => {
       const targetPage = getPagesForAyah(ayah)[0];
-      if (targetPage) {
+      const alreadyVisible =
+        targetPage !== undefined &&
+        (targetPage === rightPage || (leftPage !== null && targetPage === leftPage));
+
+      setSelected(null);
+      setLastSelectedAyah(ayah);
+      setLocatedAyah(ayah);
+      if (locatedTimerRef.current !== null) {
+        window.clearTimeout(locatedTimerRef.current);
+      }
+      locatedTimerRef.current = window.setTimeout(() => {
+        setLocatedAyah((prev) => (prev === ayah ? null : prev));
+        locatedTimerRef.current = null;
+      }, 7000);
+
+      if (targetPage && !alreadyVisible) {
+        pendingLocatedAyahRef.current = ayah;
         navigateToPage(targetPage);
+      } else {
+        pendingLocatedAyahRef.current = null;
+      }
+
+      if (opts?.fromVoice) {
+        const { surah, ayah: ayahNum } = parseAyahKey(ayah);
+        const sName = surahByNumber.get(surah)?.name ?? `Surah ${surah}`;
+        showToast(`Ditemukan: ${sName} : ${ayahNum}`);
       }
     },
-    [getPagesForAyah, navigateToPage],
+    [getPagesForAyah, rightPage, leftPage, navigateToPage, surahByNumber, showToast],
   );
 
   const handleChangeSpreadMode = useCallback(
@@ -1566,7 +1610,7 @@ export function App({
   // Bind Space (play/pause), M (Tasmi'), and H (Hifz blur) when not typing in an editable control
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (paletteOpen || summaryModal.open) return;
+      if (paletteOpen || summaryModal.open || settingsOpen) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isEditableTarget(event.target)) return;
 
@@ -1606,6 +1650,7 @@ export function App({
   }, [
     paletteOpen,
     summaryModal.open,
+    settingsOpen,
     tasmiSheetOpen,
     tasmiActive,
     tasmiState?.mode,
@@ -1616,6 +1661,7 @@ export function App({
 
   const handleSelectAyah = useCallback(
     (ayah: AyahKey, anchorRect: DOMRect, word?: SelectedWord) => {
+      setLocatedAyah(null);
       setLastSelectedAyah(ayah);
       if (studyOpen) {
         setStudyAyah(ayah);
@@ -1640,13 +1686,16 @@ export function App({
     return () => window.removeEventListener("pointerdown", onDown, true);
   }, []);
   const handleTapPage = useCallback(() => {
+    if (locatedAyah) {
+      setLocatedAyah(null);
+    }
     if (selected) {
       setSelected(null);
       return;
     }
     if (lastPointerRef.current === "mouse" || tasmiActive) return;
     setFocusMode((prev) => !prev);
-  }, [selected, tasmiActive]);
+  }, [locatedAyah, selected, tasmiActive]);
 
   // Dismiss ayah/word popover when entering focus mode
   useEffect(() => {
@@ -1679,6 +1728,7 @@ export function App({
   useBackClose(quizOpen, () => setQuizOpen(false));
   useBackClose(halaqahOpen, () => setHalaqahOpen(false));
   useBackClose(manageDataOpen, () => setManageDataOpen(false));
+  useBackClose(settingsOpen, () => setSettingsOpen(false));
 
   // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
   // hides the Tasmi' card and button.
@@ -1695,6 +1745,7 @@ export function App({
     quizOpen ||
     halaqahOpen ||
     manageDataOpen ||
+    settingsOpen ||
     topMenuOpen ||
     dockPopupOpen;
 
@@ -2044,6 +2095,7 @@ export function App({
           setHalaqahOpen(true);
         }}
         onOpenManageData={() => setManageDataOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
         halaqahConnected={(userData.halaqahs?.length ?? 0) > 0}
         syncConnected={syncConfig !== null}
         onMenuOpenChange={setTopMenuOpen}
@@ -2101,6 +2153,7 @@ export function App({
           currentPage={currentPage}
           focusMode={focusMode}
           selectedAyah={selected?.ayah ?? null}
+          locatedAyah={locatedAyah}
           playingAyah={effectivePlayingAyah}
           playingWordRange={tasmiActive ? null : playingWordRange}
           highlights={userData.highlights}
@@ -2110,7 +2163,7 @@ export function App({
           revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
           mistakeAyahs={effectiveMistakeAyahs}
           wordTranslation={userData.settings.wordTranslation && !focusMode}
-          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open || settingsOpen}
           glyphLoader={glyphLoader}
           quranApi={quranApi}
           translationId={userData.settings.translationId}
@@ -2132,6 +2185,7 @@ export function App({
           pages={mushafMap.pages}
           currentPage={currentPage}
           selectedAyah={selected?.ayah ?? null}
+          locatedAyah={locatedAyah}
           playingAyah={effectivePlayingAyah}
           playingWordRange={tasmiActive ? null : playingWordRange}
           highlights={userData.highlights}
@@ -2141,7 +2195,7 @@ export function App({
           revealedSet={isTasmiBlurActive ? tasmiState?.revealedAyahs : revealedSet}
           mistakeAyahs={effectiveMistakeAyahs}
           wordTranslation={userData.settings.wordTranslation && !focusMode}
-          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open || settingsOpen}
           getPageImageUrl={getPageImageUrl}
           glyphLoader={glyphLoader}
           onRetryPage={handleRetryPage}
@@ -2163,6 +2217,7 @@ export function App({
           leftPageEntry={leftPageEntry}
           pageUrls={pageUrls}
           selectedAyah={selected?.ayah ?? null}
+          locatedAyah={locatedAyah}
           playingAyah={effectivePlayingAyah}
           playingWordRange={tasmiActive ? null : playingWordRange}
           highlights={userData.highlights}
@@ -2174,7 +2229,7 @@ export function App({
           wordTranslation={userData.settings.wordTranslation && !focusMode}
           canGoPrev={canGoPrev}
           canGoNext={canGoNext}
-          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open}
+          isModalOpen={paletteOpen || tasmiSheetOpen || summaryModal.open || settingsOpen}
           getPageImageUrl={getPageImageUrl}
           glyphLoader={glyphLoader}
           onRetryPage={handleRetryPage}
@@ -2626,6 +2681,84 @@ export function App({
           if (mountedRef.current) setUserData(saved);
           showToast("Cadangan digabungkan");
         }}
+      />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        readingMode={readingMode}
+        flowFontScale={userData.settings.flowFontScale}
+        spreadMode={userData.settings.spreadMode}
+        pageNav={userData.settings.pageNav}
+        letterStyle={uses1441Letters ? "1441" : "1405"}
+        theme={userData.settings.theme}
+        hifzBlur={
+          tasmiActive && tasmiState?.mode === "memorization"
+            ? tasmiBlurEnabled
+            : userData.settings.hifzBlur
+        }
+        hifzBlurLevel={userData.settings.hifzBlurLevel}
+        wordTranslation={userData.settings.wordTranslation && !focusMode}
+        tajweed={userData.settings.tajweed}
+        halaqahConnected={(userData.halaqahs?.length ?? 0) > 0}
+        syncConnected={syncConfig !== null}
+        onChangeReadingMode={(nextMode) => persistUser(userStore.updateSettings({ readingMode: nextMode }))}
+        onChangeFlowFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
+        onChangeSpreadMode={handleChangeSpreadMode}
+        onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
+        onChangeLetterStyle={(letterStyle) =>
+          persistUser(
+            userStore.updateSettings(letterStyle === "1405" ? { letterStyle, tajweed: false } : { letterStyle }),
+          )
+        }
+        onChangeTheme={handleChangeTheme}
+        onToggleHifzBlur={() => {
+          if (tasmiActive && tasmiState?.mode === "memorization") {
+            setTasmiBlurEnabled((prev) => !prev);
+          } else {
+            handleToggleHifzBlur();
+          }
+        }}
+        onChangeHifzBlurLevel={handleChangeHifzBlurLevel}
+        onToggleWordTranslation={() =>
+          persistUser(userStore.updateSettings({ wordTranslation: !userData.settings.wordTranslation }))
+        }
+        onToggleTajweed={() =>
+          persistUser(
+            userStore.updateSettings(
+              userData.settings.tajweed ? { tajweed: false } : { tajweed: true, letterStyle: "1441" },
+            ),
+          )
+        }
+        onOpenProgress={() => {
+          void ensureWordLookup();
+          setSummaryModal({
+            open: true,
+            tab: "progress",
+            record: userData.tasmiHistory[0] ?? null,
+          });
+        }}
+        onOpenSchedule={() => {
+          setSummaryModal({
+            open: true,
+            tab: "schedule",
+            record: userData.tasmiHistory[0] ?? null,
+          });
+        }}
+        onOpenQuiz={() => setQuizOpen(true)}
+        onOpenHalaqah={() => {
+          setHalaqahInviteCode(null);
+          setHalaqahOpen(true);
+        }}
+        onOpenReader={() => setReaderAyah(selected?.ayah ?? activeAyah)}
+        onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
+        onOpenManageData={() => setManageDataOpen(true)}
+        onOpenDownloads={() => openDownloads("audio")}
+        onOpenSync={() => {
+          setSyncError(null);
+          setSyncOpen(true);
+        }}
+        onOpenAbout={() => setAboutOpen(true)}
       />
 
       {toast && (

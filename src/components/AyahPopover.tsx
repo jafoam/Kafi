@@ -95,6 +95,14 @@ export function AyahPopover({
     return () => window.clearTimeout(id);
   }, [copied]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const buildShareText = async (): Promise<string> => {
     const arabic = await getArabicText(ayah).catch(() => "");
     const meaning = translation.status === "ready" ? htmlToPlainText(translation.html) : "";
@@ -159,14 +167,16 @@ export function AyahPopover({
   const top = Math.max(edgePad, Math.min(vh - effectiveH - edgePad, rawTop));
 
   return (
-    <div
-      ref={popoverRef}
-      className="ayah-popover"
-      role="dialog"
-      aria-label={`Aksi untuk ${surahName} ayat ${ayahNum}`}
-      style={{ left, top, maxHeight }}
-      onClick={(e) => e.stopPropagation()}
-    >
+    <>
+      <div className="ayah-popover__backdrop" aria-hidden="true" onClick={onClose} />
+      <div
+        ref={popoverRef}
+        className="ayah-popover"
+        role="dialog"
+        aria-label={`Aksi untuk ${surahName} ayat ${ayahNum}`}
+        style={{ left, top, maxHeight }}
+        onClick={(e) => e.stopPropagation()}
+      >
       <div className="ayah-popover__header">
         <span className="ayah-popover__title">
           {surahName} : {ayahNum}
@@ -346,5 +356,6 @@ export function AyahPopover({
         </button>
       )}
     </div>
+    </>
   );
 }

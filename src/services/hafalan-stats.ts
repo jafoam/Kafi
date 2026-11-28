@@ -93,6 +93,8 @@ export function computeHafalanProgress(
 
   // Derive per-ayah status from spaced-repetition cards first.
   for (const card of murajaahCards) {
+    // Unreviewed manual schedules (0 reps, 0 lapses) are pending targets, not completed memorization.
+    if (card.reps === 0 && card.lapses === 0) continue;
     const status: HafalanStatus =
       card.lapses > 0 && card.reps === 0
         ? "needs_review"
@@ -241,10 +243,19 @@ export function computeHafalanStreak(
   nowMs: number = Date.now(),
 ): HafalanStreak {
   const byDay = new Map<string, { sessions: number; durationSec: number; ayahs: number }>();
+  let validSessions = 0;
 
   for (const rec of tasmiHistory) {
+    if (
+      typeof rec.recitedWords === "number" &&
+      rec.recitedWords === 0 &&
+      (rec.recitedAyahs ?? 0) === 0
+    ) {
+      continue;
+    }
     const ts = Date.parse(rec.startedAt);
     if (!Number.isFinite(ts)) continue;
+    validSessions += 1;
     const key = toLocalDateKey(ts);
     const prev = byDay.get(key) ?? { sessions: 0, durationSec: 0, ayahs: 0 };
     const ayahs = rec.recitedAyahs ?? Math.max(1, rec.toAyah - rec.fromAyah + 1);
@@ -309,7 +320,7 @@ export function computeHafalanStreak(
     todaySessions: todayStats?.sessions ?? 0,
     todayMinutes: Math.round((todayStats?.durationSec ?? 0) / 60),
     todayAyahs: todayStats?.ayahs ?? 0,
-    totalSessions: tasmiHistory.length,
+    totalSessions: validSessions,
     weekDays,
   };
 }
