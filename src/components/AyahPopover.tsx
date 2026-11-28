@@ -19,6 +19,7 @@ export interface AyahPopoverProps {
   onPlayAyah?: (ayah: AyahKey) => void;
   onOpenStudy?: (ayah: AyahKey) => void;
   onStartTasmi?: (ayah: AyahKey) => void;
+  onCompareAudio?: (ayah: AyahKey) => void;
   onToggleBookmark: (ayah: AyahKey) => void;
   onSetHighlight: (ayah: AyahKey, color: HighlightColor | null) => void;
   /** Whether this ayah is hidden on the page now. */
@@ -56,6 +57,7 @@ export function AyahPopover({
   onPlayAyah,
   onOpenStudy,
   onStartTasmi,
+  onCompareAudio,
   onToggleBookmark,
   onSetHighlight,
   isHidden = false,
@@ -231,6 +233,16 @@ export function AyahPopover({
         <button type="button" className="ayah-popover__action" onClick={() => onStartTasmi?.(ayah)}>
           Tasmi&apos; dari sini
         </button>
+        {onCompareAudio && (
+          <button
+            type="button"
+            className="ayah-popover__action"
+            onClick={() => onCompareAudio(ayah)}
+            title="Rekam suaramu lalu bandingkan dengan qari"
+          >
+            Bandingkan Suara
+          </button>
+        )}
       </div>
 
       <div className="ayah-popover__meta-row">

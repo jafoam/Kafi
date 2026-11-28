@@ -45,6 +45,8 @@ export interface TasmiSheetProps {
   onStartRandom?: (pool: RandomPool, enableBlur: boolean) => void;
   onOpenHistory: () => void;
   onOpenGuide: () => void;
+  onOpenQuiz?: () => void;
+  streakSummary?: { currentStreak: number; todaySessions: number; todayMinutes: number };
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -78,6 +80,8 @@ export function TasmiSheet({
   onStartRandom,
   onOpenHistory,
   onOpenGuide,
+  onOpenQuiz,
+  streakSummary,
 }: TasmiSheetProps) {
   const candidates = useMemo(
     () => buildPageTasmiCandidates(visiblePages, surahs, glyphAyahs),
@@ -205,6 +209,17 @@ export function TasmiSheet({
             <p className="tasmi-sheet__subtitle">Suaramu diproses di perangkat</p>
           </div>
           <div className="tasmi-sheet__header-actions">
+            {onOpenQuiz && (
+              <button
+                type="button"
+                className="tasmi-sheet__history-btn"
+                onClick={onOpenQuiz}
+                disabled={isBusy}
+                title="Kuis teks sambung & urutkan ayat (mode senyap/offline)"
+              >
+                Kuis Teks
+              </button>
+            )}
             <button
               type="button"
               className="tasmi-sheet__history-btn"
@@ -274,6 +289,14 @@ export function TasmiSheet({
         </div>
 
         <div className="tasmi-sheet__body">
+          {streakSummary && (streakSummary.currentStreak > 0 || streakSummary.todaySessions > 0) && (
+            <div className="tasmi-sheet__streak-pill">
+              <span>Streak {streakSummary.currentStreak} hari</span>
+              <span>
+                Hari ini: {streakSummary.todaySessions} sesi ({streakSummary.todayMinutes} mnt)
+              </span>
+            </div>
+          )}
           {mode === "memorization" ? (
             <>
               {nextMurajaah && (

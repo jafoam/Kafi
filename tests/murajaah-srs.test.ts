@@ -8,6 +8,8 @@ import {
   getNextMurajaahTarget,
   scheduleMurajaahReview,
 } from "../src/services/murajaah-srs";
+import { createUserStore } from "../src/services/user-store";
+import type { PlatformAdapter } from "../src/platform/types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -99,5 +101,41 @@ describe("murajaah-srs", () => {
       peekedAyahs: ["78:10", "78:7"],
     });
     expect(extractDrillAyahs(rec)).toEqual(["78:3", "78:7", "78:10"]);
+  });
+
+  it("keeps Muraja'ah schedule manual (no auto-FSRS on Tasmi') and supports add/review/archive/delete", async () => {
+    const kv = new Map<string, string>();
+    const platform = {
+      kvGet: async (k: string) => kv.get(k) ?? null,
+      kvSet: async (k: string, v: string) => {
+        kv.set(k, v);
+      },
+    } as unknown as PlatformAdapter;
+
+    const store = createUserStore(platform);
+    const afterTasmi = await store.addTasmiHistory(makeRecord());
+    expect(afterTasmi.murajaahCards ?? []).toHaveLength(0);
+
+    const added = await store.addMurajaahCard({
+      surah: 67,
+      fromAyah: 1,
+      toAyah: 15,
+      kind: "murajaah",
+      intervalDays: 7,
+      note: "Ba'da Subuh",
+    });
+    expect(added.murajaahCards).toHaveLength(1);
+    const id = added.murajaahCards![0].id;
+    expect(added.murajaahCards![0].note).toBe("Ba'da Subuh");
+
+    const reviewed = await store.markMurajaahReviewed(id);
+    expect(reviewed.murajaahCards![0].reps).toBe(1);
+
+    const archived = await store.setMurajaahArchived(id, true);
+    expect(archived.archivedMurajaah?.[id]?.on).toBe(true);
+
+    const deleted = await store.deleteMurajaahCard(id);
+    expect(deleted.murajaahCards).toHaveLength(0);
+    expect(deleted.deletedMurajaahIds).toContain(id);
   });
 });

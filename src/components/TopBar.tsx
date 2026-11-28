@@ -77,6 +77,12 @@ export interface TopBarProps {
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
   onOpenReader?: () => void;
+  onOpenProgress?: () => void;
+  onOpenSchedule?: () => void;
+  onOpenQuiz?: () => void;
+  onOpenHalaqah?: () => void;
+  onOpenManageData?: () => void;
+  halaqahConnected?: boolean;
   syncConnected?: boolean;
   /** Told when the ☰ menu opens or closes, so other popups can step aside. */
   onMenuOpenChange?: (open: boolean) => void;
@@ -146,6 +152,12 @@ export function TopBar({
   onOpenDownloads,
   onOpenSync,
   onOpenReader,
+  onOpenProgress,
+  onOpenSchedule,
+  onOpenQuiz,
+  onOpenHalaqah,
+  onOpenManageData,
+  halaqahConnected = false,
   syncConnected = false,
   onMenuOpenChange,
 }: TopBarProps) {
@@ -326,6 +338,12 @@ export function TopBar({
           onOpenDownloads={onOpenDownloads}
           onOpenSync={onOpenSync}
           onOpenReader={onOpenReader}
+          onOpenProgress={onOpenProgress}
+          onOpenSchedule={onOpenSchedule}
+          onOpenQuiz={onOpenQuiz}
+          onOpenHalaqah={onOpenHalaqah}
+          onOpenManageData={onOpenManageData}
+          halaqahConnected={halaqahConnected}
           syncConnected={syncConnected}
           onClose={() => setMenuOpen(false)}
         />
@@ -490,6 +508,12 @@ interface AppMenuProps {
   onOpenDownloads: () => void;
   onOpenSync?: () => void;
   onOpenReader?: () => void;
+  onOpenProgress?: () => void;
+  onOpenSchedule?: () => void;
+  onOpenQuiz?: () => void;
+  onOpenHalaqah?: () => void;
+  onOpenManageData?: () => void;
+  halaqahConnected?: boolean;
   syncConnected?: boolean;
   onClose: () => void;
 }
@@ -523,16 +547,30 @@ function AppMenu({
   onOpenDownloads,
   onOpenSync,
   onOpenReader,
+  onOpenProgress,
+  onOpenSchedule,
+  onOpenQuiz,
+  onOpenHalaqah,
+  onOpenManageData,
+  halaqahConnected = false,
   syncConnected = false,
   onClose,
 }: AppMenuProps) {
+  const [submenu, setSubmenu] = useState<"root" | "hafalan" | "data">("root");
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        if (submenu !== "root") {
+          setSubmenu("root");
+        } else {
+          onClose();
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [submenu, onClose]);
 
   const toggleChip = (title: string, hint: string, on: boolean, onClick: () => void) => (
     <button
@@ -567,10 +605,87 @@ function AppMenu({
     </button>
   );
 
+  const submenuRow = (title: string, subtitle: string, onClick: () => void, badge?: boolean) => (
+    <button
+      type="button"
+      className="app-menu__subrow"
+      onClick={() => {
+        onClick();
+        onClose();
+      }}
+    >
+      <span className="app-menu__subrow-text">
+        <span className="app-menu__link-chip-label">
+          {title}
+          {badge && <span className="app-menu__status-dot" aria-hidden="true" />}
+        </span>
+        <span className="app-menu__subrow-sub">{subtitle}</span>
+      </span>
+      <span className="app-menu__chevron" aria-hidden="true">
+        ›
+      </span>
+    </button>
+  );
+
   return (
     <>
       <button type="button" className="app-menu__backdrop" aria-label="Tutup menu" onClick={onClose} />
       <div className="app-menu" role="dialog" aria-label="Menu">
+        {submenu !== "root" ? (
+          <div className="app-menu__submenu">
+            <div className="app-menu__subhead">
+              <button
+                type="button"
+                className="app-menu__back-btn"
+                onClick={() => setSubmenu("root")}
+              >
+                ‹ Kembali
+              </button>
+              <span className="app-menu__subtitle">
+                {submenu === "hafalan" ? "Hafalan" : "Data & Aplikasi"}
+              </span>
+            </div>
+
+            {submenu === "hafalan" ? (
+              <div className="app-menu__sublist">
+                {onOpenProgress &&
+                  submenuRow("Progres & Streak", "Peta Juz, Surah, 604 halaman & streak", onOpenProgress)}
+                {onOpenSchedule &&
+                  submenuRow("Jadwal Muraja'ah", "Atur sendiri target ziyadah & muraja'ah", onOpenSchedule)}
+                {onOpenQuiz &&
+                  submenuRow("Kuis Teks Offline", "Sambung & urutkan ayat tanpa suara", onOpenQuiz)}
+                {onOpenHalaqah &&
+                  submenuRow("Halaqah", "Grup setoran tanpa login (kode grup)", onOpenHalaqah, halaqahConnected)}
+              </div>
+            ) : (
+              <div className="app-menu__sublist">
+                {onOpenManageData &&
+                  submenuRow("Kelola Data", "Arsipkan atau hapus riwayat, jadwal, catatan, bookmark", onOpenManageData)}
+                {submenuRow("Unduh Offline", "Audio murottal, halaman, terjemah & tafsir", onOpenDownloads)}
+                {onOpenSync &&
+                  submenuRow("Sync Perangkat", "Sinkronisasi terenkripsi tanpa login", onOpenSync, syncConnected)}
+                {submenuRow("Tentang & Sumber", "Lisensi & sumber data mushaf", onOpenAbout)}
+                <a
+                  className="app-menu__subrow app-menu__link-chip--ext"
+                  href={RELEASES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={onClose}
+                  title="Unduh versi aplikasi Android/Desktop di GitHub"
+                >
+                  <span className="app-menu__subrow-text">
+                    <span className="app-menu__link-chip-label">Aplikasi (GitHub)</span>
+                    <span className="app-menu__subrow-sub">Unduh APK Android &amp; Desktop</span>
+                  </span>
+                  <span className="app-menu__ext-icon" aria-hidden="true">
+                    ↗
+                  </span>
+                </a>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {onChangeReadingMode && (
           <div className="app-menu__field">
             <span className="app-menu__label">Mode baca</span>
@@ -685,25 +800,39 @@ function AppMenu({
         <span className="app-menu__divider" aria-hidden="true" />
 
         <div className="app-menu__links">
+          {(onOpenProgress || onOpenSchedule || onOpenQuiz || onOpenHalaqah) && (
+            <button
+              type="button"
+              className="app-menu__link-chip"
+              onClick={() => setSubmenu("hafalan")}
+            >
+              <span className="app-menu__link-chip-label">
+                Hafalan
+                {halaqahConnected && <span className="app-menu__status-dot" aria-hidden="true" />}
+              </span>
+              <span className="app-menu__chevron" aria-hidden="true">
+                ›
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="app-menu__link-chip"
+            onClick={() => setSubmenu("data")}
+          >
+            <span className="app-menu__link-chip-label">
+              Data &amp; Aplikasi
+              {syncConnected && <span className="app-menu__status-dot" aria-hidden="true" />}
+            </span>
+            <span className="app-menu__chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
           {onOpenReader && linkChip("Baca Tafsir", onOpenReader)}
           {linkChip("Hukum Tajwid", onOpenTajweedGuide)}
-          {linkChip("Unduh Offline", onOpenDownloads)}
-          {onOpenSync && linkChip("Sync Perangkat", onOpenSync, syncConnected)}
-          {linkChip("Tentang & Sumber", onOpenAbout)}
-          <a
-            className="app-menu__link-chip app-menu__link-chip--ext"
-            href={RELEASES_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onClose}
-            title="Unduh versi aplikasi Android/Desktop di GitHub"
-          >
-            <span className="app-menu__link-chip-label">Aplikasi (GitHub)</span>
-            <span className="app-menu__ext-icon" aria-hidden="true">
-              ↗
-            </span>
-          </a>
         </div>
+          </>
+        )}
       </div>
     </>
   );

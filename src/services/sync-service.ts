@@ -1,4 +1,12 @@
-import type { AyahKey, BookmarkEvent, MurajaahCard, SyncConfig, TasmiSessionRecord, UserData } from "../data/types";
+import type {
+  AyahKey,
+  BookmarkEvent,
+  HalaqahMembership,
+  MurajaahCard,
+  SyncConfig,
+  TasmiSessionRecord,
+  UserData,
+} from "../data/types";
 
 export const SYNC_CONFIG_KEY = "kafi:sync:config";
 /** Kafi's own sync server; a build can point elsewhere with VITE_SYNC_URL. */
@@ -228,8 +236,14 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     (a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0),
   );
 
+  const deletedMurajaahIds = Array.from(
+    new Set([...(local.deletedMurajaahIds ?? []), ...(remote.deletedMurajaahIds ?? [])]),
+  );
+  const deletedMurajaahSet = new Set(deletedMurajaahIds);
+
   const cardMap = new Map<string, MurajaahCard>();
   for (const card of [...(remote.murajaahCards ?? []), ...(local.murajaahCards ?? [])]) {
+    if (deletedMurajaahSet.has(card.id)) continue;
     const prev = cardMap.get(card.id);
     if (!prev) {
       cardMap.set(card.id, card);
@@ -247,6 +261,24 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
   ).slice(0, 5);
 
   const archivedTasmi = mergeArchivedTasmi(local, remote, deletedTasmiSet);
+  const archivedMurajaah: Record<string, BookmarkEvent> = {};
+  for (const [key, event] of Object.entries(local.archivedMurajaah ?? {})) {
+    if (!deletedMurajaahSet.has(key)) archivedMurajaah[key] = event;
+  }
+  for (const [key, event] of Object.entries(remote.archivedMurajaah ?? {})) {
+    if (deletedMurajaahSet.has(key)) continue;
+    const mine = archivedMurajaah[key];
+    if (!mine || (Date.parse(event.at) || 0) > (Date.parse(mine.at) || 0)) archivedMurajaah[key] = event;
+  }
+
+  const halaqahMap = new Map<string, HalaqahMembership>();
+  const halaqahOrder = remoteNewer
+    ? [...(local.halaqahs ?? []), ...(remote.halaqahs ?? [])]
+    : [...(remote.halaqahs ?? []), ...(local.halaqahs ?? [])];
+  for (const h of halaqahOrder) {
+    halaqahMap.set(h.code, h);
+  }
+  const halaqahs = Array.from(halaqahMap.values());
 
   return {
     lastPage: remoteNewer ? remote.lastPage : local.lastPage,
@@ -264,6 +296,9 @@ export function mergeUserData(local: UserData, remote: UserData): UserData {
     ...(deletedTasmiIds.length > 0 ? { deletedTasmiIds } : {}),
     ...(Object.keys(archivedTasmi).length > 0 ? { archivedTasmi } : {}),
     murajaahCards: Array.from(cardMap.values()),
+    ...(deletedMurajaahIds.length > 0 ? { deletedMurajaahIds } : {}),
+    ...(Object.keys(archivedMurajaah).length > 0 ? { archivedMurajaah } : {}),
+    ...(halaqahs.length > 0 ? { halaqahs } : {}),
     updatedAt: new Date(Math.max(localTs, remoteTs, Date.now())).toISOString(),
   };
 }

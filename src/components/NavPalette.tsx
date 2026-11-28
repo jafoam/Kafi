@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { EngineEvent } from "@tilawa/core";
 import type { AyahKey, Catalog, MushafMap } from "../data/types";
 import {
   createQuranSearch,
@@ -6,6 +7,7 @@ import {
   type QuranSearch,
   type RefV2Data,
 } from "../services/arabic-search";
+import type { TilawaController } from "../services/tilawa-controller";
 import { clampPage, MAX_PAGE, MIN_PAGE } from "../state/reader-logic";
 
 export type PaletteTab = "surah" | "juz" | "page" | "search" | "bookmarks";
@@ -19,6 +21,8 @@ export interface NavPaletteProps {
   recentPages?: number[];
   bookmarks: AyahKey[];
   notes: Record<AyahKey, string>;
+  /** Optional Tasmi' controller enabling on-device voice search in the Cari Ayat tab. */
+  tilawaController?: TilawaController;
   onClose: () => void;
   onJumpToPage: (page: number) => void;
   onJumpToAyah: (ayah: AyahKey) => void;
@@ -67,6 +71,7 @@ export function NavPalette({
   recentPages = [],
   bookmarks,
   notes,
+  tilawaController,
   onClose,
   onJumpToPage,
   onJumpToAyah,
@@ -78,7 +83,78 @@ export function NavPalette({
   const [searchEngine, setSearchEngine] = useState<QuranSearch | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [voiceState, setVoiceState] = useState<"idle" | "loading" | "listening">("idle");
+  const [voiceStatus, setVoiceStatus] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const voiceAbortRef = useRef<AbortController | null>(null);
+  const voiceActiveRef = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const stopVoiceSearch = useCallback(() => {
+    voiceAbortRef.current?.abort();
+    voiceAbortRef.current = null;
+    if (voiceActiveRef.current) {
+      voiceActiveRef.current = false;
+      void tilawaController?.stop().catch(() => undefined);
+    }
+    setVoiceState("idle");
+    setVoiceStatus(null);
+  }, [tilawaController]);
+
+  useEffect(() => {
+    if (!open || tab !== "search") {
+      stopVoiceSearch();
+      setVoiceError(null);
+    }
+  }, [open, tab, stopVoiceSearch]);
+
+  useEffect(() => stopVoiceSearch, [stopVoiceSearch]);
+
+  const handleToggleVoiceSearch = useCallback(async () => {
+    if (!tilawaController) return;
+    if (voiceState !== "idle") {
+      stopVoiceSearch();
+      return;
+    }
+    setVoiceError(null);
+    setVoiceState("loading");
+    setVoiceStatus("Menyiapkan pencarian suara…");
+    const abort = new AbortController();
+    voiceAbortRef.current = abort;
+    try {
+      await tilawaController.ensureReady((p) => {
+        if (abort.signal.aborted) return;
+        const pct = Math.round(p.fraction * 100);
+        setVoiceStatus(
+          p.stage === "model"
+            ? p.fromCache
+              ? `Memuat model (${pct}%)…`
+              : `Mengunduh model suara (${pct}%)…`
+            : "Menyiapkan mesin suara…",
+        );
+      }, abort.signal);
+      if (abort.signal.aborted) return;
+
+      voiceActiveRef.current = true;
+      setVoiceState("listening");
+      setVoiceStatus("Bacakan potongan ayat… otomatis lompat saat dikenali");
+
+      await tilawaController.startFree((event: EngineEvent) => {
+        if (abort.signal.aborted || !voiceActiveRef.current) return;
+        if (event.type === "position" && event.state === "locked" && event.observed[0]) {
+          const { surah, ayah } = event.observed[0].word;
+          stopVoiceSearch();
+          onJumpToAyah(`${surah}:${ayah}`);
+          onClose();
+        }
+      });
+    } catch (err) {
+      if (!abort.signal.aborted) {
+        setVoiceError(err instanceof Error ? err.message : "Gagal memulai pencarian suara.");
+      }
+      stopVoiceSearch();
+    }
+  }, [tilawaController, voiceState, stopVoiceSearch, onJumpToAyah, onClose]);
 
   const surahByNumber = useMemo(() => {
     const map = new Map<number, Catalog["surahs"][number]>();
@@ -210,18 +286,45 @@ export function NavPalette({
 
         {(tab === "surah" || tab === "search") && (
           <div className="palette__search-bar">
-            <input
-              ref={inputRef}
-              type="text"
-              className="palette__input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={
-                tab === "surah"
-                  ? "Cari nama atau nomor surah..."
-                  : "Ketik potongan ayat Arab (tanpa harakat) atau nama surah..."
-              }
-            />
+            <div className="palette__search-row">
+              <input
+                ref={inputRef}
+                type="text"
+                className="palette__input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={
+                  tab === "surah"
+                    ? "Cari nama atau nomor surah..."
+                    : "Ketik potongan ayat Arab (tanpa harakat) atau nama surah..."
+                }
+              />
+              {tab === "search" && tilawaController && (
+                <button
+                  type="button"
+                  className={`palette__voice-btn ${voiceState !== "idle" ? "palette__voice-btn--active" : ""}`}
+                  onClick={() => void handleToggleVoiceSearch()}
+                  aria-pressed={voiceState !== "idle"}
+                  aria-label={voiceState !== "idle" ? "Hentikan pencarian suara" : "Cari ayat dengan suara"}
+                  title="Cari ayat dengan suara (on-device)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z" />
+                  </svg>
+                  <span>{voiceState === "listening" ? "Stop" : voiceState === "loading" ? "…" : "Suara"}</span>
+                </button>
+              )}
+            </div>
+            {tab === "search" && voiceStatus && (
+              <div className="palette__voice-status" role="status" aria-live="polite">
+                {voiceStatus}
+              </div>
+            )}
+            {tab === "search" && voiceError && (
+              <div className="palette__voice-error" role="alert">
+                {voiceError}
+              </div>
+            )}
           </div>
         )}
 

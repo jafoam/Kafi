@@ -1,27 +1,51 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import type { AyahKey, MurajaahCard, SurahInfo, TasmiSessionRecord } from "../data/types";
+import type {
+  AyahKey,
+  Catalog,
+  HalaqahMembership,
+  MurajaahCard,
+  MushafMap,
+  SurahInfo,
+  TasmiSessionKind,
+  TasmiSessionRecord,
+} from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
+import { computeHafalanProgress, computeHafalanStreak } from "../services/hafalan-stats";
 import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/murajaah-srs";
 import { ERROR_CLASS_LABELS, formatErrorClass } from "../services/tasmi-logic";
+import type { NewMurajaahInput } from "../services/user-store";
+import { GlassSelect } from "./GlassSelect";
+
+export type TasmiSummaryTab = "summary" | "history" | "schedule" | "progress";
 
 export interface TasmiSummaryModalProps {
   open: boolean;
-  initialTab: "summary" | "history" | "schedule";
+  initialTab: TasmiSummaryTab;
   record: TasmiSessionRecord | null;
   history: TasmiSessionRecord[];
   archivedIds?: Set<string>;
   murajaahCards?: MurajaahCard[];
+  archivedMurajaahIds?: Set<string>;
   surahs: SurahInfo[];
+  catalog?: Pick<Catalog, "surahs" | "juzs">;
+  mushafMap?: Pick<MushafMap, "pages" | "ayahToPage">;
+  halaqahs?: HalaqahMembership[];
   getAyahWords: (surah: number, ayah: number) => string[];
   glyphLoader?: GlyphPageLoader;
   ayahToPage?: Record<AyahKey, number>;
   onClose: () => void;
   onPlayAyah: (ayah: AyahKey) => void;
   onJumpToAyah: (ayah: AyahKey) => void;
+  onJumpToPage?: (page: number) => void;
   onStartDrill?: (ayahs: AyahKey[]) => void;
   onStartMurajaahCard?: (card: MurajaahCard) => void;
+  onAddMurajaahCard?: (input: NewMurajaahInput) => void;
+  onMarkMurajaahReviewed?: (id: string) => void;
+  onDeleteMurajaahCard?: (id: string) => void;
+  onToggleArchiveMurajaahCard?: (id: string, archived: boolean) => void;
   onDeleteHistory?: (id: string) => void;
   onToggleArchiveHistory?: (id: string, archived: boolean) => void;
+  onSubmitToHalaqah?: (membership: HalaqahMembership, record: TasmiSessionRecord) => Promise<void>;
 }
 
 interface QcfGlyph {
@@ -111,22 +135,50 @@ export function TasmiSummaryModal({
   history,
   archivedIds,
   murajaahCards = [],
+  archivedMurajaahIds,
   surahs,
+  catalog,
+  mushafMap,
+  halaqahs = [],
   getAyahWords,
   glyphLoader,
   ayahToPage,
   onClose,
   onPlayAyah,
   onJumpToAyah,
+  onJumpToPage,
   onStartDrill,
   onStartMurajaahCard,
+  onAddMurajaahCard,
+  onMarkMurajaahReviewed,
+  onDeleteMurajaahCard,
+  onToggleArchiveMurajaahCard,
   onDeleteHistory,
   onToggleArchiveHistory,
+  onSubmitToHalaqah,
 }: TasmiSummaryModalProps) {
-  const [tab, setTab] = useState<"summary" | "history" | "schedule">(initialTab);
+  const [tab, setTab] = useState<TasmiSummaryTab>(initialTab);
   const [historyFilter, setHistoryFilter] = useState<"active" | "archived">("active");
+  const [scheduleFilter, setScheduleFilter] = useState<"active" | "archived">("active");
+  const [addingSchedule, setAddingSchedule] = useState(false);
+  const [schedSurah, setSchedSurah] = useState(78);
+  const [schedFrom, setSchedFrom] = useState(1);
+  const [schedTo, setSchedTo] = useState(10);
+  const [schedKind, setSchedKind] = useState<TasmiSessionKind>("murajaah");
+  const [schedInterval, setSchedInterval] = useState(3);
+  const [schedNote, setSchedNote] = useState("");
   const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
   const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
+  const [mapView, setMapView] = useState<"juz" | "surah" | "page">("juz");
+  const [selectedHalaqahCode, setSelectedHalaqahCode] = useState<string>("");
+  const [submittingHalaqah, setSubmittingHalaqah] = useState(false);
+  const [submittedRecordId, setSubmittedRecordId] = useState<string | null>(null);
+
+  const streak = useMemo(() => computeHafalanStreak(history), [history]);
+  const progressMap = useMemo(() => {
+    if (!catalog || !mushafMap || tab !== "progress") return null;
+    return computeHafalanProgress(murajaahCards, history, catalog, mushafMap);
+  }, [catalog, mushafMap, murajaahCards, history, tab]);
 
   const activeHistory = useMemo(
     () => (archivedIds && archivedIds.size > 0 ? history.filter((item) => !archivedIds.has(item.id)) : history),
@@ -297,6 +349,19 @@ export function TasmiSummaryModal({
           >
             Jadwal ({murajaahCards.length})
           </button>
+          {catalog && mushafMap && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={tab === "progress"}
+              className={`tasmi-sheet__mode-btn ${
+                tab === "progress" ? "tasmi-sheet__mode-btn--active" : ""
+              }`}
+              onClick={() => setTab("progress")}
+            >
+              Progres
+            </button>
+          )}
         </div>
 
         <div className="tasmi-summary__body">
@@ -341,6 +406,39 @@ export function TasmiSummaryModal({
                   >
                     Latih Kesalahan ({drillAyahs.length} ayat)
                   </button>
+                )}
+
+                {halaqahs.length > 0 && onSubmitToHalaqah && (
+                  <div className="halaqah-submit-row">
+                    {halaqahs.length > 1 && (
+                      <GlassSelect
+                        ariaLabel="Pilih Halaqah"
+                        value={selectedHalaqahCode || halaqahs[0].code}
+                        options={halaqahs.map((h) => ({ value: h.code, label: h.name }))}
+                        onChange={setSelectedHalaqahCode}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="tasmi-sheet__history-btn halaqah-submit-btn"
+                      disabled={submittingHalaqah || submittedRecordId === activeRecord.id}
+                      onClick={() => {
+                        const target =
+                          halaqahs.find((h) => h.code === selectedHalaqahCode) ?? halaqahs[0];
+                        if (!target) return;
+                        setSubmittingHalaqah(true);
+                        void onSubmitToHalaqah(target, activeRecord)
+                          .then(() => setSubmittedRecordId(activeRecord.id))
+                          .finally(() => setSubmittingHalaqah(false));
+                      }}
+                    >
+                      {submittedRecordId === activeRecord.id
+                        ? "✓ Terkirim ke Halaqah"
+                        : submittingHalaqah
+                          ? "Mengirim…"
+                          : `Kirim ke Halaqah${halaqahs.length === 1 ? ` (${halaqahs[0].name})` : ""}`}
+                    </button>
+                  </div>
                 )}
 
                 <div className="tasmi-summary__breakdown">
@@ -508,44 +606,342 @@ export function TasmiSummaryModal({
                 )}
               </div>
             )
-          ) : sortedCards.length === 0 ? (
-            <div className="tasmi-summary__empty">
-              Belum ada jadwal muraja&apos;ah. Selesaikan satu sesi Tasmi&apos; agar jadwal otomatis terbentuk.
-            </div>
-          ) : (
-            <div className="tasmi-summary__history-list">
-              {sortedCards.map((card) => {
-                const sName = surahByNum.get(card.surah)?.name ?? `Surah ${card.surah}`;
-                const isDue = (Date.parse(card.dueAt) || 0) <= Date.now();
-                return (
-                  <button
-                    key={card.id}
-                    type="button"
-                    className="tasmi-summary__history-item"
-                    onClick={() => onStartMurajaahCard?.(card)}
-                  >
-                    <div>
-                      <div className="tasmi-summary__history-title">
-                        {sName} · Ayat {card.fromAyah}–{card.toAyah}
-                      </div>
-                      <div className="tasmi-summary__history-sub">
-                        {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · Interval{" "}
-                        {card.stabilityDays} hari
-                        {card.lapses > 0 ? ` · ${card.lapses}× ulang` : ""}
-                      </div>
-                    </div>
-                    <span
-                      className={`tasmi-summary__score ${
-                        isDue ? "tasmi-summary__score--warn" : "tasmi-summary__score--clean"
-                      }`}
-                    >
-                      {formatDueLabel(card.dueAt)}
+          ) : tab === "progress" && progressMap ? (
+            <div className="progress-tab">
+              <div className="streak-card">
+                <div className="streak-card__stats">
+                  <div className="streak-card__stat">
+                    <span className="streak-card__val">{streak.currentStreak} hari</span>
+                    <span className="streak-card__lbl">Streak aktif</span>
+                  </div>
+                  <div className="streak-card__stat">
+                    <span className="streak-card__val">{streak.longestStreak} hari</span>
+                    <span className="streak-card__lbl">Rekor terbaik</span>
+                  </div>
+                  <div className="streak-card__stat">
+                    <span className="streak-card__val">
+                      {streak.todaySessions} sesi · {streak.todayMinutes} mnt
                     </span>
-                  </button>
-                );
-              })}
+                    <span className="streak-card__lbl">Hari ini ({streak.todayAyahs} ayat)</span>
+                  </div>
+                </div>
+                <div className="streak-card__week" aria-label="Aktivitas 7 hari terakhir">
+                  {streak.weekDays.map((d) => (
+                    <div
+                      key={d.dateKey}
+                      className={`streak-card__day ${d.active ? "streak-card__day--active" : ""}`}
+                      title={`${d.label}: ${d.sessions} sesi`}
+                    >
+                      <span className="streak-card__day-dot" />
+                      <span className="streak-card__day-lbl">{d.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="progress-map__header">
+                <div className="progress-map__summary">
+                  <strong>{progressMap.summary.memorizedPages}/604</strong> hal ·{" "}
+                  <strong>{progressMap.summary.memorizedAyahs}</strong> ayat tersentuh
+                </div>
+                <div className="app-menu__segmented" role="tablist" aria-label="Tampilan peta hafalan">
+                  {(["juz", "surah", "page"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      role="tab"
+                      aria-selected={mapView === v}
+                      className={`app-menu__seg ${mapView === v ? "app-menu__seg--active" : ""}`}
+                      onClick={() => setMapView(v)}
+                    >
+                      {v === "juz" ? "30 Juz" : v === "surah" ? "114 Surah" : "604 Hal"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="progress-map__legend">
+                <span><i className="pm-dot pm-dot--smooth" /> Lancar</span>
+                <span><i className="pm-dot pm-dot--ziyadah" /> Ziyadah</span>
+                <span><i className="pm-dot pm-dot--needs_review" /> Perlu ulang</span>
+                <span><i className="pm-dot pm-dot--none" /> Belum</span>
+              </div>
+
+              {mapView === "juz" && (
+                <div className="progress-grid progress-grid--juz">
+                  {progressMap.juzs.map((j) => (
+                    <button
+                      key={j.juz}
+                      type="button"
+                      className={`pm-cell pm-cell--${j.status}`}
+                      title={`Juz ${j.juz}: ${j.coveredAyahs}/${j.totalAyahs} ayat (Hal. ${j.page})`}
+                      onClick={() => {
+                        onJumpToPage?.(j.page);
+                        onClose();
+                      }}
+                    >
+                      <span className="pm-cell__num">Juz {j.juz}</span>
+                      <span className="pm-cell__sub">
+                        {j.coveredAyahs > 0 ? `${j.coveredAyahs}/${j.totalAyahs}` : `Hal. ${j.page}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mapView === "surah" && (
+                <div className="progress-grid progress-grid--surah">
+                  {progressMap.surahs.map((s) => (
+                    <button
+                      key={s.surah}
+                      type="button"
+                      className={`pm-cell pm-cell--${s.status}`}
+                      title={`${s.surah}. ${s.name}: ${s.coveredAyahs}/${s.totalAyahs} ayat`}
+                      onClick={() => {
+                        onJumpToPage?.(s.page);
+                        onClose();
+                      }}
+                    >
+                      <span className="pm-cell__num">
+                        {s.surah}. {s.name}
+                      </span>
+                      <span className="pm-cell__sub">
+                        {s.coveredAyahs}/{s.totalAyahs}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mapView === "page" && (
+                <div className="progress-grid progress-grid--page">
+                  {progressMap.pages.map((p) => (
+                    <button
+                      key={p.page}
+                      type="button"
+                      className={`pm-page-dot pm-cell--${p.status}`}
+                      title={`Halaman ${p.page}: ${p.coveredAyahs}/${p.totalAyahs} ayat`}
+                      onClick={() => {
+                        onJumpToPage?.(p.page);
+                        onClose();
+                      }}
+                    >
+                      {p.page}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          ) : (() => {
+            const activeSched = sortedCards.filter((c) => !archivedMurajaahIds?.has(c.id));
+            const archivedSched = sortedCards.filter((c) => archivedMurajaahIds?.has(c.id));
+            const visibleSched =
+              scheduleFilter === "archived" && archivedSched.length > 0 ? archivedSched : activeSched;
+            const schedSurahInfo = surahByNum.get(schedSurah);
+            const schedMaxAyah = schedSurahInfo?.ayahs ?? 286;
+
+            return (
+              <div className="tasmi-summary__history-list">
+                {onAddMurajaahCard && (
+                  <div className="schedule-toolbar">
+                    <button
+                      type="button"
+                      className="tasmi-sheet__start-btn schedule-add-toggle"
+                      onClick={() => setAddingSchedule((v) => !v)}
+                    >
+                      {addingSchedule ? "Tutup Form" : "+ Tambah Jadwal Sendiri"}
+                    </button>
+                    {archivedSched.length > 0 && (
+                      <div className="app-menu__segmented" role="tablist" aria-label="Filter jadwal">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={scheduleFilter === "active"}
+                          className={`app-menu__seg ${scheduleFilter === "active" ? "app-menu__seg--active" : ""}`}
+                          onClick={() => setScheduleFilter("active")}
+                        >
+                          Aktif ({activeSched.length})
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={scheduleFilter === "archived"}
+                          className={`app-menu__seg ${scheduleFilter === "archived" ? "app-menu__seg--active" : ""}`}
+                          onClick={() => setScheduleFilter("archived")}
+                        >
+                          Arsip ({archivedSched.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {addingSchedule && onAddMurajaahCard && (
+                  <form
+                    className="schedule-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const clampedFrom = Math.max(1, Math.min(schedFrom, schedMaxAyah));
+                      const clampedTo = Math.max(clampedFrom, Math.min(schedTo, schedMaxAyah));
+                      onAddMurajaahCard({
+                        surah: schedSurah,
+                        fromAyah: clampedFrom,
+                        toAyah: clampedTo,
+                        kind: schedKind,
+                        intervalDays: schedInterval,
+                        note: schedNote,
+                      });
+                      setSchedNote("");
+                      setAddingSchedule(false);
+                    }}
+                  >
+                    <GlassSelect
+                      ariaLabel="Pilih Surah jadwal"
+                      value={String(schedSurah)}
+                      options={surahs.map((s) => ({ value: String(s.number), label: `${s.number}. ${s.name}` }))}
+                      onChange={(val) => {
+                        const num = Number(val);
+                        const info = surahByNum.get(num);
+                        setSchedSurah(num);
+                        setSchedFrom(1);
+                        setSchedTo(info?.ayahs ?? 10);
+                      }}
+                    />
+                    <div className="schedule-form__row">
+                      <label className="tasmi-sheet__field">
+                        <span>Dari ayat</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={schedMaxAyah}
+                          value={schedFrom}
+                          onChange={(e) => setSchedFrom(Number(e.target.value) || 1)}
+                        />
+                      </label>
+                      <label className="tasmi-sheet__field">
+                        <span>Sampai ayat</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={schedMaxAyah}
+                          value={schedTo}
+                          onChange={(e) => setSchedTo(Number(e.target.value) || 1)}
+                        />
+                      </label>
+                    </div>
+                    <div className="schedule-form__row">
+                      <GlassSelect
+                        ariaLabel="Jenis hafalan"
+                        value={schedKind}
+                        options={[
+                          { value: "murajaah", label: "Muraja'ah" },
+                          { value: "ziyadah", label: "Ziyadah" },
+                        ]}
+                        onChange={(v) => setSchedKind(v as TasmiSessionKind)}
+                      />
+                      <GlassSelect
+                        ariaLabel="Interval ulang"
+                        value={String(schedInterval)}
+                        options={[
+                          { value: "1", label: "Tiap 1 hari" },
+                          { value: "3", label: "Tiap 3 hari" },
+                          { value: "7", label: "Tiap 7 hari" },
+                          { value: "14", label: "Tiap 14 hari" },
+                          { value: "30", label: "Tiap 30 hari" },
+                        ]}
+                        onChange={(v) => setSchedInterval(Number(v))}
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      className="palette__input"
+                      placeholder="Catatan jadwal (opsional, mis. Ba'da Subuh)"
+                      value={schedNote}
+                      onChange={(e) => setSchedNote(e.target.value)}
+                    />
+                    <button type="submit" className="tasmi-sheet__start-btn">
+                      Simpan Jadwal
+                    </button>
+                  </form>
+                )}
+
+                {visibleSched.length === 0 ? (
+                  <div className="tasmi-summary__empty">
+                    {scheduleFilter === "archived"
+                      ? "Belum ada jadwal di arsip."
+                      : "Belum ada jadwal muraja'ah. Tambahkan jadwalmu sendiri di atas."}
+                  </div>
+                ) : (
+                  visibleSched.map((card) => {
+                    const sName = surahByNum.get(card.surah)?.name ?? `Surah ${card.surah}`;
+                    const isDue = (Date.parse(card.dueAt) || 0) <= Date.now();
+                    const isArchived = Boolean(archivedMurajaahIds?.has(card.id));
+                    return (
+                      <div key={card.id} className="schedule-card">
+                        <div className="schedule-card__top">
+                          <div>
+                            <div className="tasmi-summary__history-title">
+                              {sName} · Ayat {card.fromAyah}–{card.toAyah}
+                            </div>
+                            <div className="tasmi-summary__history-sub">
+                              {card.kind === "ziyadah" ? "Ziyadah" : "Muraja'ah"} · Tiap {card.stabilityDays} hari
+                              {card.reps > 0 ? ` · ${card.reps}× selesai` : ""}
+                              {card.note ? ` · ${card.note}` : ""}
+                            </div>
+                          </div>
+                          <span
+                            className={`tasmi-summary__score ${
+                              isDue ? "tasmi-summary__score--warn" : "tasmi-summary__score--clean"
+                            }`}
+                          >
+                            {formatDueLabel(card.dueAt)}
+                          </span>
+                        </div>
+                        <div className="schedule-card__actions">
+                          {onStartMurajaahCard && !isArchived && (
+                            <button
+                              type="button"
+                              className="tasmi-sheet__history-btn"
+                              onClick={() => onStartMurajaahCard(card)}
+                            >
+                              Tasmi&apos;
+                            </button>
+                          )}
+                          {onMarkMurajaahReviewed && !isArchived && (
+                            <button
+                              type="button"
+                              className="tasmi-sheet__history-btn"
+                              onClick={() => onMarkMurajaahReviewed(card.id)}
+                            >
+                              ✓ Selesai
+                            </button>
+                          )}
+                          {onToggleArchiveMurajaahCard && (
+                            <button
+                              type="button"
+                              className="tasmi-sheet__history-btn"
+                              onClick={() => onToggleArchiveMurajaahCard(card.id, !isArchived)}
+                            >
+                              {isArchived ? "Pulihkan" : "Arsip"}
+                            </button>
+                          )}
+                          {onDeleteMurajaahCard && (
+                            <button
+                              type="button"
+                              className="manage-data__del-btn"
+                              onClick={() => onDeleteMurajaahCard(card.id)}
+                            >
+                              Hapus
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

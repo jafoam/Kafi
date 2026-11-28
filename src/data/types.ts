@@ -160,26 +160,39 @@ export interface TasmiSessionRecord {
 }
 
 export interface MurajaahCard {
-  /** Stable key `${surah}:${fromAyah}-${toAyah}`. */
+  /** Stable key `${surah}:${fromAyah}-${toAyah}` (or custom id). */
   id: string;
   surah: number;
   fromAyah: number;
   toAyah: number;
   kind: TasmiSessionKind;
-  /** FSRS-inspired stability in days (grows 1 -> 3 -> 7 -> 14 -> 30+ on clean reviews). */
+  /** User-chosen repeat interval in days (e.g. 1, 3, 7, 14, 30). */
   stabilityDays: number;
-  /** Difficulty 1 (easy) .. 10 (hard). */
+  /** Legacy/optional difficulty field kept for backwards compatibility. */
   difficulty: number;
   reps: number;
   lapses: number;
   lastReviewedAt: string;
   dueAt: string;
+  /** Optional user note (e.g. "Ba'da Subuh"). */
+  note?: string;
 }
 
 export interface SyncConfig {
   code: string;
   workerUrl: string;
   lastSyncedAt?: string;
+}
+
+export interface HalaqahMembership {
+  code: string;
+  name: string;
+  displayName: string;
+  memberId: string;
+  memberSecret: string;
+  adminSecret?: string;
+  workerUrl: string;
+  joinedAt: string;
 }
 
 export interface BookmarkEvent {
@@ -204,6 +217,12 @@ export interface UserData {
   /** Tasmi' sessions archived or restored, with timestamp so state survives sync. */
   archivedTasmi?: Record<string, BookmarkEvent>;
   murajaahCards?: MurajaahCard[];
+  /** Deleted manual Muraja'ah schedule IDs so removals survive sync. */
+  deletedMurajaahIds?: string[];
+  /** Manual Muraja'ah schedules archived or restored, with timestamp so state survives sync. */
+  archivedMurajaah?: Record<string, BookmarkEvent>;
+  /** Joined Halaqah groups (no-login invite-code groups); synced with UserData. */
+  halaqahs?: HalaqahMembership[];
   updatedAt?: string;
   /** When settings last changed; settings merge by this, not by updatedAt. */
   settingsUpdatedAt?: string;

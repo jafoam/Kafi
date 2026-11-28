@@ -341,11 +341,23 @@ describe("FlowReader UI", () => {
 
     const modeRadios = el.querySelectorAll('[aria-label="Mode baca"] [role="radio"]');
     expect(modeRadios).toHaveLength(3);
-    const ghLink = el.querySelector('a[href="https://github.com/jafoam/Kafi/releases/latest"]');
-    expect(ghLink).not.toBeNull();
     act(() => {
       (modeRadios[1] as HTMLButtonElement).click();
     });
     expect(onChangeReadingMode).toHaveBeenCalledWith("translation");
+
+    // Reopen menu and navigate into Data & Aplikasi submenu to reach GitHub releases link.
+    act(() => {
+      menuBtn.click();
+    });
+    const dataBtn = Array.from(el.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Data & Aplikasi"),
+    ) as HTMLButtonElement | undefined;
+    expect(dataBtn).toBeDefined();
+    act(() => {
+      dataBtn!.click();
+    });
+    const ghLink = el.querySelector('a[href="https://github.com/jafoam/Kafi/releases/latest"]');
+    expect(ghLink).not.toBeNull();
   });
 });

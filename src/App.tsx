@@ -100,8 +100,18 @@ import { TasmiSheet } from "./components/TasmiSheet";
 import { TasmiGuide } from "./components/TasmiGuide";
 import { TajweedGuide } from "./components/TajweedGuide";
 import { AboutSources } from "./components/AboutSources";
-import { TasmiSummaryModal } from "./components/TasmiSummaryModal";
+import { TasmiSummaryModal, type TasmiSummaryTab } from "./components/TasmiSummaryModal";
 import { TopBar } from "./components/TopBar";
+import { CompareAudioModal } from "./components/CompareAudioModal";
+import { TextQuizModal } from "./components/TextQuizModal";
+import { HalaqahModal } from "./components/HalaqahModal";
+import { ManageDataModal } from "./components/ManageDataModal";
+import { computeHafalanStreak } from "./services/hafalan-stats";
+import {
+  buildReportFromTasmi,
+  parseHalaqahInviteFromSearch,
+  submitHalaqahReport,
+} from "./services/halaqah-service";
 
 const catalog = catalogJson as unknown as Catalog;
 const mushafMap = mushafMapJson as unknown as MushafMap;
@@ -281,9 +291,14 @@ export function App({
   const [wordLookup, setWordLookup] = useState<WordLookupFn>(() => EMPTY_WORD_LOOKUP);
   const [summaryModal, setSummaryModal] = useState<{
     open: boolean;
-    tab: "summary" | "history" | "schedule";
+    tab: TasmiSummaryTab;
     record: TasmiSessionRecord | null;
   }>({ open: false, tab: "summary", record: null });
+  const [compareAyah, setCompareAyah] = useState<AyahKey | null>(null);
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [halaqahOpen, setHalaqahOpen] = useState(false);
+  const [halaqahInviteCode, setHalaqahInviteCode] = useState<string | null>(null);
+  const [manageDataOpen, setManageDataOpen] = useState(false);
 
   const toastTimerRef = useRef<number | null>(null);
   const peekTimerRef = useRef<number | null>(null);
@@ -402,6 +417,22 @@ export function App({
     },
     [userStore, audioController, platform, showToast],
   );
+
+  // Open Halaqah modal automatically when launched from an invite link (?halaqah=HLQ-XXXX-XXXX)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const code = parseHalaqahInviteFromSearch(window.location.search);
+    if (!code) return;
+    setHalaqahInviteCode(code);
+    setHalaqahOpen(true);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("halaqah");
+      window.history.replaceState({}, "", url.toString());
+    } catch {
+      // Ignore history API restrictions
+    }
+  }, []);
 
   // Load persisted user data & sync config on mount
   useEffect(() => {
@@ -1644,6 +1675,10 @@ export function App({
   useBackClose(focusMode, () => setFocusMode(false));
   useBackClose(tajweedGuideOpen, () => setTajweedGuideOpen(false));
   useBackClose(aboutOpen, () => setAboutOpen(false));
+  useBackClose(compareAyah !== null, () => setCompareAyah(null));
+  useBackClose(quizOpen, () => setQuizOpen(false));
+  useBackClose(halaqahOpen, () => setHalaqahOpen(false));
+  useBackClose(manageDataOpen, () => setManageDataOpen(false));
 
   // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
   // hides the Tasmi' card and button.
@@ -1656,6 +1691,10 @@ export function App({
     tasmiGuideOpen ||
     tajweedGuideOpen ||
     aboutOpen ||
+    compareAyah !== null ||
+    quizOpen ||
+    halaqahOpen ||
+    manageDataOpen ||
     topMenuOpen ||
     dockPopupOpen;
 
@@ -1811,9 +1850,27 @@ export function App({
     return set;
   }, [userData.archivedTasmi]);
 
+  const archivedMurajaahIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const [id, ev] of Object.entries(userData.archivedMurajaah ?? {})) {
+      if (ev.on) set.add(id);
+    }
+    return set;
+  }, [userData.archivedMurajaah]);
+
+  const activeMurajaahCards = useMemo(
+    () => (userData.murajaahCards ?? []).filter((c) => !archivedMurajaahIds.has(c.id)),
+    [userData.murajaahCards, archivedMurajaahIds],
+  );
+
   const activeTasmiHistoryCount = useMemo(
     () => userData.tasmiHistory.filter((item) => !archivedTasmiIds.has(item.id)).length,
     [userData.tasmiHistory, archivedTasmiIds],
+  );
+
+  const hafalanStreak = useMemo(
+    () => computeHafalanStreak(userData.tasmiHistory),
+    [userData.tasmiHistory],
   );
 
   const selectedTasmiMistakes = useMemo(() => {
@@ -1966,6 +2023,28 @@ export function App({
           setSyncOpen(true);
         }}
         onOpenReader={() => setReaderAyah(selected?.ayah ?? activeAyah)}
+        onOpenProgress={() => {
+          void ensureWordLookup();
+          setSummaryModal({
+            open: true,
+            tab: "progress",
+            record: userData.tasmiHistory[0] ?? null,
+          });
+        }}
+        onOpenSchedule={() => {
+          setSummaryModal({
+            open: true,
+            tab: "schedule",
+            record: userData.tasmiHistory[0] ?? null,
+          });
+        }}
+        onOpenQuiz={() => setQuizOpen(true)}
+        onOpenHalaqah={() => {
+          setHalaqahInviteCode(null);
+          setHalaqahOpen(true);
+        }}
+        onOpenManageData={() => setManageDataOpen(true)}
+        halaqahConnected={(userData.halaqahs?.length ?? 0) > 0}
         syncConnected={syncConfig !== null}
         onMenuOpenChange={setTopMenuOpen}
       />
@@ -2137,6 +2216,11 @@ export function App({
             handleOpenTasmi(ayah);
             setSelected(null);
           }}
+          onCompareAudio={(ayah) => {
+            audioController.pause();
+            setCompareAyah(ayah);
+            setSelected(null);
+          }}
           onToggleBookmark={handleToggleBookmark}
           onSetHighlight={handleSetHighlight}
           isHidden={blurSet?.has(selected.ayah) ?? false}
@@ -2235,6 +2319,7 @@ export function App({
         recentPages={userData.recentPages}
         bookmarks={userData.bookmarks}
         notes={userData.notes}
+        tilawaController={tilawaController}
         onClose={() => setPaletteOpen(false)}
         onJumpToPage={navigateToPage}
         onJumpToAyah={handleJumpToAyah}
@@ -2315,7 +2400,7 @@ export function App({
         currentJuz={juzNumber}
         initialAyah={tasmiInitialAyah}
         historyCount={activeTasmiHistoryCount}
-        murajaahCards={userData.murajaahCards}
+        murajaahCards={activeMurajaahCards}
         loadingProgress={modelLoading}
         isStarting={tasmiStarting}
         error={tasmiError}
@@ -2337,6 +2422,15 @@ export function App({
         }}
         onOpenHistory={handleOpenTasmiHistory}
         onOpenGuide={() => setTasmiGuideOpen(true)}
+        onOpenQuiz={() => {
+          setTasmiSheetOpen(false);
+          setQuizOpen(true);
+        }}
+        streakSummary={{
+          currentStreak: hafalanStreak.currentStreak,
+          todaySessions: hafalanStreak.todaySessions,
+          todayMinutes: hafalanStreak.todayMinutes,
+        }}
       />
 
       {tajweedGuideOpen && <TajweedGuide onClose={() => setTajweedGuideOpen(false)} />}
@@ -2359,7 +2453,11 @@ export function App({
         history={userData.tasmiHistory}
         archivedIds={archivedTasmiIds}
         murajaahCards={userData.murajaahCards}
+        archivedMurajaahIds={archivedMurajaahIds}
         surahs={catalog.surahs}
+        catalog={catalog}
+        mushafMap={mushafMap}
+        halaqahs={userData.halaqahs}
         getAyahWords={wordLookup}
         glyphLoader={glyphLoader}
         ayahToPage={mushafMap.ayahToPage}
@@ -2373,6 +2471,10 @@ export function App({
           setSummaryModal((prev) => ({ ...prev, open: false }));
           handleJumpToAyah(ayah);
         }}
+        onJumpToPage={(page) => {
+          setSummaryModal((prev) => ({ ...prev, open: false }));
+          navigateToPage(page);
+        }}
         onStartDrill={(ayahs) => {
           void runDrillStep(ayahs, 0, false);
         }}
@@ -2385,12 +2487,113 @@ export function App({
             card.kind,
           );
         }}
+        onAddMurajaahCard={(input) => {
+          persistUser(userStore.addMurajaahCard(input));
+          showToast("Jadwal muraja'ah ditambahkan");
+        }}
+        onMarkMurajaahReviewed={(id) => {
+          persistUser(userStore.markMurajaahReviewed(id));
+          showToast("Jadwal ditandai selesai");
+        }}
+        onDeleteMurajaahCard={(id) => {
+          persistUser(userStore.deleteMurajaahCard(id));
+          showToast("Jadwal dihapus");
+        }}
+        onToggleArchiveMurajaahCard={(id, archived) => {
+          persistUser(userStore.setMurajaahArchived(id, archived));
+          showToast(archived ? "Jadwal diarsipkan" : "Jadwal dipulihkan");
+        }}
         onDeleteHistory={(id) => {
           persistUser(userStore.deleteTasmiHistory(id));
         }}
         onToggleArchiveHistory={(id, archived) => {
           persistUser(userStore.setTasmiArchived(id, archived));
           showToast(archived ? "Riwayat diarsipkan" : "Riwayat dipulihkan");
+        }}
+        onSubmitToHalaqah={async (membership, rec) => {
+          try {
+            await submitHalaqahReport({
+              membership,
+              report: buildReportFromTasmi(rec),
+            });
+            showToast(`Setoran terkirim ke ${membership.name}`);
+          } catch (err) {
+            showToast(err instanceof Error ? err.message : "Gagal mengirim ke halaqah");
+            throw err;
+          }
+        }}
+      />
+
+      <CompareAudioModal
+        open={compareAyah !== null}
+        ayah={compareAyah}
+        surahName={
+          compareAyah
+            ? (surahByNumber.get(parseAyahKey(compareAyah).surah)?.name ?? "Surah")
+            : ""
+        }
+        reciter={reciterById.get(audioState.reciterId) ?? catalog.reciters[0]}
+        quranApi={quranApi}
+        getArabicText={getAyahArabicText}
+        onClose={() => setCompareAyah(null)}
+      />
+
+      <TextQuizModal
+        open={quizOpen}
+        catalog={catalog}
+        currentJuz={juzNumber}
+        ensureWordLookup={ensureWordLookup}
+        onClose={() => setQuizOpen(false)}
+        onJumpToAyah={handleJumpToAyah}
+      />
+
+      <HalaqahModal
+        open={halaqahOpen}
+        halaqahs={userData.halaqahs ?? []}
+        initialJoinCode={halaqahInviteCode}
+        surahs={catalog.surahs}
+        onClose={() => {
+          setHalaqahOpen(false);
+          setHalaqahInviteCode(null);
+        }}
+        onSaveMembership={(membership) => {
+          persistUser(userStore.upsertHalaqah(membership));
+        }}
+        onRemoveMembership={(code) => {
+          persistUser(userStore.removeHalaqah(code));
+        }}
+        onNotify={showToast}
+      />
+
+      <ManageDataModal
+        open={manageDataOpen}
+        userData={userData}
+        surahs={catalog.surahs}
+        onClose={() => setManageDataOpen(false)}
+        onJumpToAyah={handleJumpToAyah}
+        onToggleBookmark={handleToggleBookmark}
+        onDeleteHighlight={(ayah) => handleSetHighlight(ayah, null)}
+        onDeleteNote={(ayah) => handleSaveNote(ayah, "")}
+        onUnhideAyah={(ayah) => persistUser(userStore.setAyahHidden(ayah, false))}
+        onToggleArchiveTasmi={(id, archived) => {
+          persistUser(userStore.setTasmiArchived(id, archived));
+          showToast(archived ? "Riwayat diarsipkan" : "Riwayat dipulihkan");
+        }}
+        onDeleteTasmi={(id) => {
+          persistUser(userStore.deleteTasmiHistory(id));
+          showToast("Riwayat dihapus");
+        }}
+        onToggleArchiveMurajaah={(id, archived) => {
+          persistUser(userStore.setMurajaahArchived(id, archived));
+          showToast(archived ? "Jadwal diarsipkan" : "Jadwal dipulihkan");
+        }}
+        onDeleteMurajaah={(id) => {
+          persistUser(userStore.deleteMurajaahCard(id));
+          showToast("Jadwal dihapus");
+        }}
+        onRemoveHalaqah={(code) => {
+          persistUser(userStore.removeHalaqah(code));
+          showToast("Halaqah dihapus dari daftar");
         }}
       />
 

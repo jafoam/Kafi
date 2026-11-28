@@ -2,17 +2,19 @@ import type {
   AppSettings,
   AyahKey,
   BookmarkEvent,
+  HalaqahMembership,
   HifzBlurLevel,
   HighlightColor,
   MurajaahCard,
   ReadingMode,
   SpreadMode,
+  TasmiSessionKind,
   TasmiSessionRecord,
   ThemeMode,
   UserData,
 } from "../data/types";
 import type { PlatformAdapter } from "../platform/types";
-import { applySessionToMurajaah, backfillMurajaahCards } from "./murajaah-srs";
+import { murajaahCardId } from "./murajaah-srs";
 
 export const USER_DATA_KEY = "kafi:user";
 
@@ -224,11 +226,33 @@ export function normalizeUserData(raw: unknown): UserData {
       ).slice(0, MAX_RECENT_PAGES)
     : [];
 
-  const rawCards = Array.isArray(raw.murajaahCards)
+  const deletedMurajaahIds = Array.isArray(raw.deletedMurajaahIds)
+    ? Array.from(new Set(raw.deletedMurajaahIds.filter((id): id is string => typeof id === "string" && id.length > 0)))
+    : [];
+  const deletedMurajaahSet = new Set(deletedMurajaahIds);
+
+  const archivedMurajaah: Record<string, BookmarkEvent> = {};
+  if (isPlainObject(raw.archivedMurajaah)) {
+    for (const [key, val] of Object.entries(raw.archivedMurajaah)) {
+      if (
+        key.length > 0 &&
+        !deletedMurajaahSet.has(key) &&
+        isPlainObject(val) &&
+        typeof val.on === "boolean" &&
+        typeof val.at === "string"
+      ) {
+        archivedMurajaah[key] = { on: val.on, at: val.at };
+      }
+    }
+  }
+
+  // Schedules are user-managed (no automatic FSRS backfill from Tasmi' history).
+  const murajaahCards = Array.isArray(raw.murajaahCards)
     ? raw.murajaahCards.filter(
         (item): item is MurajaahCard =>
           isPlainObject(item) &&
           typeof item.id === "string" &&
+          !deletedMurajaahSet.has(item.id) &&
           typeof item.surah === "number" &&
           typeof item.fromAyah === "number" &&
           typeof item.toAyah === "number" &&
@@ -236,7 +260,19 @@ export function normalizeUserData(raw: unknown): UserData {
           typeof item.dueAt === "string",
       )
     : [];
-  const murajaahCards = backfillMurajaahCards(tasmiHistory, rawCards);
+  const halaqahs = Array.isArray(raw.halaqahs)
+    ? raw.halaqahs.filter(
+        (item): item is HalaqahMembership =>
+          isPlainObject(item) &&
+          typeof item.code === "string" &&
+          typeof item.name === "string" &&
+          typeof item.displayName === "string" &&
+          typeof item.memberId === "string" &&
+          typeof item.memberSecret === "string" &&
+          typeof item.workerUrl === "string" &&
+          typeof item.joinedAt === "string",
+      )
+    : [];
   const updatedAt = typeof raw.updatedAt === "string" ? raw.updatedAt : undefined;
   const settingsUpdatedAt = typeof raw.settingsUpdatedAt === "string" ? raw.settingsUpdatedAt : undefined;
 
@@ -253,9 +289,22 @@ export function normalizeUserData(raw: unknown): UserData {
     ...(deletedTasmiIds.length > 0 ? { deletedTasmiIds } : {}),
     ...(Object.keys(archivedTasmi).length > 0 ? { archivedTasmi } : {}),
     murajaahCards,
+    ...(deletedMurajaahIds.length > 0 ? { deletedMurajaahIds } : {}),
+    ...(Object.keys(archivedMurajaah).length > 0 ? { archivedMurajaah } : {}),
+    ...(halaqahs.length > 0 ? { halaqahs } : {}),
     updatedAt,
     settingsUpdatedAt,
   };
+}
+
+export interface NewMurajaahInput {
+  surah: number;
+  fromAyah: number;
+  toAyah: number;
+  kind: TasmiSessionKind;
+  intervalDays: number;
+  dueAt?: string;
+  note?: string;
 }
 
 export interface UserStore {
@@ -269,6 +318,12 @@ export interface UserStore {
   addTasmiHistory(record: TasmiSessionRecord): Promise<UserData>;
   deleteTasmiHistory(id: string): Promise<UserData>;
   setTasmiArchived(id: string, archived: boolean): Promise<UserData>;
+  addMurajaahCard(input: NewMurajaahInput): Promise<UserData>;
+  markMurajaahReviewed(id: string): Promise<UserData>;
+  deleteMurajaahCard(id: string): Promise<UserData>;
+  setMurajaahArchived(id: string, archived: boolean): Promise<UserData>;
+  upsertHalaqah(membership: HalaqahMembership): Promise<UserData>;
+  removeHalaqah(code: string): Promise<UserData>;
   replaceAll(next: UserData): Promise<UserData>;
   /** Replace with a value built from the latest stored data, inside the write queue. */
   replaceWith(build: (current: UserData) => UserData): Promise<UserData>;
@@ -377,7 +432,6 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
       return mutate((current) => ({
         ...current,
         tasmiHistory: [record, ...current.tasmiHistory],
-        murajaahCards: applySessionToMurajaah(current.murajaahCards ?? [], record),
       }));
     },
     deleteTasmiHistory(id: string) {
@@ -401,6 +455,100 @@ export function createUserStore(platform: PlatformAdapter): UserStore {
           [id]: { on: archived, at: new Date().toISOString() },
         },
       }));
+    },
+    addMurajaahCard(input: NewMurajaahInput) {
+      return mutate((current) => {
+        const fromAyah = Math.max(1, Math.min(input.fromAyah, input.toAyah));
+        const toAyah = Math.max(fromAyah, input.toAyah);
+        const intervalDays = Math.max(1, Math.min(365, Math.round(input.intervalDays) || 1));
+        const id = murajaahCardId(input.surah, fromAyah, toAyah);
+        const nowIso = new Date().toISOString();
+        const dueAt = input.dueAt && Number.isFinite(Date.parse(input.dueAt)) ? input.dueAt : nowIso;
+        const card: MurajaahCard = {
+          id,
+          surah: input.surah,
+          fromAyah,
+          toAyah,
+          kind: input.kind,
+          stabilityDays: intervalDays,
+          difficulty: 5,
+          reps: 0,
+          lapses: 0,
+          lastReviewedAt: nowIso,
+          dueAt,
+          ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+        };
+        const deletedMurajaahIds = (current.deletedMurajaahIds ?? []).filter((d) => d !== id);
+        const archivedMurajaah = { ...(current.archivedMurajaah ?? {}) };
+        delete archivedMurajaah[id];
+        return {
+          ...current,
+          murajaahCards: [card, ...(current.murajaahCards ?? []).filter((c) => c.id !== id)],
+          ...(deletedMurajaahIds.length > 0 ? { deletedMurajaahIds } : { deletedMurajaahIds: undefined }),
+          ...(Object.keys(archivedMurajaah).length > 0
+            ? { archivedMurajaah }
+            : { archivedMurajaah: undefined }),
+        };
+      });
+    },
+    markMurajaahReviewed(id: string) {
+      return mutate((current) => {
+        const nowMs = Date.now();
+        const DAY_MS = 24 * 60 * 60 * 1000;
+        const murajaahCards = (current.murajaahCards ?? []).map((card) => {
+          if (card.id !== id) return card;
+          const interval = Math.max(1, card.stabilityDays || 1);
+          return {
+            ...card,
+            reps: card.reps + 1,
+            lastReviewedAt: new Date(nowMs).toISOString(),
+            dueAt: new Date(nowMs + interval * DAY_MS).toISOString(),
+          };
+        });
+        return { ...current, murajaahCards };
+      });
+    },
+    deleteMurajaahCard(id: string) {
+      return mutate((current) => {
+        const deletedMurajaahIds = Array.from(new Set([...(current.deletedMurajaahIds ?? []), id]));
+        const archivedMurajaah = { ...(current.archivedMurajaah ?? {}) };
+        delete archivedMurajaah[id];
+        return {
+          ...current,
+          murajaahCards: (current.murajaahCards ?? []).filter((c) => c.id !== id),
+          deletedMurajaahIds,
+          ...(Object.keys(archivedMurajaah).length > 0
+            ? { archivedMurajaah }
+            : { archivedMurajaah: undefined }),
+        };
+      });
+    },
+    setMurajaahArchived(id: string, archived: boolean) {
+      return mutate((current) => ({
+        ...current,
+        archivedMurajaah: {
+          ...(current.archivedMurajaah ?? {}),
+          [id]: { on: archived, at: new Date().toISOString() },
+        },
+      }));
+    },
+    upsertHalaqah(membership: HalaqahMembership) {
+      return mutate((current) => {
+        const list = current.halaqahs ?? [];
+        return {
+          ...current,
+          halaqahs: [membership, ...list.filter((item) => item.code !== membership.code)],
+        };
+      });
+    },
+    removeHalaqah(code: string) {
+      return mutate((current) => {
+        const next = (current.halaqahs ?? []).filter((item) => item.code !== code);
+        return {
+          ...current,
+          ...(next.length > 0 ? { halaqahs: next } : { halaqahs: undefined }),
+        };
+      });
     },
     replaceAll(nextData: UserData) {
       const normalized = normalizeUserData(nextData);

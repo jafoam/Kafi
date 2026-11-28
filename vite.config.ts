@@ -1,9 +1,93 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import type { Plugin } from "vite";
 import { defaultClientConditions } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import syncWorker from "./sync-worker/src/index";
+
+function localHalaqahDevPlugin(): Plugin {
+  const storePath = path.resolve(process.cwd(), "node_modules/.cache/kafi-dev-halaqah.json");
+  const loadMap = (): Map<string, string> => {
+    try {
+      if (fs.existsSync(storePath)) {
+        const parsed = JSON.parse(fs.readFileSync(storePath, "utf8")) as Record<string, string>;
+        return new Map(Object.entries(parsed));
+      }
+    } catch {
+      // Start fresh if cache file is unreadable
+    }
+    return new Map();
+  };
+  const saveMap = (map: Map<string, string>) => {
+    try {
+      fs.mkdirSync(path.dirname(storePath), { recursive: true });
+      fs.writeFileSync(storePath, JSON.stringify(Object.fromEntries(map.entries())));
+    } catch {
+      // Ignore write failures in read-only sandboxes
+    }
+  };
+
+  return {
+    name: "local-halaqah-dev",
+    configureServer(server) {
+      const store = loadMap();
+      const kv = {
+        async get(key: string) {
+          return store.get(key) ?? null;
+        },
+        async put(key: string, value: string) {
+          store.set(key, value);
+          saveMap(store);
+        },
+        async delete(key: string) {
+          store.delete(key);
+          saveMap(store);
+        },
+        async list({ prefix = "", limit = 100 }: { prefix?: string; limit?: number } = {}) {
+          const keys = Array.from(store.keys())
+            .filter((k) => k.startsWith(prefix))
+            .slice(0, limit)
+            .map((name) => ({ name }));
+          return { keys };
+        },
+      };
+
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith("/v1/halaqah/")) {
+          next();
+          return;
+        }
+        try {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) {
+            chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+          }
+          const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined;
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (typeof v === "string") headers.set(k, v);
+          }
+          const request = new Request(`http://localhost${req.url}`, {
+            method: req.method,
+            headers,
+            body: req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS" ? undefined : body,
+          });
+          const response = await syncWorker.fetch(request, { KAFI_SYNC_KV: kv as never });
+          res.statusCode = response.status;
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          const buf = Buffer.from(await response.arrayBuffer());
+          res.end(buf);
+        } catch (err) {
+          res.statusCode = 500;
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : "Local dev error" }));
+        }
+      });
+    },
+  };
+}
 
 const ORT_WASM_FILES = new Set([
   "ort-wasm-simd-threaded.jsep.wasm",
@@ -70,7 +154,7 @@ function copyOrtAssetsPlugin() {
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [react(), copyOrtAssetsPlugin()],
+  plugins: [react(), copyOrtAssetsPlugin(), localHalaqahDevPlugin()],
   resolve: {
     conditions: ["onnxruntime-web-use-extern-wasm", ...defaultClientConditions],
   },
