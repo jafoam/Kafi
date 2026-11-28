@@ -9,6 +9,7 @@ import {
 } from "../services/arabic-search";
 import type { TilawaController } from "../services/tilawa-controller";
 import { clampPage, MAX_PAGE, MIN_PAGE } from "../state/reader-logic";
+import { getSurahEnglishMeaning } from "../data/surah-names";
 import { useI18n } from "../i18n";
 
 export type PaletteTab = "surah" | "juz" | "page" | "search" | "bookmarks";
@@ -39,11 +40,11 @@ const TABS: { id: PaletteTab; label: string }[] = [
 ];
 
 const QUICK_PAGES = [
-  { label: "Al-Fatihah (1)", page: 1 },
-  { label: "Al-Kahfi (293)", page: 293 },
-  { label: "Yasin (440)", page: 440 },
-  { label: "Al-Mulk (562)", page: 562 },
-  { label: "Juz Amma (582)", page: 582 },
+  { id: "Al-Fatihah (1)", en: "Al-Fatiha (1)", page: 1 },
+  { id: "Al-Kahfi (293)", en: "Al-Kahf (293)", page: 293 },
+  { id: "Yasin (440)", en: "Ya-Sin (440)", page: 440 },
+  { id: "Al-Mulk (562)", en: "Al-Mulk (562)", page: 562 },
+  { id: "Juz Amma (582)", en: "Juz Amma (582)", page: 582 },
 ];
 
 let cachedSearchPromise: Promise<QuranSearch> | null = null;
@@ -78,7 +79,7 @@ export function NavPalette({
   onJumpToAyah,
   onToggleBookmark,
 }: NavPaletteProps) {
-  const { tr } = useI18n();
+  const { isEn, tr } = useI18n();
   const [tab, setTab] = useState<PaletteTab>(initialTab);
   const [query, setQuery] = useState("");
   const [pageInput, setPageInput] = useState(String(currentPage));
@@ -359,28 +360,32 @@ export function NavPalette({
         <div className="palette__body">
           {tab === "surah" && (
             <div className="palette__list">
-              {filteredSurahs.map((surah) => (
-                <button
-                  key={surah.number}
-                  type="button"
-                  className="palette__item"
-                  onClick={() => {
-                    onJumpToPage(surah.page);
-                    onClose();
-                  }}
-                >
-                  <div className="palette__item-main">
-                    <span className="palette__num">{surah.number}</span>
-                    <div>
-                      <div className="palette__item-title">{surah.name}</div>
-                      <div className="palette__item-sub">
-                        {surah.ayahs} {tr("ayat", "ayahs")} · {tr("Hal.", "p.")} {surah.page}
+              {filteredSurahs.map((surah) => {
+                const meaning = isEn ? getSurahEnglishMeaning(surah.number) : "";
+                return (
+                  <button
+                    key={surah.number}
+                    type="button"
+                    className="palette__item"
+                    onClick={() => {
+                      onJumpToPage(surah.page);
+                      onClose();
+                    }}
+                  >
+                    <div className="palette__item-main">
+                      <span className="palette__num">{surah.number}</span>
+                      <div>
+                        <div className="palette__item-title">{surah.name}</div>
+                        <div className="palette__item-sub">
+                          {meaning ? `${meaning} · ` : ""}
+                          {surah.ayahs} {tr("ayat", "ayahs")} · {tr("Hal.", "p.")} {surah.page}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <span className="palette__arabic">{surah.arabicName}</span>
-                </button>
-              ))}
+                    <span className="palette__arabic">{surah.arabicName}</span>
+                  </button>
+                );
+              })}
               {filteredSurahs.length === 0 && (
                 <div className="palette__empty">{tr("Surah tidak ditemukan.", "No matching surah found.")}</div>
               )}
@@ -452,7 +457,7 @@ export function NavPalette({
                       onClose();
                     }}
                   >
-                    {qp.label}
+                    {tr(qp.id, qp.en)}
                   </button>
                 ))}
               </div>
@@ -517,9 +522,13 @@ export function NavPalette({
                     <div className="palette__item-main">
                       <span className="palette__num">{hit.surah}</span>
                       <div>
-                        <div className="palette__item-title">{hit.name}</div>
+                        <div className="palette__item-title">
+                          {surahByNumber.get(hit.surah)?.name ?? hit.name}
+                        </div>
                         <div className="palette__item-sub">
-                          Surah · {tr("Hal.", "p.")} {hit.page}
+                          {isEn && getSurahEnglishMeaning(hit.surah)
+                            ? `${getSurahEnglishMeaning(hit.surah)} · p. ${hit.page}`
+                            : `Surah · ${tr("Hal.", "p.")} ${hit.page}`}
                         </div>
                       </div>
                     </div>
@@ -537,7 +546,7 @@ export function NavPalette({
                   >
                     <div style={{ width: "100%" }}>
                       <div className="palette__item-sub" style={{ marginBottom: 4 }}>
-                        {hit.surahName} : {hit.ayah}
+                        {surahByNumber.get(hit.surah)?.name ?? hit.surahName} : {hit.ayah}
                       </div>
                       <div className="palette__arabic-hit">{hit.text}</div>
                     </div>

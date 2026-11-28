@@ -69,6 +69,7 @@ import {
   isHiddenAyahActive,
 } from "./services/user-store";
 import { LanguageProvider } from "./i18n";
+import { getSurahDisplayName } from "./data/surah-names";
 import {
   clampPage,
   getVisiblePages,
@@ -333,6 +334,32 @@ export function App({
   const tasmiStartingRef = useRef<boolean>(false);
   const wordLookupRef = useRef<WordLookupFn>(EMPTY_WORD_LOOKUP);
   const mountedRef = useRef(true);
+  const modalReturnToRef = useRef<"settings" | "tasmi" | "study" | null>(null);
+
+  const clearModalReturn = useCallback(() => {
+    modalReturnToRef.current = null;
+  }, []);
+
+  const openChildFrom = useCallback(
+    (parent: "settings" | "tasmi" | "study", openFn: () => void) => {
+      modalReturnToRef.current = parent;
+      openFn();
+    },
+    [],
+  );
+
+  const closeChildModal = useCallback((closeFn: () => void) => {
+    closeFn();
+    const returnTo = modalReturnToRef.current;
+    modalReturnToRef.current = null;
+    if (returnTo === "settings") {
+      setSettingsOpen(true);
+    } else if (returnTo === "tasmi") {
+      setTasmiSheetOpen(true);
+    } else if (returnTo === "study") {
+      setStudyOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -358,11 +385,25 @@ export function App({
     };
   }, [audioController, quranApi, tilawaController]);
 
+  const localizedSurahs = useMemo(
+    () =>
+      catalog.surahs.map((s) => ({
+        ...s,
+        name: getSurahDisplayName(s, userData.settings.language),
+      })),
+    [userData.settings.language],
+  );
+
+  const localizedCatalog = useMemo<Catalog>(
+    () => ({ ...catalog, surahs: localizedSurahs }),
+    [localizedSurahs],
+  );
+
   const surahByNumber = useMemo(() => {
     const map = new Map<number, Catalog["surahs"][number]>();
-    for (const s of catalog.surahs) map.set(s.number, s);
+    for (const s of localizedSurahs) map.set(s.number, s);
     return map;
-  }, []);
+  }, [localizedSurahs]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -829,6 +870,7 @@ export function App({
 
   const handleJumpToAyah = useCallback(
     (ayah: AyahKey, opts?: { fromVoice?: boolean }) => {
+      clearModalReturn();
       const targetPage = getPagesForAyah(ayah)[0];
       const alreadyVisible =
         targetPage !== undefined &&
@@ -991,11 +1033,12 @@ export function App({
     const saved = isSurahComplete(downloads.status?.bySurah.get(activeSurah.number));
     const downloading = downloads.state.phase !== "idle";
     if (saved || downloading) {
+      clearModalReturn();
       openDownloads("audio");
       return;
     }
     downloads.start([activeSurah.number]);
-  }, [activeSurah, downloads, openDownloads]);
+  }, [activeSurah, downloads, openDownloads, clearModalReturn]);
 
   // Tell the reader when a text download finishes.
   const prevTextSeqRef = useRef(0);
@@ -1015,12 +1058,12 @@ export function App({
     if (was !== "running" || downloads.state.phase !== "idle") return;
     const done = downloads.state.finished;
     if (done.length === 1) {
-      const name = catalog.surahs.find((s) => s.number === done[0])?.name;
+      const name = surahByNumber.get(done[0])?.name;
       showToast(trApp(`${name ?? "Surah"} tersimpan offline`, `${name ?? "Surah"} saved offline`));
     } else if (done.length > 1) {
       showToast(trApp(`${done.length} surah tersimpan offline`, `${done.length} surahs saved offline`));
     }
-  }, [downloads.state.phase, downloads.state.finished, showToast, trApp]);
+  }, [downloads.state.phase, downloads.state.finished, surahByNumber, showToast, trApp]);
 
   const handleToggleHifzBlur = useCallback(() => {
     const next = !userData.settings.hifzBlur;
@@ -1098,6 +1141,7 @@ export function App({
 
   const handleOpenTasmi = useCallback(
     (ayah: AyahKey | null) => {
+      clearModalReturn();
       if (onStartTasmi) {
         onStartTasmi(ayah ?? fallbackAyah);
         return;
@@ -1106,15 +1150,15 @@ export function App({
       setTasmiInitialAyah(ayah);
       setTasmiSheetOpen(true);
     },
-    [onStartTasmi, fallbackAyah],
+    [onStartTasmi, fallbackAyah, clearModalReturn],
   );
 
   const handleCancelModelLoad = useCallback(() => {
     tilawaAbortRef.current?.abort();
     tilawaAbortRef.current = null;
     setModelLoading(null);
-    setTasmiError("Unduhan model dibatalkan.");
-  }, []);
+    setTasmiError(trApp("Unduhan model dibatalkan.", "Model download cancelled."));
+  }, [trApp]);
 
   const stopPromptAudio = useCallback(() => {
     randomRoundSeqRef.current += 1;
@@ -1617,11 +1661,12 @@ export function App({
         kind: tasmiSessionKindRef.current,
       };
       persistUser(userStore.addTasmiHistory(record));
+      clearModalReturn();
       setSummaryModal({ open: true, tab: "summary", record });
     } else if (finalState) {
       showToast(trApp("Sesi Baca Bebas selesai", "Free Recite session finished"));
     }
-  }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast, trApp]);
+  }, [stopPromptAudio, errorDrill, tilawaController, userStore, persistUser, showToast, trApp, clearModalReturn]);
 
   const handleDrillNext = useCallback(() => {
     if (!errorDrill) return;
@@ -1794,19 +1839,27 @@ export function App({
 
   useBackClose(paletteOpen, () => setPaletteOpen(false));
   useBackClose(studyOpen, () => setStudyOpen(false));
-  useBackClose(readerAyah !== null, () => setReaderAyah(null));
-  useBackClose(downloadsOpen, () => setDownloadsOpen(false));
-  useBackClose(syncOpen, () => setSyncOpen(false));
+  useBackClose(readerAyah !== null, () => closeChildModal(() => setReaderAyah(null)));
+  useBackClose(downloadsOpen, () => closeChildModal(() => setDownloadsOpen(false)));
+  useBackClose(syncOpen, () => closeChildModal(() => setSyncOpen(false)));
   useBackClose(tasmiSheetOpen, () => setTasmiSheetOpen(false));
-  useBackClose(summaryModal.open, () => setSummaryModal((prev) => ({ ...prev, open: false })));
+  useBackClose(tasmiGuideOpen, () => closeChildModal(() => setTasmiGuideOpen(false)));
+  useBackClose(summaryModal.open, () =>
+    closeChildModal(() => setSummaryModal((prev) => ({ ...prev, open: false }))),
+  );
   useBackClose(selected !== null, () => setSelected(null));
   useBackClose(focusMode, () => setFocusMode(false));
-  useBackClose(tajweedGuideOpen, () => setTajweedGuideOpen(false));
-  useBackClose(aboutOpen, () => setAboutOpen(false));
+  useBackClose(tajweedGuideOpen, () => closeChildModal(() => setTajweedGuideOpen(false)));
+  useBackClose(aboutOpen, () => closeChildModal(() => setAboutOpen(false)));
   useBackClose(compareAyah !== null, () => setCompareAyah(null));
-  useBackClose(quizOpen, () => setQuizOpen(false));
-  useBackClose(halaqahOpen, () => setHalaqahOpen(false));
-  useBackClose(manageDataOpen, () => setManageDataOpen(false));
+  useBackClose(quizOpen, () => closeChildModal(() => setQuizOpen(false)));
+  useBackClose(halaqahOpen, () =>
+    closeChildModal(() => {
+      setHalaqahOpen(false);
+      setHalaqahInviteCode(null);
+    }),
+  );
+  useBackClose(manageDataOpen, () => closeChildModal(() => setManageDataOpen(false)));
   useBackClose(settingsOpen, () => setSettingsOpen(false));
 
   // Only one popup at a time: anything that opens on top of the page closes the ayah popover and
@@ -2142,8 +2195,14 @@ export function App({
         onChangePageNav={(pageNav) => persistUser(userStore.updateSettings({ pageNav }))}
         onChangeReadingMode={(nextMode) => persistUser(userStore.updateSettings({ readingMode: nextMode }))}
         onChangeFlowFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
-        onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
-        onOpenAbout={() => setAboutOpen(true)}
+        onOpenTajweedGuide={() => {
+          clearModalReturn();
+          setTajweedGuideOpen(true);
+        }}
+        onOpenAbout={() => {
+          clearModalReturn();
+          setAboutOpen(true);
+        }}
         hifzBlur={
           tasmiActive && tasmiState?.mode === "memorization"
             ? tasmiBlurEnabled
@@ -2187,13 +2246,21 @@ export function App({
         }
         onChangeTheme={handleChangeTheme}
         onOpenTasmi={() => handleOpenTasmi(null)}
-        onOpenDownloads={() => openDownloads("audio")}
+        onOpenDownloads={() => {
+          clearModalReturn();
+          openDownloads("audio");
+        }}
         onOpenSync={() => {
+          clearModalReturn();
           setSyncError(null);
           setSyncOpen(true);
         }}
-        onOpenReader={() => setReaderAyah(selected?.ayah ?? activeAyah)}
+        onOpenReader={() => {
+          clearModalReturn();
+          setReaderAyah(selected?.ayah ?? activeAyah);
+        }}
         onOpenProgress={() => {
+          clearModalReturn();
           void ensureWordLookup();
           setSummaryModal({
             open: true,
@@ -2202,19 +2269,30 @@ export function App({
           });
         }}
         onOpenSchedule={() => {
+          clearModalReturn();
           setSummaryModal({
             open: true,
             tab: "schedule",
             record: userData.tasmiHistory[0] ?? null,
           });
         }}
-        onOpenQuiz={() => setQuizOpen(true)}
+        onOpenQuiz={() => {
+          clearModalReturn();
+          setQuizOpen(true);
+        }}
         onOpenHalaqah={() => {
+          clearModalReturn();
           setHalaqahInviteCode(null);
           setHalaqahOpen(true);
         }}
-        onOpenManageData={() => setManageDataOpen(true)}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenManageData={() => {
+          clearModalReturn();
+          setManageDataOpen(true);
+        }}
+        onOpenSettings={() => {
+          clearModalReturn();
+          setSettingsOpen(true);
+        }}
         language={userData.settings.language}
         onChangeLanguage={handleChangeLanguage}
         hasActionableAlert={syncError !== null}
@@ -2226,7 +2304,7 @@ export function App({
       {downloadsOpen && (
         <AudioDownloadsPanel
           initialTab={downloadsTab}
-          surahs={catalog.surahs}
+          surahs={localizedSurahs}
           reciters={catalog.reciters}
           reciterId={audioState.reciterId}
           onChangeReciter={handleChangeReciter}
@@ -2244,7 +2322,7 @@ export function App({
           tajweedPages={tajweedPages}
           tilawaStorage={tilawaStorage}
           onDownloadTilawa={(onProgress, signal) => tilawaController.ensureReady(onProgress, signal)}
-          onClose={() => setDownloadsOpen(false)}
+          onClose={() => closeChildModal(() => setDownloadsOpen(false))}
         />
       )}
 
@@ -2253,7 +2331,10 @@ export function App({
         visible={tasmiLauncherVisible}
         showHint={tasmiHint && !overlayOpen && selected === null}
         onDismissHint={dismissTasmiHint}
-        onOpenGuide={() => setTasmiGuideOpen(true)}
+        onOpenGuide={() => {
+          clearModalReturn();
+          setTasmiGuideOpen(true);
+        }}
       />
 
       {!flowMode && !scrollMode && (
@@ -2270,7 +2351,7 @@ export function App({
           fontScale={userData.settings.flowFontScale}
           onChangeFontScale={(flowFontScale) => persistUser(userStore.updateSettings({ flowFontScale }))}
           pages={mushafMap.pages}
-          surahs={catalog.surahs}
+          surahs={localizedSurahs}
           juzs={catalog.juzs}
           currentPage={currentPage}
           focusMode={focusMode}
@@ -2410,7 +2491,7 @@ export function App({
         onPopupChange={setDockPopupOpen}
         audioState={audioState}
         activeAyah={activeAyah}
-        surahs={catalog.surahs}
+        surahs={localizedSurahs}
         surahName={activeSurah?.name ?? "Surah"}
         surahNumber={activeSurah?.number ?? 1}
         surahAyahCount={activeSurah?.ayahs ?? 1}
@@ -2459,18 +2540,20 @@ export function App({
         onSetHighlight={handleSetHighlight}
         onSaveNote={handleSaveNote}
         onPlayAyah={handlePlayAyah}
-        onOpenDownloads={(tab) => openDownloads(tab)}
-        onOpenReader={(ayah) => {
-          setStudyOpen(false);
-          setReaderAyah(ayah);
-        }}
+        onOpenDownloads={(tab) => openChildFrom("study", () => openDownloads(tab))}
+        onOpenReader={(ayah) =>
+          openChildFrom("study", () => {
+            setStudyOpen(false);
+            setReaderAyah(ayah);
+          })
+        }
       />
 
       <TranslationReader
         open={readerAyah !== null}
         startAyah={readerAyah ?? activeAyah}
         playingAyah={audioState.isPlaying ? audioState.currentAyah : null}
-        surahs={catalog.surahs}
+        surahs={localizedSurahs}
         quranApi={quranApi}
         glyphLoader={glyphLoader}
         ayahPages={ayahPages}
@@ -2482,16 +2565,16 @@ export function App({
         onChangeTafsir={handleChangeTafsir}
         onPlayAyah={handlePlayAyah}
         onClose={(last) => {
-          setReaderAyah(null);
           const page = getPagesForAyah(last)[0];
           if (page) navigateToPage(page);
+          closeChildModal(() => setReaderAyah(null));
         }}
       />
 
       <NavPalette
         open={paletteOpen}
         initialTab={paletteTab}
-        catalog={catalog}
+        catalog={localizedCatalog}
         mushafMap={mushafMap}
         currentPage={currentPage}
         recentPages={userData.recentPages}
@@ -2507,7 +2590,7 @@ export function App({
       {(tasmiActive || tasmiStarting) && tasmiState && (
         <RecitationRibbon
           state={tasmiState}
-          surahs={catalog.surahs}
+          surahs={localizedSurahs}
           blurActive={isTasmiBlurActive}
           isPeeking={peekedAyah !== null}
           startingStatus={tasmiStartingStatus}
@@ -2574,7 +2657,7 @@ export function App({
         open={tasmiSheetOpen}
         visiblePages={visiblePages}
         glyphAyahs={glyphAyahs}
-        surahs={catalog.surahs}
+        surahs={localizedSurahs}
         currentJuz={juzNumber}
         initialAyah={tasmiInitialAyah}
         historyCount={activeTasmiHistoryCount}
@@ -2587,23 +2670,33 @@ export function App({
         onClose={() => setTasmiSheetOpen(false)}
         onCancelLoad={handleCancelModelLoad}
         onStartFree={() => {
+          clearModalReturn();
           void startTasmiSession("free", null, false);
         }}
         onStartMemorization={(passage, enableBlur, kind) => {
+          clearModalReturn();
           void startTasmiSession("memorization", passage, enableBlur, kind);
         }}
         onStartRandom={(pool, enableBlur) => {
-          const challenge = pickRandomChallenge(pool, catalog);
+          clearModalReturn();
+          const challenge = pickRandomChallenge(pool, localizedCatalog);
           if (challenge) {
             void startRandomChallenge(challenge, pool, enableBlur);
           }
         }}
-        onOpenHistory={handleOpenTasmiHistory}
-        onOpenGuide={() => setTasmiGuideOpen(true)}
-        onOpenQuiz={() => {
-          setTasmiSheetOpen(false);
-          setQuizOpen(true);
-        }}
+        onOpenHistory={() => openChildFrom("tasmi", handleOpenTasmiHistory)}
+        onOpenGuide={() =>
+          openChildFrom("tasmi", () => {
+            setTasmiSheetOpen(false);
+            setTasmiGuideOpen(true);
+          })
+        }
+        onOpenQuiz={() =>
+          openChildFrom("tasmi", () => {
+            setTasmiSheetOpen(false);
+            setQuizOpen(true);
+          })
+        }
         streakSummary={{
           currentStreak: hafalanStreak.currentStreak,
           todaySessions: hafalanStreak.todaySessions,
@@ -2611,13 +2704,16 @@ export function App({
         }}
       />
 
-      {tajweedGuideOpen && <TajweedGuide onClose={() => setTajweedGuideOpen(false)} />}
-      {aboutOpen && <AboutSources onClose={() => setAboutOpen(false)} />}
+      {tajweedGuideOpen && (
+        <TajweedGuide onClose={() => closeChildModal(() => setTajweedGuideOpen(false))} />
+      )}
+      {aboutOpen && <AboutSources onClose={() => closeChildModal(() => setAboutOpen(false))} />}
 
       {tasmiGuideOpen && (
         <TasmiGuide
-          onClose={() => setTasmiGuideOpen(false)}
+          onClose={() => closeChildModal(() => setTasmiGuideOpen(false))}
           onStart={() => {
+            clearModalReturn();
             setTasmiGuideOpen(false);
             if (!tasmiSheetOpen) handleOpenTasmi(null);
           }}
@@ -2632,31 +2728,42 @@ export function App({
         archivedIds={archivedTasmiIds}
         murajaahCards={userData.murajaahCards}
         archivedMurajaahIds={archivedMurajaahIds}
-        surahs={catalog.surahs}
-        catalog={catalog}
+        surahs={localizedSurahs}
+        catalog={localizedCatalog}
         mushafMap={mushafMap}
         halaqahs={userData.halaqahs}
         getAyahWords={wordLookup}
         glyphLoader={glyphLoader}
         ayahToPage={mushafMap.ayahToPage}
-        onClose={() => setSummaryModal((prev) => ({ ...prev, open: false }))}
+        onClose={() => closeChildModal(() => setSummaryModal((prev) => ({ ...prev, open: false })))}
         onPlayAyah={(ayah) => {
+          clearModalReturn();
           setSummaryModal((prev) => ({ ...prev, open: false }));
           handleJumpToAyah(ayah);
           handlePlayAyah(ayah);
         }}
         onJumpToAyah={(ayah) => {
+          clearModalReturn();
           setSummaryModal((prev) => ({ ...prev, open: false }));
           handleJumpToAyah(ayah);
         }}
         onJumpToPage={(page) => {
+          clearModalReturn();
           setSummaryModal((prev) => ({ ...prev, open: false }));
           navigateToPage(page);
         }}
         onStartDrill={(ayahs) => {
+          clearModalReturn();
+          setSummaryModal((prev) => ({ ...prev, open: false }));
           void runDrillStep(ayahs, 0, false);
         }}
+        onStartTasmiPassage={(passage) => {
+          clearModalReturn();
+          setSummaryModal((prev) => ({ ...prev, open: false }));
+          void startTasmiSession("memorization", passage, true, "murajaah");
+        }}
         onStartMurajaahCard={(card) => {
+          clearModalReturn();
           setSummaryModal((prev) => ({ ...prev, open: false }));
           void startTasmiSession(
             "memorization",
@@ -2730,10 +2837,10 @@ export function App({
 
       <TextQuizModal
         open={quizOpen}
-        catalog={catalog}
+        catalog={localizedCatalog}
         currentJuz={juzNumber}
         ensureWordLookup={ensureWordLookup}
-        onClose={() => setQuizOpen(false)}
+        onClose={() => closeChildModal(() => setQuizOpen(false))}
         onJumpToAyah={handleJumpToAyah}
       />
 
@@ -2741,11 +2848,13 @@ export function App({
         open={halaqahOpen}
         halaqahs={userData.halaqahs ?? []}
         initialJoinCode={halaqahInviteCode}
-        surahs={catalog.surahs}
-        onClose={() => {
-          setHalaqahOpen(false);
-          setHalaqahInviteCode(null);
-        }}
+        surahs={localizedSurahs}
+        onClose={() =>
+          closeChildModal(() => {
+            setHalaqahOpen(false);
+            setHalaqahInviteCode(null);
+          })
+        }
         onSaveMembership={(membership) => {
           persistUser(userStore.upsertHalaqah(membership));
         }}
@@ -2758,8 +2867,8 @@ export function App({
       <ManageDataModal
         open={manageDataOpen}
         userData={userData}
-        surahs={catalog.surahs}
-        onClose={() => setManageDataOpen(false)}
+        surahs={localizedSurahs}
+        onClose={() => closeChildModal(() => setManageDataOpen(false))}
         onJumpToAyah={handleJumpToAyah}
         onToggleBookmark={handleToggleBookmark}
         onDeleteHighlight={(ayah) => handleSetHighlight(ayah, null)}
@@ -2800,7 +2909,7 @@ export function App({
         config={syncConfig}
         syncing={syncing}
         error={syncError}
-        onClose={() => setSyncOpen(false)}
+        onClose={() => closeChildModal(() => setSyncOpen(false))}
         onConnect={async (code, workerUrl) => {
           const cfg: SyncConfig = { code, workerUrl };
           await executeSync(cfg, userDataRef.current, false);
@@ -2876,35 +2985,45 @@ export function App({
             ),
           )
         }
-        onOpenProgress={() => {
-          void ensureWordLookup();
-          setSummaryModal({
-            open: true,
-            tab: "progress",
-            record: userData.tasmiHistory[0] ?? null,
-          });
-        }}
-        onOpenSchedule={() => {
-          setSummaryModal({
-            open: true,
-            tab: "schedule",
-            record: userData.tasmiHistory[0] ?? null,
-          });
-        }}
-        onOpenQuiz={() => setQuizOpen(true)}
-        onOpenHalaqah={() => {
-          setHalaqahInviteCode(null);
-          setHalaqahOpen(true);
-        }}
-        onOpenReader={() => setReaderAyah(selected?.ayah ?? activeAyah)}
-        onOpenTajweedGuide={() => setTajweedGuideOpen(true)}
-        onOpenManageData={() => setManageDataOpen(true)}
-        onOpenDownloads={() => openDownloads("audio")}
-        onOpenSync={() => {
-          setSyncError(null);
-          setSyncOpen(true);
-        }}
-        onOpenAbout={() => setAboutOpen(true)}
+        onOpenProgress={() =>
+          openChildFrom("settings", () => {
+            void ensureWordLookup();
+            setSummaryModal({
+              open: true,
+              tab: "progress",
+              record: userData.tasmiHistory[0] ?? null,
+            });
+          })
+        }
+        onOpenSchedule={() =>
+          openChildFrom("settings", () => {
+            setSummaryModal({
+              open: true,
+              tab: "schedule",
+              record: userData.tasmiHistory[0] ?? null,
+            });
+          })
+        }
+        onOpenQuiz={() => openChildFrom("settings", () => setQuizOpen(true))}
+        onOpenHalaqah={() =>
+          openChildFrom("settings", () => {
+            setHalaqahInviteCode(null);
+            setHalaqahOpen(true);
+          })
+        }
+        onOpenReader={() =>
+          openChildFrom("settings", () => setReaderAyah(selected?.ayah ?? activeAyah))
+        }
+        onOpenTajweedGuide={() => openChildFrom("settings", () => setTajweedGuideOpen(true))}
+        onOpenManageData={() => openChildFrom("settings", () => setManageDataOpen(true))}
+        onOpenDownloads={() => openChildFrom("settings", () => openDownloads("audio"))}
+        onOpenSync={() =>
+          openChildFrom("settings", () => {
+            setSyncError(null);
+            setSyncOpen(true);
+          })
+        }
+        onOpenAbout={() => openChildFrom("settings", () => setAboutOpen(true))}
       />
 
       {toast && (

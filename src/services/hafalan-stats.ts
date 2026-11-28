@@ -13,6 +13,7 @@ export interface PageProgress {
   status: HafalanStatus;
   coveredAyahs: number;
   totalAyahs: number;
+  needsReviewAyahs: AyahKey[];
 }
 
 export interface SurahProgress {
@@ -22,6 +23,7 @@ export interface SurahProgress {
   status: HafalanStatus;
   coveredAyahs: number;
   totalAyahs: number;
+  needsReviewAyahs: AyahKey[];
 }
 
 export interface JuzProgress {
@@ -30,6 +32,7 @@ export interface JuzProgress {
   status: HafalanStatus;
   coveredAyahs: number;
   totalAyahs: number;
+  needsReviewAyahs: AyahKey[];
 }
 
 export interface HafalanProgressSummary {
@@ -46,6 +49,8 @@ export interface HafalanProgressMap {
   surahs: SurahProgress[];
   juzs: JuzProgress[];
   summary: HafalanProgressSummary;
+  /** Error classes or "murajaah_lapse" for each ayah marked as needs_review. */
+  reviewReasons: Record<AyahKey, string[]>;
 }
 
 export interface StreakDay {
@@ -90,6 +95,16 @@ export function computeHafalanProgress(
   mushafMap: Pick<MushafMap, "pages" | "ayahToPage">,
 ): HafalanProgressMap {
   const ayahStatus = new Map<AyahKey, HafalanStatus>();
+  const reviewReasonsMap = new Map<AyahKey, Set<string>>();
+
+  const addReason = (key: AyahKey, reason: string) => {
+    let set = reviewReasonsMap.get(key);
+    if (!set) {
+      set = new Set<string>();
+      reviewReasonsMap.set(key, set);
+    }
+    set.add(reason);
+  };
 
   // Derive per-ayah status from spaced-repetition cards first.
   for (const card of murajaahCards) {
@@ -105,6 +120,7 @@ export function computeHafalanProgress(
       const key: AyahKey = `${card.surah}:${a}`;
       const prev = ayahStatus.get(key) ?? "none";
       ayahStatus.set(key, mergeStatus(prev, status));
+      if (status === "needs_review") addReason(key, "murajaah_lapse");
     }
   }
 
@@ -119,7 +135,9 @@ export function computeHafalanProgress(
   }
   for (const rec of latestByPassage.values()) {
     for (const m of rec.mistakes) {
-      ayahStatus.set(`${m.surah}:${m.ayah}`, "needs_review");
+      const key: AyahKey = `${m.surah}:${m.ayah}`;
+      ayahStatus.set(key, "needs_review");
+      addReason(key, m.errorClass);
     }
   }
 
@@ -137,9 +155,12 @@ export function computeHafalanProgress(
       ziyadah: 0,
       needs_review: 0,
     };
+    const surahReviewAyahs: AyahKey[] = [];
     for (let a = 1; a <= s.ayahs; a += 1) {
-      const st = ayahStatus.get(`${s.number}:${a}`) ?? "none";
+      const key: AyahKey = `${s.number}:${a}`;
+      const st = ayahStatus.get(key) ?? "none";
       counts[st] += 1;
+      if (st === "needs_review") surahReviewAyahs.push(key);
     }
     smoothAyahs += counts.smooth;
     ziyadahAyahs += counts.ziyadah;
@@ -152,6 +173,7 @@ export function computeHafalanProgress(
       status: summarizeGroupStatus(counts),
       coveredAyahs,
       totalAyahs: s.ayahs,
+      needsReviewAyahs: surahReviewAyahs,
     };
   });
 
@@ -165,12 +187,14 @@ export function computeHafalanProgress(
       needs_review: 0,
     };
     const seen = new Set<AyahKey>();
+    const pageReviewAyahs: AyahKey[] = [];
     for (const seg of entry.ayahs) {
       const key: AyahKey = `${seg.surah}:${seg.ayah}`;
       if (entry.leadingSplitAyah === key || seen.has(key)) continue;
       seen.add(key);
       const st = ayahStatus.get(key) ?? "none";
       counts[st] += 1;
+      if (st === "needs_review") pageReviewAyahs.push(key);
     }
     const pageTotal = seen.size;
     const coveredAyahs = pageTotal - counts.none;
@@ -180,6 +204,7 @@ export function computeHafalanProgress(
       status: summarizeGroupStatus(counts),
       coveredAyahs,
       totalAyahs: pageTotal,
+      needsReviewAyahs: pageReviewAyahs,
     };
   });
 
@@ -197,12 +222,14 @@ export function computeHafalanProgress(
     };
     let coveredAyahs = 0;
     let juzTotalAyahs = 0;
+    const juzReviewSet = new Set<AyahKey>();
     for (let p = startPage; p <= endPage; p += 1) {
       const pageProg = pages[p - 1];
       if (!pageProg) continue;
       juzTotalAyahs += pageProg.totalAyahs;
       coveredAyahs += pageProg.coveredAyahs;
       counts[pageProg.status] += 1;
+      for (const key of pageProg.needsReviewAyahs) juzReviewSet.add(key);
     }
     return {
       juz: juz.number,
@@ -210,8 +237,14 @@ export function computeHafalanProgress(
       status: summarizeGroupStatus(counts),
       coveredAyahs,
       totalAyahs: juzTotalAyahs,
+      needsReviewAyahs: Array.from(juzReviewSet),
     };
   });
+
+  const reviewReasons: Record<AyahKey, string[]> = {};
+  for (const [k, set] of reviewReasonsMap.entries()) {
+    reviewReasons[k] = Array.from(set);
+  }
 
   return {
     pages,
@@ -225,6 +258,7 @@ export function computeHafalanProgress(
       needsReviewAyahs,
       memorizedPages,
     },
+    reviewReasons,
   };
 }
 

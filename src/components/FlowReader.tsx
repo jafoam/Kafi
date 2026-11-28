@@ -17,6 +17,7 @@ import {
   type SelectedWord,
 } from "../services/word-translations";
 import { useLongPress } from "../state/useLongPress";
+import { getSurahEnglishMeaning } from "../data/surah-names";
 import { useI18n } from "../i18n";
 
 const wordLoader = createWordTranslationLoader();
@@ -217,8 +218,11 @@ export interface FlowReaderProps {
 }
 
 function FlowSurahHeader({ surah }: { surah: SurahInfo | undefined }) {
+  const { isEn } = useI18n();
+  const meaning = isEn && surah ? getSurahEnglishMeaning(surah.number) : "";
+  const title = surah ? (meaning ? `${surah.name} · ${meaning}` : surah.name) : "Surah";
   return (
-    <div className="flow-surah-header" aria-label={surah?.name ?? "Surah"}>
+    <div className="flow-surah-header" aria-label={title}>
       <svg
         className="flow-surah-header__frame"
         viewBox="0 0 600 64"
@@ -242,7 +246,7 @@ function FlowSurahHeader({ surah }: { surah: SurahInfo | undefined }) {
         <circle cx="300" cy="8" r="2.2" fill="currentColor" opacity="0.45" />
         <circle cx="300" cy="56" r="2.2" fill="currentColor" opacity="0.45" />
       </svg>
-      <span className="flow-surah-header__name">{surah?.name ?? "Surah"}</span>
+      <span className="flow-surah-header__name">{title}</span>
     </div>
   );
 }

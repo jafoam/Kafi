@@ -1,4 +1,5 @@
 import type { SurahInfo } from "../data/types";
+import { SURAH_MEANINGS_EN, SURAH_NAMES_EN } from "../data/surah-names";
 
 export interface RefV2CompactAyah {
   s: number;
@@ -67,11 +68,18 @@ function foldLatin(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** True when `query` names the surah in its Indonesian or international spelling. */
+/** True when `query` names the surah in its Indonesian, English transliteration, or English meaning. */
 export function matchesSurahName(info: SurahInfo, query: string): boolean {
   const q = foldLatin(query);
   if (!q) return false;
-  return foldLatin(info.name).includes(q) || (info.nameAlt ? foldLatin(info.nameAlt).includes(q) : false);
+  const enName = SURAH_NAMES_EN[info.number];
+  const enMeaning = SURAH_MEANINGS_EN[info.number];
+  return (
+    foldLatin(info.name).includes(q) ||
+    (info.nameAlt ? foldLatin(info.nameAlt).includes(q) : false) ||
+    (enName ? foldLatin(enName).includes(q) : false) ||
+    (enMeaning ? foldLatin(enMeaning).includes(q) : false)
+  );
 }
 
 export function createQuranSearch(

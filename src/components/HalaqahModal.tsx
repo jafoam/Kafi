@@ -425,7 +425,8 @@ export function HalaqahModal({
                             {isMe ? tr(" (Saya)", " (You)") : ""}
                           </strong>
                           <span className="tasmi-sheet__option-scope">
-                            {member.data.reports.length} {tr("setoran", "reports")}
+                            {member.data.reports.length}{" "}
+                            {tr("setoran", member.data.reports.length === 1 ? "report" : "reports")}
                           </span>
                         </div>
                         {latest ? (
@@ -443,7 +444,7 @@ export function HalaqahModal({
                             >
                               {latest.mistakes === 0
                                 ? tr("Lancar", "Smooth")
-                                : `${latest.mistakes} ${tr("catatan", "notes")}`}
+                                : `${latest.mistakes} ${tr("catatan", latest.mistakes === 1 ? "note" : "notes")}`}
                             </span>
                           </div>
                         ) : (

@@ -217,7 +217,8 @@ export function RecitationRibbon({
             ) : null}
             {state.confirmedMistakes.length > 0 && (
               <span className="recitation-ribbon__mistake-pill">
-                {state.confirmedMistakes.length} {tr("catatan", "notes")}
+                {state.confirmedMistakes.length}{" "}
+                {tr("catatan", state.confirmedMistakes.length === 1 ? "note" : "notes")}
               </span>
             )}
           </div>

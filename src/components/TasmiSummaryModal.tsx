@@ -10,9 +10,18 @@ import type {
   TasmiSessionRecord,
 } from "../data/types";
 import type { GlyphPageLoader } from "../services/glyph-pages";
-import { computeHafalanProgress, computeHafalanStreak } from "../services/hafalan-stats";
+import {
+  computeHafalanProgress,
+  computeHafalanStreak,
+  type HafalanStatus,
+} from "../services/hafalan-stats";
 import { extractDrillAyahs, formatDueLabel, murajaahCardId } from "../services/murajaah-srs";
-import { ERROR_CLASS_LABELS, ERROR_CLASS_LABELS_EN, formatErrorClass } from "../services/tasmi-logic";
+import {
+  ERROR_CLASS_LABELS,
+  ERROR_CLASS_LABELS_EN,
+  formatErrorClass,
+  type DeclaredPassage,
+} from "../services/tasmi-logic";
 import type { NewMurajaahInput } from "../services/user-store";
 import { GlassSelect } from "./GlassSelect";
 import { useI18n } from "../i18n";
@@ -39,6 +48,7 @@ export interface TasmiSummaryModalProps {
   onJumpToAyah: (ayah: AyahKey) => void;
   onJumpToPage?: (page: number) => void;
   onStartDrill?: (ayahs: AyahKey[]) => void;
+  onStartTasmiPassage?: (passage: DeclaredPassage) => void;
   onStartMurajaahCard?: (card: MurajaahCard) => void;
   onAddMurajaahCard?: (input: NewMurajaahInput) => void;
   onMarkMurajaahReviewed?: (id: string) => void;
@@ -114,7 +124,9 @@ function evaluateRecord(
   }
   if (record.mistakes.length > 0) {
     return {
-      label: isEn ? `${record.mistakes.length} notes` : `${record.mistakes.length} catatan`,
+      label: isEn
+        ? `${record.mistakes.length} ${record.mistakes.length === 1 ? "note" : "notes"}`
+        : `${record.mistakes.length} catatan`,
       tone: "warn",
       emptyNote: "",
       progressText,
@@ -160,6 +172,7 @@ export function TasmiSummaryModal({
   onJumpToAyah,
   onJumpToPage,
   onStartDrill,
+  onStartTasmiPassage,
   onStartMurajaahCard,
   onAddMurajaahCard,
   onMarkMurajaahReviewed,
@@ -184,6 +197,8 @@ export function TasmiSummaryModal({
   const [selectedRecord, setSelectedRecord] = useState<TasmiSessionRecord | null>(record);
   const [qcfByAyah, setQcfByAyah] = useState<Record<string, QcfGlyph[]>>({});
   const [mapView, setMapView] = useState<"juz" | "surah" | "page">("juz");
+  const [statusFilter, setStatusFilter] = useState<"all" | HafalanStatus>("all");
+  const [selectedProgressKey, setSelectedProgressKey] = useState<string | null>(null);
   const [selectedHalaqahCode, setSelectedHalaqahCode] = useState<string>("");
   const [submittingHalaqah, setSubmittingHalaqah] = useState(false);
   const [submittedRecordId, setSubmittedRecordId] = useState<string | null>(null);
@@ -323,7 +338,7 @@ export function TasmiSummaryModal({
           <div>
             <h2 className="tasmi-sheet__title">{tr("Evaluasi Tasmi'", "Tasmi' Evaluation")}</h2>
             <p className="tasmi-sheet__subtitle">
-              {tr("Tinjau catatan bacaan dan dengarkan murottal untuk koreksi", "Review recitation notes and listen to murottal for correction")}
+              {tr("Tinjau catatan bacaan dan dengarkan murottal untuk koreksi", "Review recitation notes and listen to audio for correction")}
             </p>
           </div>
           <button
@@ -639,19 +654,92 @@ export function TasmiSummaryModal({
                 )}
               </div>
             )
-          ) : tab === "progress" && progressMap ? (
+          ) : tab === "progress" && progressMap ? (() => {
+            const activeItems =
+              mapView === "juz"
+                ? progressMap.juzs.map((j) => ({
+                    key: `juz-${j.juz}`,
+                    title: `Juz ${j.juz}`,
+                    page: j.page,
+                    status: j.status,
+                    coveredAyahs: j.coveredAyahs,
+                    totalAyahs: j.totalAyahs,
+                    needsReviewAyahs: j.needsReviewAyahs,
+                    surahNumber: undefined as number | undefined,
+                    sub: j.coveredAyahs > 0 ? `${j.coveredAyahs}/${j.totalAyahs}` : `${tr("Hal.", "p.")} ${j.page}`,
+                    compactLabel: `Juz ${j.juz}`,
+                  }))
+                : mapView === "surah"
+                  ? progressMap.surahs.map((s) => ({
+                      key: `surah-${s.surah}`,
+                      title: `${s.surah}. ${s.name}`,
+                      page: s.page,
+                      status: s.status,
+                      coveredAyahs: s.coveredAyahs,
+                      totalAyahs: s.totalAyahs,
+                      needsReviewAyahs: s.needsReviewAyahs,
+                      surahNumber: s.surah,
+                      sub: `${s.coveredAyahs}/${s.totalAyahs}`,
+                      compactLabel: `${s.surah}. ${s.name}`,
+                    }))
+                  : progressMap.pages.map((p) => ({
+                      key: `page-${p.page}`,
+                      title: `${tr("Halaman", "Page")} ${p.page}`,
+                      page: p.page,
+                      status: p.status,
+                      coveredAyahs: p.coveredAyahs,
+                      totalAyahs: p.totalAyahs,
+                      needsReviewAyahs: p.needsReviewAyahs,
+                      surahNumber: undefined as number | undefined,
+                      sub: `${p.coveredAyahs}/${p.totalAyahs}`,
+                      compactLabel: String(p.page),
+                    }));
+
+            const statusCounts: Record<HafalanStatus, number> = {
+              smooth: 0,
+              ziyadah: 0,
+              needs_review: 0,
+              none: 0,
+            };
+            for (const item of activeItems) statusCounts[item.status] += 1;
+
+            const filteredItems =
+              statusFilter === "all"
+                ? activeItems
+                : activeItems.filter((item) => item.status === statusFilter);
+
+            const selectedItem =
+              selectedProgressKey
+                ? activeItems.find((item) => item.key === selectedProgressKey) ?? null
+                : null;
+
+            const statusLabel = (st: HafalanStatus) =>
+              st === "smooth"
+                ? tr("Lancar", "Smooth")
+                : st === "ziyadah"
+                  ? "Ziyadah"
+                  : st === "needs_review"
+                    ? tr("Perlu ulang", "Needs review")
+                    : tr("Belum", "Not yet");
+
+            const formatReason = (reason: string) =>
+              reason === "murajaah_lapse"
+                ? tr("Perlu muraja'ah", "Review due")
+                : formatErrorClass(reason, lang);
+
+            return (
             <div className="progress-tab">
               <div className="streak-card">
                 <div className="streak-card__stats">
                   <div className="streak-card__stat">
                     <span className="streak-card__val">
-                      {streak.currentStreak} {tr("hari", "days")}
+                      {streak.currentStreak} {tr("hari", streak.currentStreak === 1 ? "day" : "days")}
                     </span>
                     <span className="streak-card__lbl">{tr("Streak aktif", "Current streak")}</span>
                   </div>
                   <div className="streak-card__stat">
                     <span className="streak-card__val">
-                      {streak.longestStreak} {tr("hari", "days")}
+                      {streak.longestStreak} {tr("hari", streak.longestStreak === 1 ? "day" : "days")}
                     </span>
                     <span className="streak-card__lbl">{tr("Rekor terbaik", "Best streak")}</span>
                   </div>
@@ -659,11 +747,14 @@ export function TasmiSummaryModal({
                     <span className="streak-card__val">
                       {tr(
                         `${streak.todaySessions} sesi · ${streak.todayMinutes} mnt`,
-                        `${streak.todaySessions} sessions · ${streak.todayMinutes} min`,
+                        `${streak.todaySessions} ${streak.todaySessions === 1 ? "session" : "sessions"} · ${streak.todayMinutes} min`,
                       )}
                     </span>
                     <span className="streak-card__lbl">
-                      {tr(`Hari ini (${streak.todayAyahs} ayat)`, `Today (${streak.todayAyahs} ayahs)`)}
+                      {tr(
+                        `Hari ini (${streak.todayAyahs} ayat)`,
+                        `Today (${streak.todayAyahs} ${streak.todayAyahs === 1 ? "ayah" : "ayahs"})`,
+                      )}
                     </span>
                   </div>
                 </div>
@@ -672,7 +763,7 @@ export function TasmiSummaryModal({
                     <div
                       key={d.dateKey}
                       className={`streak-card__day ${d.active ? "streak-card__day--active" : ""}`}
-                      title={`${d.label}: ${d.sessions} ${tr("sesi", "sessions")}`}
+                      title={`${d.label}: ${d.sessions} ${tr("sesi", d.sessions === 1 ? "session" : "sessions")}`}
                     >
                       <span className="streak-card__day-dot" />
                       <span className="streak-card__day-lbl">{d.label}</span>
@@ -698,7 +789,10 @@ export function TasmiSummaryModal({
                       role="tab"
                       aria-selected={mapView === v}
                       className={`app-menu__seg ${mapView === v ? "app-menu__seg--active" : ""}`}
-                      onClick={() => setMapView(v)}
+                      onClick={() => {
+                        setMapView(v);
+                        setSelectedProgressKey(null);
+                      }}
                     >
                       {v === "juz" ? "30 Juz" : v === "surah" ? "114 Surah" : tr("604 Hal", "604 Pages")}
                     </button>
@@ -706,79 +800,202 @@ export function TasmiSummaryModal({
                 </div>
               </div>
 
-              <div className="progress-map__legend">
-                <span><i className="pm-dot pm-dot--smooth" /> {tr("Lancar", "Smooth")}</span>
-                <span><i className="pm-dot pm-dot--ziyadah" /> Ziyadah</span>
-                <span><i className="pm-dot pm-dot--needs_review" /> {tr("Perlu ulang", "Needs review")}</span>
-                <span><i className="pm-dot pm-dot--none" /> {tr("Belum", "Not yet")}</span>
+              <div
+                className="progress-map__legend progress-map__filters"
+                role="group"
+                aria-label={tr("Filter status hafalan", "Filter memorization status")}
+              >
+                {(
+                  [
+                    ["all", tr("Semua", "All"), activeItems.length, null],
+                    ["needs_review", tr("Perlu ulang", "Needs review"), statusCounts.needs_review, "needs_review"],
+                    ["ziyadah", "Ziyadah", statusCounts.ziyadah, "ziyadah"],
+                    ["smooth", tr("Lancar", "Smooth"), statusCounts.smooth, "smooth"],
+                    ["none", tr("Belum", "Not yet"), statusCounts.none, "none"],
+                  ] as const
+                ).map(([value, label, count, dot]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={statusFilter === value}
+                    className={`pm-filter-pill ${statusFilter === value ? "pm-filter-pill--active" : ""}`}
+                    onClick={() => {
+                      setStatusFilter((prev) => (prev === value && value !== "all" ? "all" : value));
+                      setSelectedProgressKey(null);
+                    }}
+                  >
+                    {dot && <i className={`pm-dot pm-dot--${dot}`} />}
+                    <span>{label}</span>
+                    {value !== "all" && count > 0 && <span className="pm-filter-pill__count">({count})</span>}
+                  </button>
+                ))}
               </div>
 
-              {mapView === "juz" && (
-                <div className="progress-grid progress-grid--juz">
-                  {progressMap.juzs.map((j) => (
+              {selectedItem && (
+                <div className="progress-detail" role="region" aria-label={selectedItem.title}>
+                  <div className="progress-detail__head">
+                    <div>
+                      <div className="progress-detail__title">{selectedItem.title}</div>
+                      <div className="progress-detail__sub">
+                        {selectedItem.coveredAyahs}/{selectedItem.totalAyahs} {tr("ayat", "ayahs")} ·{" "}
+                        {tr("Hal.", "p.")} {selectedItem.page}
+                        {selectedItem.needsReviewAyahs.length > 0
+                          ? ` · ${selectedItem.needsReviewAyahs.length} ${tr("perlu diulang", "need review")}`
+                          : ""}
+                      </div>
+                    </div>
+                    <div className="progress-detail__head-right">
+                      <span
+                        className={`tasmi-summary__score tasmi-summary__score--${
+                          selectedItem.status === "needs_review"
+                            ? "warn"
+                            : selectedItem.status === "smooth"
+                              ? "clean"
+                              : "muted"
+                        }`}
+                      >
+                        {statusLabel(selectedItem.status)}
+                      </span>
+                      <button
+                        type="button"
+                        className="ayah-popover__close"
+                        aria-label={tr("Tutup detail", "Close details")}
+                        onClick={() => setSelectedProgressKey(null)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedItem.needsReviewAyahs.length > 0 && (
+                    <div className="progress-detail__review">
+                      <div className="progress-detail__review-label">
+                        {tr(
+                          `Ayat yang perlu diulang (${selectedItem.needsReviewAyahs.length})`,
+                          `Ayahs needing review (${selectedItem.needsReviewAyahs.length})`,
+                        )}
+                      </div>
+                      <div className="progress-detail__chips">
+                        {selectedItem.needsReviewAyahs.slice(0, 24).map((ayahKey) => {
+                          const [sNum, aNum] = ayahKey.split(":").map(Number);
+                          const sName = surahByNum.get(sNum)?.name ?? `Surah ${sNum}`;
+                          const reasons = progressMap.reviewReasons[ayahKey] ?? [];
+                          const reasonText = reasons[0] ? formatReason(reasons[0]) : "";
+                          return (
+                            <button
+                              key={ayahKey}
+                              type="button"
+                              className="progress-detail__chip"
+                              onClick={() => onJumpToAyah(ayahKey)}
+                            >
+                              <span>{sName} : {aNum}</span>
+                              {reasonText && <small>{reasonText}</small>}
+                            </button>
+                          );
+                        })}
+                        {selectedItem.needsReviewAyahs.length > 24 && (
+                          <span className="progress-detail__more">
+                            +{selectedItem.needsReviewAyahs.length - 24} {tr("lainnya", "more")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="progress-detail__actions">
+                    {selectedItem.needsReviewAyahs.length > 0 && onStartDrill && (
+                      <button
+                        type="button"
+                        className="tasmi-summary__drill-btn progress-detail__drill-btn"
+                        onClick={() => onStartDrill(selectedItem.needsReviewAyahs)}
+                      >
+                        {tr(
+                          `Latih Kesalahan (${selectedItem.needsReviewAyahs.length} ayat)`,
+                          `Drill Mistakes (${selectedItem.needsReviewAyahs.length} ${selectedItem.needsReviewAyahs.length === 1 ? "ayah" : "ayahs"})`,
+                        )}
+                      </button>
+                    )}
+                    {selectedItem.surahNumber !== undefined && onStartTasmiPassage && (
+                      <button
+                        type="button"
+                        className="tasmi-sheet__history-btn"
+                        onClick={() =>
+                          onStartTasmiPassage({
+                            surah: selectedItem.surahNumber!,
+                            fromAyah: 1,
+                            toAyah: selectedItem.totalAyahs,
+                          })
+                        }
+                      >
+                        {tr("Mulai Tasmi'", "Start Tasmi'")}
+                      </button>
+                    )}
                     <button
-                      key={j.juz}
                       type="button"
-                      className={`pm-cell pm-cell--${j.status}`}
-                      title={`Juz ${j.juz}: ${j.coveredAyahs}/${j.totalAyahs} ${tr("ayat", "ayahs")} (${tr("Hal.", "p.")} ${j.page})`}
+                      className="tasmi-sheet__history-btn"
                       onClick={() => {
-                        onJumpToPage?.(j.page);
+                        onJumpToPage?.(selectedItem.page);
                         onClose();
                       }}
                     >
-                      <span className="pm-cell__num">Juz {j.juz}</span>
-                      <span className="pm-cell__sub">
-                        {j.coveredAyahs > 0 ? `${j.coveredAyahs}/${j.totalAyahs}` : `${tr("Hal.", "p.")} ${j.page}`}
-                      </span>
+                      {tr(`Buka Hal. ${selectedItem.page}`, `Open Page ${selectedItem.page}`)}
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
 
-              {mapView === "surah" && (
-                <div className="progress-grid progress-grid--surah">
-                  {progressMap.surahs.map((s) => (
-                    <button
-                      key={s.surah}
-                      type="button"
-                      className={`pm-cell pm-cell--${s.status}`}
-                      title={`${s.surah}. ${s.name}: ${s.coveredAyahs}/${s.totalAyahs} ${tr("ayat", "ayahs")}`}
-                      onClick={() => {
-                        onJumpToPage?.(s.page);
-                        onClose();
-                      }}
-                    >
-                      <span className="pm-cell__num">
-                        {s.surah}. {s.name}
-                      </span>
-                      <span className="pm-cell__sub">
-                        {s.coveredAyahs}/{s.totalAyahs}
-                      </span>
-                    </button>
-                  ))}
+              {filteredItems.length === 0 ? (
+                <div className="tasmi-summary__empty">
+                  {statusFilter === "needs_review"
+                    ? tr(
+                        "Alhamdulillah, tidak ada bagian yang perlu diulang saat ini.",
+                        "Alhamdulillah, nothing currently needs review.",
+                      )
+                    : tr("Tidak ada data pada filter ini.", "No items match this filter.")}
                 </div>
-              )}
-
-              {mapView === "page" && (
+              ) : mapView === "page" ? (
                 <div className="progress-grid progress-grid--page">
-                  {progressMap.pages.map((p) => (
+                  {filteredItems.map((p) => (
                     <button
-                      key={p.page}
+                      key={p.key}
                       type="button"
-                      className={`pm-page-dot pm-cell--${p.status}`}
-                      title={`${tr("Halaman", "Page")} ${p.page}: ${p.coveredAyahs}/${p.totalAyahs} ${tr("ayat", "ayahs")}`}
-                      onClick={() => {
-                        onJumpToPage?.(p.page);
-                        onClose();
-                      }}
+                      aria-pressed={selectedProgressKey === p.key}
+                      className={`pm-page-dot pm-cell--${p.status} ${selectedProgressKey === p.key ? "pm-cell--selected" : ""}`}
+                      title={`${p.title}: ${p.coveredAyahs}/${p.totalAyahs} ${tr("ayat", "ayahs")}`}
+                      onClick={() =>
+                        setSelectedProgressKey((prev) => (prev === p.key ? null : p.key))
+                      }
                     >
-                      {p.page}
+                      {p.compactLabel}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className={`progress-grid progress-grid--${mapView}`}>
+                  {filteredItems.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-pressed={selectedProgressKey === item.key}
+                      className={`pm-cell pm-cell--${item.status} ${selectedProgressKey === item.key ? "pm-cell--selected" : ""}`}
+                      title={`${item.title}: ${item.coveredAyahs}/${item.totalAyahs} ${tr("ayat", "ayahs")}`}
+                      onClick={() =>
+                        setSelectedProgressKey((prev) => (prev === item.key ? null : item.key))
+                      }
+                    >
+                      <span className="pm-cell__num">{item.compactLabel}</span>
+                      <span className="pm-cell__sub">
+                        {item.needsReviewAyahs.length > 0
+                          ? `${item.needsReviewAyahs.length} ${tr("ulang", "review")}`
+                          : item.sub}
+                      </span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          ) : (() => {
+            );
+          })() : (() => {
             const activeSched = sortedCards.filter((c) => !archivedMurajaahIds?.has(c.id));
             const archivedSched = sortedCards.filter((c) => archivedMurajaahIds?.has(c.id));
             const visibleSched =

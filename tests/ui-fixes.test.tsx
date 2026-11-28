@@ -20,6 +20,9 @@ import { PlaybackMenu } from "../src/components/PlaybackMenu";
 import { LanguageProvider } from "../src/i18n";
 import { formatDueLabel } from "../src/services/murajaah-srs";
 import { formatErrorClass } from "../src/services/tasmi-logic";
+import { formatBytes } from "../src/services/audio-downloads";
+import { getSurahDisplayName, getSurahEnglishMeaning } from "../src/data/surah-names";
+import { matchesSurahName } from "../src/services/arabic-search";
 import { HIDDEN_AYAH_TTL_MS, isHiddenAyahActive } from "../src/services/user-store";
 import type { QuranApi } from "../src/services/quran-api";
 
@@ -1103,10 +1106,134 @@ describe("Gradual blur and recent pages in search", () => {
       </LanguageProvider>,
     );
     expect(rrEl.textContent).toContain("Free Recite · Locked");
-    expect(rrEl.textContent).toContain("1 notes");
+    expect(rrEl.textContent).toContain("1 note");
     expect(rrEl.textContent).toContain("Done");
 
     expect(formatDueLabel("2026-11-28T15:00:00Z", Date.parse("2026-11-28T15:00:00Z"), "en")).toBe("Today");
     expect(formatErrorClass("wrong_word", "en")).toBe("Wrong word");
+  });
+
+  it("localizes surah names, English meanings, search matching, and byte formatting", () => {
+    const fatiha = catalog.surahs[0];
+    const shams = catalog.surahs[90]; // 91 Asy-Syams
+    const quraysh = catalog.surahs[105]; // 106 Quraisy
+
+    expect(getSurahDisplayName(fatiha, "id")).toBe("Al-Fatihah");
+    expect(getSurahDisplayName(fatiha, "en")).toBe("Al-Fatiha");
+    expect(getSurahEnglishMeaning(1)).toBe("The Opener");
+    expect(getSurahDisplayName(shams, "en")).toBe("Ash-Shams");
+    expect(getSurahDisplayName(quraysh, "en")).toBe("Quraysh");
+
+    expect(matchesSurahName(fatiha, "opener")).toBe(true);
+    expect(matchesSurahName(shams, "ash-shams")).toBe(true);
+    expect(matchesSurahName(shams, "sun")).toBe(true);
+    expect(matchesSurahName(quraysh, "quraysh")).toBe(true);
+
+    expect(formatBytes(1_363_148_800, "en")).toBe("1.3 GB");
+    expect(formatBytes(1_363_148_800, "id")).toBe("1,3 GB");
+  });
+
+  it("filters Progress map by Needs review and shows actionable ayah detail card", () => {
+    const onJumpToAyah = vi.fn();
+    const onStartDrill = vi.fn();
+    const onStartTasmiPassage = vi.fn();
+    const rec: TasmiSessionRecord = {
+      id: "rev-1",
+      startedAt: "2026-11-28T10:00:00Z",
+      durationSec: 45,
+      surah: 1,
+      fromAyah: 1,
+      toAyah: 7,
+      recitedAyahs: 7,
+      mistakes: [
+        { id: "m1", errorClass: "wrong_word", surah: 1, ayah: 5, word: 2 },
+        { id: "m2", errorClass: "skip", surah: 1, ayah: 7, word: 3 },
+      ],
+    };
+
+    const el = mount(
+      <LanguageProvider language="en">
+        <TasmiSummaryModal
+          open={true}
+          initialTab="progress"
+          record={rec}
+          history={[rec]}
+          surahs={catalog.surahs.map((s) => ({ ...s, name: getSurahDisplayName(s, "en") }))}
+          catalog={{
+            ...catalog,
+            surahs: catalog.surahs.map((s) => ({ ...s, name: getSurahDisplayName(s, "en") })),
+          }}
+          mushafMap={mushafMap}
+          getAyahWords={() => []}
+          onClose={() => {}}
+          onPlayAyah={() => {}}
+          onJumpToAyah={onJumpToAyah}
+          onStartDrill={onStartDrill}
+          onStartTasmiPassage={onStartTasmiPassage}
+        />
+      </LanguageProvider>,
+    );
+
+    // Filter pill for Needs review should show count 1 (Juz 1)
+    const filterPills = Array.from(el.querySelectorAll(".pm-filter-pill")) as HTMLButtonElement[];
+    const needsReviewPill = filterPills.find((b) => b.textContent?.includes("Needs review"));
+    expect(needsReviewPill).toBeDefined();
+    expect(needsReviewPill?.textContent).toContain("(1)");
+
+    // Clicking Needs review filters the Juz grid to only Juz 1
+    act(() => {
+      needsReviewPill!.click();
+    });
+    const cells = el.querySelectorAll(".pm-cell");
+    expect(cells.length).toBe(1);
+
+    // Clicking Juz 1 opens the inline detail card listing 1:5 and 1:7
+    act(() => {
+      (cells[0] as HTMLButtonElement).click();
+    });
+    const detail = el.querySelector(".progress-detail");
+    expect(detail).not.toBeNull();
+    expect(detail?.textContent).toContain("Al-Fatiha : 5");
+    expect(detail?.textContent).toContain("Al-Fatiha : 7");
+    expect(detail?.textContent).toContain("Wrong word");
+
+    // Clicking an ayah chip jumps straight to it
+    const ayahChip = detail?.querySelector(".progress-detail__chip") as HTMLButtonElement;
+    act(() => {
+      ayahChip.click();
+    });
+    expect(onJumpToAyah).toHaveBeenCalledWith("1:5");
+
+    // Clicking Drill Mistakes triggers onStartDrill with the review ayahs
+    const drillBtn = Array.from(detail!.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Drill Mistakes"),
+    );
+    expect(drillBtn).toBeDefined();
+    act(() => {
+      drillBtn!.click();
+    });
+    expect(onStartDrill).toHaveBeenCalledWith(["1:5", "1:7"]);
+
+    // Switch to 114 Surah view, select Al-Fatiha, and click Start Tasmi'
+    const surahTab = Array.from(el.querySelectorAll('[role="tab"]')).find((b) =>
+      b.textContent?.includes("114 Surah"),
+    ) as HTMLButtonElement;
+    act(() => {
+      surahTab.click();
+    });
+    const surahCells = el.querySelectorAll(".pm-cell");
+    expect(surahCells.length).toBe(1);
+    act(() => {
+      (surahCells[0] as HTMLButtonElement).click();
+    });
+    const surahDetail = el.querySelector(".progress-detail")!;
+    const tasmiBtn = Array.from(surahDetail.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Start Tasmi'"),
+    );
+    expect(tasmiBtn).toBeDefined();
+    act(() => {
+      tasmiBtn!.click();
+    });
+    expect(onStartTasmiPassage).toHaveBeenCalledWith({ surah: 1, fromAyah: 1, toAyah: 7 });
   });
 });

@@ -212,12 +212,23 @@ export function TasmiSheet({
       }}
     >
       <div className="tasmi-sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="tasmi-sheet__header">
-          <div>
-            <h2 className="tasmi-sheet__title">Tasmi&apos;</h2>
-            <p className="tasmi-sheet__subtitle">
-              {tr("Suaramu diproses di perangkat", "Your voice is processed on-device")}
-            </p>
+        <div className="tasmi-sheet__header tasmi-sheet__header--stacked">
+          <div className="tasmi-sheet__header-top">
+            <div>
+              <h2 className="tasmi-sheet__title">Tasmi&apos;</h2>
+              <p className="tasmi-sheet__subtitle">
+                {tr("Suaramu diproses di perangkat", "Your voice is processed on-device")}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="ayah-popover__close"
+              aria-label={tr("Tutup", "Close")}
+              disabled={isBusy}
+              onClick={onClose}
+            >
+              ×
+            </button>
           </div>
           <div className="tasmi-sheet__header-actions">
             {onOpenQuiz && (
@@ -247,15 +258,6 @@ export function TasmiSheet({
               aria-label={`${tr("Riwayat Tasmi'", "Tasmi' History")}${historyCount > 0 ? ` (${historyCount})` : ""}`}
             >
               {tr("Riwayat", "History")}{historyCount > 0 ? ` (${historyCount})` : ""}
-            </button>
-            <button
-              type="button"
-              className="ayah-popover__close"
-              aria-label={tr("Tutup", "Close")}
-              disabled={isBusy}
-              onClick={onClose}
-            >
-              ×
             </button>
           </div>
         </div>

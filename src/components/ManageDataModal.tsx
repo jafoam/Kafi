@@ -228,7 +228,7 @@ export function ManageDataModal({
                         <span className="tasmi-sheet__option-scope">
                           {item.mistakes.length === 0
                             ? tr("Lancar", "Smooth")
-                            : `${item.mistakes.length} ${tr("catatan", "notes")}`}{" "}
+                            : `${item.mistakes.length} ${tr("catatan", item.mistakes.length === 1 ? "note" : "notes")}`}{" "}
                           · {new Date(item.startedAt).toLocaleDateString(locale)}
                         </span>
                       </div>

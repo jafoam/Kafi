@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GlassSelect } from "./GlassSelect";
+import { getSurahEnglishMeaning } from "../data/surah-names";
 import { useI18n } from "../i18n";
 import type { LoadProgress } from "@tilawa/core";
 import type { ReciterInfo, ResourceInfo, SurahInfo, TafsirInfo } from "../data/types";
@@ -63,8 +64,9 @@ export function AudioDownloadsPanel({
   onDownloadTilawa,
   onClose,
 }: AudioDownloadsPanelProps) {
-  const { isEn, tr } = useI18n();
+  const { lang, isEn, tr } = useI18n();
   const locale = isEn ? "en-US" : "id-ID";
+  const fmtBytes = (bytes: number) => formatBytes(bytes, lang);
   const { state, status, storage, wifiOnly } = downloads;
   const [tab, setTab] = useState<DownloadsTab>(initialTab);
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -263,13 +265,13 @@ export function AudioDownloadsPanel({
                         ? tr(`Mengunduh ${job.done}/${job.total} surah`, `Downloading ${job.done}/${job.total} surahs`)
                         : complete
                           ? tr(
-                              `Tersimpan · ${total} surah · ${formatBytes(entry?.bytes ?? 0)}`,
-                              `Saved · ${total} surahs · ${formatBytes(entry?.bytes ?? 0)}`,
+                              `Tersimpan · ${total} surah · ${fmtBytes(entry?.bytes ?? 0)}`,
+                              `Saved · ${total} surahs · ${fmtBytes(entry?.bytes ?? 0)}`,
                             )
                           : cached > 0
                             ? tr(
-                                `${cached}/${total} surah · ${formatBytes(entry?.bytes ?? 0)}`,
-                                `${cached}/${total} surahs · ${formatBytes(entry?.bytes ?? 0)}`,
+                                `${cached}/${total} surah · ${fmtBytes(entry?.bytes ?? 0)}`,
+                                `${cached}/${total} surahs · ${fmtBytes(entry?.bytes ?? 0)}`,
                               )
                             : `${item.author} · ${tr("Belum diunduh", "Not downloaded")}`}
                     </div>
@@ -381,7 +383,7 @@ export function AudioDownloadsPanel({
                 {storage && (
                   <span className="dl-panel__storage">
                     {" "}
-                    · {tr("Penyimpanan aplikasi", "App storage")} {formatBytes(storage.used)} {tr("dari", "of")} {formatBytes(storage.quota)}
+                    · {tr("Penyimpanan aplikasi", "App storage")} {fmtBytes(storage.used)} {tr("dari", "of")} {fmtBytes(storage.quota)}
                   </span>
                 )}
               </p>
@@ -596,7 +598,7 @@ export function AudioDownloadsPanel({
                     <>
                       {tr("Tersimpan", "Saved")} <strong>{status.cachedAyahs.toLocaleString(locale)}</strong>{" "}
                       {tr("dari", "of")} {status.totalAyahs.toLocaleString(locale)} {tr("ayat", "ayahs")} ·{" "}
-                      {formatBytes(status.bytes)}
+                      {fmtBytes(status.bytes)}
                     </>
                   ) : (
                     tr("Membaca unduhan...", "Reading downloads...")
@@ -604,8 +606,8 @@ export function AudioDownloadsPanel({
                   {storage && (
                     <span className="dl-panel__storage">
                       {" "}
-                      · {tr("Penyimpanan aplikasi", "App storage")} {formatBytes(storage.used)} {tr("dari", "of")}{" "}
-                      {formatBytes(storage.quota)}
+                      · {tr("Penyimpanan aplikasi", "App storage")} {fmtBytes(storage.used)} {tr("dari", "of")}{" "}
+                      {fmtBytes(storage.quota)}
                     </span>
                   )}
                 </p>
@@ -665,13 +667,13 @@ export function AudioDownloadsPanel({
                                       )
                                     : segComplete
                                       ? tr(
-                                          `Tersimpan · ${segTotal} surah · ${formatBytes(segStatus.bytes)}`,
-                                          `Saved · ${segTotal} surahs · ${formatBytes(segStatus.bytes)}`,
+                                          `Tersimpan · ${segTotal} surah · ${fmtBytes(segStatus.bytes)}`,
+                                          `Saved · ${segTotal} surahs · ${fmtBytes(segStatus.bytes)}`,
                                         )
                                       : segCached > 0
                                         ? tr(
-                                            `${segCached}/${segTotal} surah · ${formatBytes(segStatus.bytes)}`,
-                                            `${segCached}/${segTotal} surahs · ${formatBytes(segStatus.bytes)}`,
+                                            `${segCached}/${segTotal} surah · ${fmtBytes(segStatus.bytes)}`,
+                                            `${segCached}/${segTotal} surahs · ${fmtBytes(segStatus.bytes)}`,
                                           )
                                         : tr(
                                             "Simpan 114 surah agar sorotan per kata tetap jalan tanpa internet.",
@@ -841,6 +843,7 @@ export function AudioDownloadsPanel({
                     const isCurrent = state.current === surah.number && state.phase === "running";
                     const isQueued = queued.has(surah.number);
                     const cached = isCurrent ? Math.max(entry?.cached ?? 0, state.done) : (entry?.cached ?? 0);
+                    const meaning = isEn ? getSurahEnglishMeaning(surah.number) : "";
                     return (
                       <li key={surah.number} className="dl-item">
                         <span className="dl-item__num">{surah.number}</span>
@@ -855,10 +858,10 @@ export function AudioDownloadsPanel({
                               : isQueued
                                 ? tr("Dalam antrean", "Queued")
                                 : complete
-                                  ? `${tr("Tersimpan", "Saved")} · ${formatBytes(entry?.bytes ?? 0)}`
+                                  ? `${meaning ? `${meaning} · ` : ""}${tr("Tersimpan", "Saved")} · ${fmtBytes(entry?.bytes ?? 0)}`
                                   : cached > 0
-                                    ? `${cached}/${surah.ayahs} ${tr("ayat", "ayahs")}`
-                                    : `${surah.ayahs} ${tr("ayat", "ayahs")}`}
+                                    ? `${meaning ? `${meaning} · ` : ""}${cached}/${surah.ayahs} ${tr("ayat", "ayahs")}`
+                                    : `${meaning ? `${meaning} · ` : ""}${surah.ayahs} ${tr("ayat", "ayahs")}`}
                           </div>
                           <div className="dl-bar dl-bar--thin" aria-hidden="true">
                             <div

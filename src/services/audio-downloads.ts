@@ -23,8 +23,8 @@ export interface AudioStatus {
   bytes: number;
 }
 
-/** "12,4 MB" style size, with the decimal comma used in Indonesian. */
-export function formatBytes(bytes: number): string {
+/** "12,4 MB" (ID) or "12.4 MB" (EN) size formatting. */
+export function formatBytes(bytes: number, lang: "id" | "en" = "id"): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 KB";
   const units = ["B", "KB", "MB", "GB"];
   let value = bytes;
@@ -33,7 +33,8 @@ export function formatBytes(bytes: number): string {
     value /= 1024;
     unit += 1;
   }
-  const text = unit <= 1 ? String(Math.round(value)) : value.toFixed(1).replace(".", ",");
+  const raw = unit <= 1 ? String(Math.round(value)) : value.toFixed(1);
+  const text = lang === "en" ? raw : raw.replace(".", ",");
   return `${text} ${units[unit]}`;
 }
 
