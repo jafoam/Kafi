@@ -301,7 +301,7 @@ export function FlowReader({
   onToggleFocus,
   onTogglePalette,
 }: FlowReaderProps) {
-  const { tr, language } = useI18n();
+  const { tr, lang } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reportedRef = useRef(currentPage);
   const recentReportsRef = useRef(new Map<number, number>());
@@ -423,7 +423,7 @@ export function FlowReader({
   useEffect(() => {
     setWordMap({});
     setTip(null);
-  }, [language]);
+  }, [lang]);
 
   // Load word-by-word translations for mounted pages when enabled.
   useEffect(() => {
@@ -433,7 +433,7 @@ export function FlowReader({
     for (let p = range.start; p <= loadEnd; p++) {
       if (wordMap[p]) continue;
       wordLoader
-        .load(p, language)
+        .load(p, lang)
         .then((w) => {
           if (!live) return;
           setWordMap((prev) => (prev[p] ? prev : { ...prev, [p]: w }));
@@ -443,7 +443,7 @@ export function FlowReader({
     return () => {
       live = false;
     };
-  }, [range.start, range.end, pages.length, wordTranslation, wordMap, language]);
+  }, [range.start, range.end, pages.length, wordTranslation, wordMap, lang]);
 
   // Load verse translations for mounted pages when in Translation mode.
   const loadAyahTranslation = useCallback(

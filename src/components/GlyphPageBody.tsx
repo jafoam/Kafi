@@ -59,7 +59,7 @@ export function GlyphPageBody({
   onSelectAyah,
   onPeekAyah,
 }: GlyphPageBodyProps) {
-  const { tr, language } = useI18n();
+  const { tr, lang } = useI18n();
   const [hoveredAyah, setHoveredAyah] = useState<AyahKey | null>(null);
   /** Word under the pointer / last tapped, as "line-index"; used when translation mode highlights single words. */
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
@@ -76,11 +76,11 @@ export function GlyphPageBody({
     setWords(null);
     setTip(null);
     if (!wordTranslation) return;
-    wordLoader.load(data.page, language).then((w) => live && setWords(w), () => undefined);
+    wordLoader.load(data.page, lang).then((w) => live && setWords(w), () => undefined);
     return () => {
       live = false;
     };
-  }, [data.page, wordTranslation, language]);
+  }, [data.page, wordTranslation, lang]);
 
   // Once an ayah is selected its popover shows the word, so the tooltip steps aside.
   useEffect(() => {
