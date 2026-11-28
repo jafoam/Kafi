@@ -17,16 +17,26 @@ on:
         options:
           - aarch64
           - all
+      release_tag:
+        description: "Opsional: tag GitHub Release tujuan upload langsung (mis. v0.1.0-alpha.5)"
+        type: string
+        default: ""
+      existing_run_id:
+        description: "Opsional: ID workflow run Android sebelumnya untuk langsung di-upload ke release_tag tanpa build ulang"
+        type: string
+        default: ""
 
 concurrency:
   group: build-android-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   android:
+    if: ${{ inputs.existing_run_id == '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -87,3 +97,32 @@ jobs:
           name: kafi-android-${{ inputs.build_type || 'debug' }}-apk
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
+
+      - name: Upload APK directly to GitHub Release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" | head -n 1)
+          ASSET_NAME="kafi-${{ inputs.release_tag }}-android-arm64.apk"
+          ASSET_NAME="${ASSET_NAME/kafi-v/kafi-}"
+          cp "$APK" "$ASSET_NAME"
+          gh release upload "${{ inputs.release_tag }}" "$ASSET_NAME" --clobber
+
+  attach-existing:
+    if: ${{ inputs.existing_run_id != '' && inputs.release_tag != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download existing APK artifact and upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p apk-dl
+          gh run download "${{ inputs.existing_run_id }}" --repo "${{ github.repository }}" -D apk-dl
+          APK=$(find apk-dl -name "*.apk" | head -n 1)
+          ASSET_NAME="kafi-${{ inputs.release_tag }}-android-arm64.apk"
+          ASSET_NAME="${ASSET_NAME/kafi-v/kafi-}"
+          cp "$APK" "$ASSET_NAME"
+          ls -lh "$ASSET_NAME"
+          gh release upload "${{ inputs.release_tag }}" "$ASSET_NAME" --repo "${{ github.repository }}" --clobber
