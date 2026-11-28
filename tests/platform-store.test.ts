@@ -4,7 +4,7 @@ import type { PlatformAdapter } from "../src/platform/types";
 import { createWebAdapter, resolvePageUrl } from "../src/platform/web-adapter";
 import { createTauriAdapter } from "../src/platform/tauri-adapter";
 import { getPlatform } from "../src/platform";
-import { createUserStore, DEFAULT_USER_DATA } from "../src/services/user-store";
+import { createUserStore, DEFAULT_USER_DATA, normalizeUserData } from "../src/services/user-store";
 
 function createMemoryPlatform(initial?: Record<string, string>): PlatformAdapter {
   const kv = new Map<string, string>(Object.entries(initial ?? {}));
@@ -331,5 +331,25 @@ describe("platform & user-store", () => {
 
     const desktopAdapter = createTauriAdapter({ isMobile: false });
     expect(desktopAdapter.startNativeMic).toBeTypeOf("function");
+  });
+
+  it("defaults to system dark/light theme on first visit while keeping saved choices", () => {
+    const originalWindow = globalThis.window;
+    try {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+          matchMedia: (query: string) => ({ matches: query === "(prefers-color-scheme: dark)" }),
+        },
+      });
+      expect(normalizeUserData(null).settings.theme).toBe("dark");
+      expect(normalizeUserData({ settings: { theme: "light" } }).settings.theme).toBe("light");
+      expect(normalizeUserData({ settings: { theme: "sepia" } }).settings.theme).toBe("sepia");
+    } finally {
+      Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: originalWindow,
+      });
+    }
   });
 });

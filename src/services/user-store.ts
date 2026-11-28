@@ -54,6 +54,13 @@ function clampPage(page: number): number {
   return Math.min(604, Math.max(1, Math.trunc(page)));
 }
 
+export function detectSystemTheme(): ThemeMode {
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return DEFAULT_USER_DATA.settings.theme;
+}
+
 function cloneDefaultData(): UserData {
   return {
     lastPage: DEFAULT_USER_DATA.lastPage,
@@ -61,7 +68,7 @@ function cloneDefaultData(): UserData {
     bookmarks: [],
     highlights: {},
     notes: {},
-    settings: { ...DEFAULT_USER_DATA.settings },
+    settings: { ...DEFAULT_USER_DATA.settings, theme: detectSystemTheme() },
     tasmiHistory: [],
   };
 }
@@ -79,7 +86,7 @@ export function normalizeUserData(raw: unknown): UserData {
   const settings: AppSettings = {
     theme: VALID_THEMES.has(rawSettings.theme as ThemeMode)
       ? (rawSettings.theme as ThemeMode)
-      : defaults.theme,
+      : detectSystemTheme(),
     spreadMode: VALID_SPREADS.has(rawSettings.spreadMode as SpreadMode)
       ? (rawSettings.spreadMode as SpreadMode)
       : defaults.spreadMode,

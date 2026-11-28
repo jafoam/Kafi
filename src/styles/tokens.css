@@ -241,6 +241,15 @@
   --backdrop: rgba(0, 0, 0, 0.56);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg-canvas: #14181b;
+    --bg-surface: #14181b;
+    --text-primary: #e8ecea;
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   :root,
   [data-theme="light"] {
