@@ -1046,8 +1046,8 @@ describe("Gradual blur and recent pages in search", () => {
       </LanguageProvider>,
     );
     expect(pmEl.textContent).toContain("Playback mode");
-    expect(pmEl.textContent).toContain("Full Surah");
-    expect(pmEl.textContent).toContain("Talaqqi (Repeat Pause)");
+    expect(pmEl.textContent).toContain("This surah");
+    expect(pmEl.textContent).toContain("Talaqqi Mode");
     expect(pmEl.textContent).not.toContain("Mode putar");
 
     const tsEl = mount(
